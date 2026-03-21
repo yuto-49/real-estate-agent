@@ -1,0 +1,2866 @@
+╭─── Claude Code v2.1.78 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│                 Welcome back Yuto!                 │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│                                                    │                         │
+│              Sonnet 4.6 · Claude Pro               │                         │
+│ ~/…/real-estate-agentic/real-estate-agent/frontend │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ Plan to implement                                                            │
+│                                                                              │
+│ Plan: UX Redesign — 3-Page Architecture + MiroFish-Inspired Simulation       │
+│                                                                              │
+│ Context                                                                      │
+│                                                                              │
+│ The platform currently has 6 navigation pages (Search, Users, Negotiate,     │
+│ Simulation, Intelligence, System) which fragments the core user journey. The │
+│  user wants a simpler 3-page architecture focused on:                        │
+│                                                                              │
+│ 1. User sets up their investor profile and needs                             │
+│ 2. System generates a MiroFish intelligence report with strategy             │
+│ recommendations                                                              │
+│ 3. User runs multi-scenario negotiation simulations with detailed agent      │
+│ personas                                                                     │
+│ 4. User compares results across scenarios and picks the best strategy        │
+│                                                                              │
+│ Additionally, the simulation engine should be enhanced inspired by           │
+│ MiroFish's architecture: richer agent personas, multiple scenario variants   │
+│ run in parallel, more rounds, price path tracking, and a comparison          │
+│ dashboard.                                                                   │
+│                                                                              │
+│ ---                                                                          │
+│ New Navigation Structure                                                     │
+│                                                                              │
+│ [Dashboard]  [Analysis]  [Simulation]          [⚙ gear icon]                 │
+│      /        /analysis     /simulation          (SystemDrawer)              │
+│                                                                              │
+│ - Dashboard (/) — User profile selection + quick-start actions + recent      │
+│ activity                                                                     │
+│ - Analysis (/analysis/:reportId?) — Report generation + report viewer +      │
+│ embedded search drawer                                                       │
+│ - Simulation (/simulation) — Persona builder → scenario selector → multi-run │
+│  → results comparison                                                        │
+│ - Negotiate (/negotiate) — Kept as hidden route (no nav link), accessible    │
+│ from simulation results                                                      │
+│ - System — Gear icon in header opens a slide-out drawer                      │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 1: Backend — Scenario Variants + Personas + Batch Simulation           │
+│                                                                              │
+│ 1.1 Create services/scenario_variants.py                                     │
+│                                                                              │
+│ Define 6 real-estate scenario variants (inspired by MiroFish's               │
+│ ScenarioSpecGenerator):                                                      │
+│                                                                              │
+│ ┌───────────────────────┬───────────────┬─────────────────────────────────┐  │
+│ │       Scenario        │  Description  │         Key Constraints         │  │
+│ ├───────────────────────┼───────────────┼─────────────────────────────────┤  │
+│ │                       │ Low demand,   │ seller_urgency=high,            │  │
+│ │ market_favors_buyer   │ property on   │ competing_offers=0,             │  │
+│ │                       │ market 90+    │ initial_offer_discount=12%      │  │
+│ │                       │ days          │                                 │  │
+│ ├───────────────────────┼───────────────┼─────────────────────────────────┤  │
+│ │                       │ Hot market,   │ buyer_urgency=high,             │  │
+│ │ market_favors_seller  │ multiple      │ competing_offers=3,             │  │
+│ │                       │ offers        │ max_discount=3%                 │  │
+│ ├───────────────────────┼───────────────┼─────────────────────────────────┤  │
+│ │ balanced_market       │ Normal        │ competing_offers=1,             │  │
+│ │                       │ conditions    │ max_discount=8%                 │  │
+│ ├───────────────────────┼───────────────┼─────────────────────────────────┤  │
+│ │                       │ Buyer pushes  │ initial_offer_discount=15%,     │  │
+│ │ aggressive_buyer      │ hard, low     │ buyer_style=aggressive          │  │
+│ │                       │ initial offer │                                 │  │
+│ ├───────────────────────┼───────────────┼─────────────────────────────────┤  │
+│ │                       │ Small         │                                 │  │
+│ │ conservative_approach │ increments,   │ max_counter_increment=1.5%,     │  │
+│ │                       │ patient       │ min_rounds_before_accept=5      │  │
+│ │                       │ negotiation   │                                 │  │
+│ ├───────────────────────┼───────────────┼─────────────────────────────────┤  │
+│ │                       │ Both sides    │ soft_turn_limit=5,              │  │
+│ │ time_pressure         │ want quick    │ deadline_urgency=high           │  │
+│ │                       │ close         │                                 │  │
+│ └───────────────────────┴───────────────┴─────────────────────────────────┘  │
+│                                                                              │
+│ Each variant is a dataclass: name, description, constraints: dict,           │
+│ max_rounds: int.                                                             │
+│                                                                              │
+│ 1.2 Create services/persona_generator.py                                     │
+│                                                                              │
+│ Generate rich agent personas using Claude API. Input: user profile data.     │
+│ Output:                                                                      │
+│                                                                              │
+│ @dataclass                                                                   │
+│ class AgentPersona:                                                          │
+│     role: str                    # "buyer" or "seller"                       │
+│     name: str                    # Generated name                            │
+│     personality_type: str        # MBTI-style (from MiroFish)                │
+│     negotiation_style: str       #                                           │
+│ aggressive/analytical/collaborative/avoidant                                 │
+│     risk_tolerance: str          # high/medium/low                           │
+│     experience_level: str        # first_time/experienced/professional       │
+│     motivations: list[str]       # e.g. ["investment returns", "family       │
+│ home"]                                                                       │
+│     background: str              # 2-3 sentence bio                          │
+│     pressure_points: list[str]   # what makes them concede                   │
+│     strengths: list[str]         # negotiation advantages                    │
+│                                                                              │
+│ For the buyer: derive from user profile (budget, risk_tolerance, life_stage, │
+│  goals).                                                                     │
+│ For the seller: generate a complementary persona based on property context + │
+│  market conditions.                                                          │
+│                                                                              │
+│ 1.3 Add price_path tracking to simulation                                    │
+│                                                                              │
+│ Modify agent/simulation_tools.py: Add price_path: list[dict] to              │
+│ SimulationState. Each offer/counter appends {"round": N, "role":             │
+│ "buyer"|"seller", "price": X}.                                               │
+│                                                                              │
+│ Modify services/negotiation_simulator.py:                                    │
+│ - Accept persona_data: dict | None and scenario_constraints: dict | None in  │
+│ constructor                                                                  │
+│ - Inject persona traits + constraints into agent context via                 │
+│ _build_agent_context()                                                       │
+│ - Include price_path in _to_dict() output                                    │
+│ - Increase max rounds support to 30                                          │
+│                                                                              │
+│ Modify agent/prompts.py: Add build_persona_prompt(base_prompt, persona,      │
+│ constraints) -> str that injects personality traits and scenario constraints │
+│  into system prompts.                                                        │
+│                                                                              │
+│ 1.4 Create services/batch_simulator.py                                       │
+│                                                                              │
+│ Orchestrates multiple NegotiationSimulator instances:                        │
+│                                                                              │
+│ class BatchSimulator:                                                        │
+│     batch_id: str                                                            │
+│     scenarios: list[ScenarioVariant]                                         │
+│     simulators: dict[str, NegotiationSimulator]  # scenario_name ->          │
+│ simulator                                                                    │
+│                                                                              │
+│     async def run_all(self) -> dict:                                         │
+│         # Run scenarios with limited concurrency (semaphore=2)               │
+│         # Return aggregated results with comparison data                     │
+│                                                                              │
+│     def _apply_constraints(self, base_config, variant) -> dict:              │
+│         # Modify initial_offer, strategy, max_rounds per scenario            │
+│                                                                              │
+│ 1.5 Create API endpoints api/batch_simulation.py                             │
+│                                                                              │
+│ ┌────────┬─────────────────────────────────────────┬───────────────────────┐ │
+│ │ Method │                Endpoint                 │      Description      │ │
+│ ├────────┼─────────────────────────────────────────┼───────────────────────┤ │
+│ │        │                                         │ Generate buyer+seller │ │
+│ │ POST   │ /api/simulation/personas                │  personas from user   │ │
+│ │        │                                         │ profiles              │ │
+│ ├────────┼─────────────────────────────────────────┼───────────────────────┤ │
+│ │ POST   │ /api/simulation/batch/start             │ Start batch of        │ │
+│ │        │                                         │ scenario simulations  │ │
+│ ├────────┼─────────────────────────────────────────┼───────────────────────┤ │
+│ │ GET    │ /api/simulation/batch/status/{batch_id} │ Poll status of all    │ │
+│ │        │                                         │ scenarios             │ │
+│ ├────────┼─────────────────────────────────────────┼───────────────────────┤ │
+│ │ GET    │ /api/simulation/batch/result/{batch_id} │ Get comparison        │ │
+│ │        │                                         │ results               │ │
+│ └────────┴─────────────────────────────────────────┴───────────────────────┘ │
+│                                                                              │
+│ 1.6 Modify config.py                                                         │
+│                                                                              │
+│ - max_simulation_rounds: 15 → 30                                             │
+│ - Add max_batch_scenarios: int = 6                                           │
+│                                                                              │
+│ 1.7 Register new router in main.py                                           │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 2: Frontend — Extract Reusable Components                              │
+│                                                                              │
+│ Extract existing page content into reusable components without breaking      │
+│ existing pages first:                                                        │
+│                                                                              │
+│ 2.1 components/UserProfileCard.tsx                                           │
+│                                                                              │
+│ Extract from UsersPage.tsx — user detail display (name, budget, risk,        │
+│ timeline, etc.)                                                              │
+│                                                                              │
+│ 2.2 components/ReportGenerator.tsx                                           │
+│                                                                              │
+│ Extract from UsersPage.tsx — user selector + question input + generate       │
+│ button                                                                       │
+│                                                                              │
+│ 2.3 components/ReportViewer.tsx                                              │
+│                                                                              │
+│ Extract from ReportPage.tsx — the full section renderer with all 14          │
+│ financial renderers (renderFinancialAnalysis, renderMonteCarlo, etc.) +      │
+│ workflow progress stepper + constants (SECTION_ORDER, FINANCIAL_SECTIONS,    │
+│ WORKFLOW_STEPS)                                                              │
+│                                                                              │
+│ 2.4 components/ReportList.tsx                                                │
+│                                                                              │
+│ Extract from ReportPage.tsx — report table with user filter                  │
+│                                                                              │
+│ 2.5 components/SearchDrawer.tsx                                              │
+│                                                                              │
+│ Wrap SearchPage.tsx content (filters, map, property cards, assistant chat)   │
+│ in a slide-out drawer panel                                                  │
+│                                                                              │
+│ 2.6 components/SystemDrawer.tsx                                              │
+│                                                                              │
+│ Wrap SystemPage.tsx content (health, metrics) in a slide-out drawer          │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 3: Frontend — New Pages + Simulation Components                        │
+│                                                                              │
+│ 3.1 pages/DashboardPage.tsx                                                  │
+│                                                                              │
+│ DashboardPage                                                                │
+│   ├── UserProfileCard (selected user details)                                │
+│   ├── QuickActions ("Generate Report" → /analysis, "Run Simulation" →        │
+│ /simulation)                                                                 │
+│   ├── RecentReports (last 5 reports mini-table)                              │
+│   └── RecentSimulations (last 5 sim results mini-table)                      │
+│ Persist selectedUserId in localStorage so it carries across pages.           │
+│                                                                              │
+│ 3.2 pages/AnalysisPage.tsx                                                   │
+│                                                                              │
+│ AnalysisPage                                                                 │
+│   ├── (no reportId) ReportGenerator + ReportList                             │
+│   ├── (with reportId) ReportViewer + ActionBar ("Run Simulation with These   │
+│ Insights")                                                                   │
+│   └── SearchDrawer (toggled by button, slides in from right)                 │
+│                                                                              │
+│ 3.3 pages/SimulationPage.tsx (complete rewrite)                              │
+│                                                                              │
+│ Three-step flow within one page:                                             │
+│                                                                              │
+│ Step 1: Configure                                                            │
+│ ├── PersonaBuilder                                                           │
+│ │   ├── BuyerPersonaCard (generated traits, MBTI, style, background)         │
+│ │   ├── SellerPersonaCard                                                    │
+│ │   └── Regenerate button                                                    │
+│ ├── ScenarioSelector                                                         │
+│ │   └── 6 scenario cards with checkboxes (select 1-6 to run)                 │
+│ ├── SimulationSettings                                                       │
+│ │   ├── MaxRounds slider (5-30)                                              │
+│ │   ├── Price inputs (asking, initial, seller min, buyer max)                │
+│ │   └── Report selector (optional)                                           │
+│ └── StartBatchButton                                                         │
+│                                                                              │
+│ Step 2: Running                                                              │
+│ ├── Overall batch progress (X of Y scenarios complete)                       │
+│ ├── Scenario tabs (one per running scenario)                                 │
+│ │   └── Per tab: progress bar + live transcript bubbles (reuse existing      │
+│ ROLE_COLORS/ROLE_BG)                                                         │
+│                                                                              │
+│ Step 3: Results                                                              │
+│ ├── OutcomeTable (scenario | outcome | final_price | rounds | final_spread)  │
+│ ├── PriceChart (SVG lines showing price_path per scenario, overlaid)         │
+│ ├── RecommendationCard (which strategy worked best, why)                     │
+│ ├── WinRateBar (% of scenarios that reached deal)                            │
+│ └── "Start Real Negotiation" button → /negotiate                             │
+│                                                                              │
+│ 3.4 New components to create                                                 │
+│                                                                              │
+│ ┌───────────────────────┬──────────────────────────────────────────────────┐ │
+│ │       Component       │                     Purpose                      │ │
+│ ├───────────────────────┼──────────────────────────────────────────────────┤ │
+│ │ PersonaBuilder.tsx    │ Calls /simulation/personas, displays persona     │ │
+│ │                       │ cards                                            │ │
+│ ├───────────────────────┼──────────────────────────────────────────────────┤ │
+│ │ ScenarioSelector.tsx  │ 6 scenario cards with checkboxes + descriptions  │ │
+│ ├───────────────────────┼──────────────────────────────────────────────────┤ │
+│ │ SimulationRunner.tsx  │ Multi-scenario progress tracking with tabs       │ │
+│ ├───────────────────────┼──────────────────────────────────────────────────┤ │
+│ │ ResultsComparison.tsx │ Outcome table + recommendation + win rate        │ │
+│ ├───────────────────────┼──────────────────────────────────────────────────┤ │
+│ │ PriceChart.tsx        │ SVG price convergence lines (one line per        │ │
+│ │                       │ scenario)                                        │ │
+│ └───────────────────────┴──────────────────────────────────────────────────┘ │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 4: Wiring + Cleanup                                                    │
+│                                                                              │
+│ 4.1 Update App.tsx                                                           │
+│                                                                              │
+│ // Nav: 3 links + gear icon                                                  │
+│ <NavLink to="/">Dashboard</NavLink>                                          │
+│ <NavLink to="/analysis">Analysis</NavLink>                                   │
+│ <NavLink to="/simulation">Simulation</NavLink>                               │
+│ <button onClick={toggleSystemDrawer}>⚙</button>                              │
+│                                                                              │
+│ // Routes: keep /negotiate as hidden route                                   │
+│ <Route path="/" element={<DashboardPage />} />                               │
+│ <Route path="/analysis/:id?" element={<AnalysisPage />} />                   │
+│ <Route path="/simulation" element={<SimulationPage />} />                    │
+│ <Route path="/negotiate/:id?" element={<NegotiationPage />} />               │
+│                                                                              │
+│ 4.2 Update api.ts                                                            │
+│                                                                              │
+│ Add new API methods:                                                         │
+│ - simulation.generatePersonas(data) → POST /api/simulation/personas          │
+│ - simulation.batchStart(data) → POST /api/simulation/batch/start             │
+│ - simulation.batchStatus(batchId) → GET /api/simulation/batch/status/{id}    │
+│ - simulation.batchResult(batchId) → GET /api/simulation/batch/result/{id}    │
+│                                                                              │
+│ 4.3 Update types.ts                                                          │
+│                                                                              │
+│ Add: AgentPersona, ScenarioVariant, BatchSimulationStatus,                   │
+│ BatchSimulationResult, ScenarioOutcome                                       │
+│                                                                              │
+│ 4.4 Update styles/index.css                                                  │
+│                                                                              │
+│ Add styles for: persona cards, scenario grid, comparison table, price chart  │
+│ SVG, drawer overlay, step indicator, dashboard cards                         │
+│                                                                              │
+│ 4.5 Delete old pages                                                         │
+│                                                                              │
+│ Remove SearchPage.tsx, UsersPage.tsx, ReportPage.tsx, SystemPage.tsx (all    │
+│ content extracted into components)                                           │
+│                                                                              │
+│ ---                                                                          │
+│ Files Summary                                                                │
+│                                                                              │
+│ New files (backend)                                                          │
+│                                                                              │
+│ ┌───────────────────────────────┬───────────────────────────────────┐        │
+│ │             File              │              Purpose              │        │
+│ ├───────────────────────────────┼───────────────────────────────────┤        │
+│ │ services/scenario_variants.py │ 6 scenario variant definitions    │        │
+│ ├───────────────────────────────┼───────────────────────────────────┤        │
+│ │ services/persona_generator.py │ Claude-powered persona generation │        │
+│ ├───────────────────────────────┼───────────────────────────────────┤        │
+│ │ services/batch_simulator.py   │ Multi-scenario orchestrator       │        │
+│ ├───────────────────────────────┼───────────────────────────────────┤        │
+│ │ api/batch_simulation.py       │ New API endpoints                 │        │
+│ └───────────────────────────────┴───────────────────────────────────┘        │
+│                                                                              │
+│ Modified files (backend)                                                     │
+│                                                                              │
+│ ┌───────────────────────────────────┬──────────────────────────────────────┐ │
+│ │               File                │               Changes                │ │
+│ ├───────────────────────────────────┼──────────────────────────────────────┤ │
+│ │ agent/simulation_tools.py         │ Add price_path to SimulationState    │ │
+│ ├───────────────────────────────────┼──────────────────────────────────────┤ │
+│ │                                   │ Accept persona/constraints, inject   │ │
+│ │ services/negotiation_simulator.py │ into context, return price_path,     │ │
+│ │                                   │ increase max rounds                  │ │
+│ ├───────────────────────────────────┼──────────────────────────────────────┤ │
+│ │ agent/prompts.py                  │ Add build_persona_prompt() function  │ │
+│ ├───────────────────────────────────┼──────────────────────────────────────┤ │
+│ │ config.py                         │ max_simulation_rounds=30,            │ │
+│ │                                   │ max_batch_scenarios=6                │ │
+│ ├───────────────────────────────────┼──────────────────────────────────────┤ │
+│ │ main.py                           │ Register batch_simulation router     │ │
+│ └───────────────────────────────────┴──────────────────────────────────────┘ │
+│                                                                              │
+│ New files (frontend)                                                         │
+│                                                                              │
+│ ┌──────────────────────────────────┬───────────────────────────────────────┐ │
+│ │               File               │                Purpose                │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ pages/DashboardPage.tsx          │ Landing page                          │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ pages/AnalysisPage.tsx           │ Report gen + viewer + search drawer   │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/UserProfileCard.tsx   │ User detail display                   │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/ReportGenerator.tsx   │ Report generation form                │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/ReportViewer.tsx      │ Full report renderer (extracted from  │ │
+│ │                                  │ ReportPage)                           │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/ReportList.tsx        │ Report table                          │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/SearchDrawer.tsx      │ Search as slide-out drawer            │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/SystemDrawer.tsx      │ System health drawer                  │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/PersonaBuilder.tsx    │ Persona display + generation          │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/ScenarioSelector.tsx  │ Scenario card grid                    │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/SimulationRunner.tsx  │ Multi-scenario progress               │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/ResultsComparison.tsx │ Outcome comparison dashboard          │ │
+│ ├──────────────────────────────────┼───────────────────────────────────────┤ │
+│ │ components/PriceChart.tsx        │ SVG price convergence chart           │ │
+│ └──────────────────────────────────┴───────────────────────────────────────┘ │
+│                                                                              │
+│ Modified files (frontend)                                                    │
+│                                                                              │
+│ ┌──────────────────────────┬────────────────────────────────────────────┐    │
+│ │           File           │                  Changes                   │    │
+│ ├──────────────────────────┼────────────────────────────────────────────┤    │
+│ │ App.tsx                  │ 3 nav links + gear icon, new routes        │    │
+│ ├──────────────────────────┼────────────────────────────────────────────┤    │
+│ │ pages/SimulationPage.tsx │ Complete rewrite with 3-step flow          │    │
+│ ├──────────────────────────┼────────────────────────────────────────────┤    │
+│ │ utils/api.ts             │ New batch simulation + persona API methods │    │
+│ ├──────────────────────────┼────────────────────────────────────────────┤    │
+│ │ utils/types.ts           │ New types                                  │    │
+│ ├──────────────────────────┼────────────────────────────────────────────┤    │
+│ │ styles/index.css         │ New styles                                 │    │
+│ └──────────────────────────┴────────────────────────────────────────────┘    │
+│                                                                              │
+│ Deleted files (frontend)                                                     │
+│                                                                              │
+│ SearchPage.tsx, UsersPage.tsx, ReportPage.tsx, SystemPage.tsx                │
+│                                                                              │
+│ ---                                                                          │
+│ Implementation Order                                                         │
+│                                                                              │
+│ 1. Backend Phase 1.1-1.2: Scenario variants + persona generator (no existing │
+│  code affected)                                                              │
+│ 2. Backend Phase 1.3: Add price_path tracking to simulation_tools +          │
+│ negotiation_simulator                                                        │
+│ 3. Backend Phase 1.4-1.5: Batch simulator + API endpoints                    │
+│ 4. Backend Phase 1.6-1.7: Config + router registration                       │
+│ 5. Frontend Phase 2.1-2.6: Extract components from existing pages            │
+│ 6. Frontend Phase 3.1-3.2: DashboardPage + AnalysisPage (using extracted     │
+│ components)                                                                  │
+│ 7. Frontend Phase 3.3-3.4: SimulationPage rewrite + new simulation           │
+│ components                                                                   │
+│ 8. Frontend Phase 4.1-4.4: App.tsx rewire + api.ts + types + styles          │
+│ 9. Frontend Phase 4.5: Delete old pages                                      │
+│ 10. Verification                                                             │
+│                                                                              │
+│ ---                                                                          │
+│ Verification                                                                 │
+│                                                                              │
+│ 1. TypeScript: cd frontend && npx tsc --noEmit passes                        │
+│ 2. Navigation: Only 3 nav items visible, all routes work                     │
+│ 3. Dashboard: Shows user profile, recent reports, recent sims, quick-action  │
+│ buttons work                                                                 │
+│ 4. Analysis flow: Generate report → poll inline → view completed report →    │
+│ "Run Simulation" button navigates correctly                                  │
+│ 5. Search drawer: Opens/closes from Analysis page, search + map functional   │
+│ 6. Persona generation: POST /simulation/personas returns buyer+seller        │
+│ personas with MBTI, style, etc.                                              │
+│ 7. Batch simulation: Select 3+ scenarios → start batch → poll status shows   │
+│ per-scenario progress → results comparison shows table + chart               │
+│ 8. Price chart: SVG renders overlaid price paths per scenario                │
+│ 9. Results → Negotiate: "Start Real Negotiation" button navigates to         │
+│ /negotiate with property context                                             │
+│ 10. System drawer: Gear icon opens/closes system health panel                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+⏺ Let me start by exploring the current codebase structure to understand what
+  we're working with.
+
+⏺ Explore(Explore full codebase structure)
+  ⎿  Done (33 tool uses · 105.0k tokens · 1m 23s)
+  (ctrl+o to expand)
+
+⏺ Good, I have a comprehensive understanding of the codebase. Let me now read
+  the exact files I need to modify to get precise content for editing.
+
+⏺ Read 5 files (ctrl+o to expand)
+
+⏺ Now let me read the frontend files.
+
+⏺ Read 5 files (ctrl+o to expand)
+
+⏺ Let me read the remaining pages and the CSS file.
+
+⏺ Read 4 files (ctrl+o to expand)
+
+⏺ Now let me read the CSS file and check the existing API simulation endpoint.
+
+⏺ Read 2 files (ctrl+o to expand)
+
+⏺ I have a full understanding of the codebase. This is a large implementation —
+  let me work through it systematically. I'll start with the backend, then move
+  to frontend extraction, new pages, and wiring.
+
+  Starting with Phase 1: Backend.
+
+⏺ Write(~/Desktop/real-estate-agentic/real-estate-agent/services/scenario_varian
+       ts.py)
+  ⎿  Wrote 106 lines to ../services/scenario_variants.py
+       1 """Scenario variant definitions for batch negotiation simulation
+         .
+       2 
+       3 Inspired by MiroFish's ScenarioSpecGenerator — each variant desc
+         ribes
+       4 a distinct market condition with constraints that alter agent be
+         haviour.
+       5 """
+       6 
+       7 from dataclasses import dataclass, field
+       8 
+       9 
+      10 @dataclass
+     … +96 lines (ctrl+o to expand)
+
+⏺ Write(~/Desktop/real-estate-agentic/real-estate-agent/services/persona_generat
+       or.py)
+  ⎿  Wrote 170 lines to ../services/persona_generator.py
+       1 """Agent persona generator — creates rich buyer/seller personas 
+         using Claude.
+       2 
+       3 Inspired by MiroFish's persona architecture: MBTI-style personal
+         ity types,
+       4 negotiation styles, risk profiles, and backstory generation.
+       5 """
+       6 
+       7 import json
+       8 from dataclasses import dataclass, field
+       9 
+      10 import anthropic
+     … +160 lines (ctrl+o to expand)
+
+⏺ Now Phase 1.3 — add price_path to simulation tools and modify the negotiation
+  simulator.
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/agent/simulation_tools.
+        py)
+  ⎿  Added 1 line
+      22      seller_latest_price: float = 0
+      23      offers: list[dict] = field(default_factory=list)
+      24      status: str = "active"  # active, accepted, rejected
+      25 +    price_path: list[dict] = field(default_factory=list)       
+      26  
+      27  
+      28  def create_simulation_tools(state: SimulationState) -> dict[str
+          , Any]:
+
+⏺ Now update the tool handlers to track price_path:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/agent/simulation_tools.
+        py)
+  ⎿  Added 1 line
+      48              "contingencies": contingencies or [],
+      49          }
+      50          state.offers.append(entry)
+      51 +        state.price_path.append({"round": state.current_round, 
+         +"role": "buyer", "price": offer_price})                        
+      52          return {
+      53              "status": "submitted",
+      54              "offer_price": offer_price,
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/agent/simulation_tools.
+        py)
+  ⎿  Added 1 line
+      79              "message": message,
+      80          }
+      81          state.offers.append(entry)
+      82 +        state.price_path.append({"round": state.current_round, 
+         +"role": from_role, "price": counter_price})                    
+      83  
+      84          spread = abs(state.seller_latest_price - state.buyer_la
+          test_price)
+      85          spread_pct = (spread / state.asking_price * 100) if sta
+          te.asking_price > 0 else 0
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/agent/simulation_tools.
+        py)
+  ⎿  Added 1 line
+      104              "round": state.current_round,
+      105          }
+      106          state.offers.append(entry)
+      107 +        state.price_path.append({"round": state.current_round,
+          + "role": "accepted", "price": accepted_price})                
+      108          return {
+      109              "status": "accepted",
+      110              "final_price": accepted_price,
+
+⏺ Now modify negotiation_simulator.py to accept persona/constraints and include
+  price_path in output:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/services/negotiation_si
+        mulator.py)
+  ⎿  Added 2 lines
+      43          self,
+      44          config: dict,
+      45          report_data: dict | None = None,
+      46 +        persona_data: dict | None = None,                      
+      47 +        scenario_constraints: dict | None = None,              
+      48      ):
+      49          self.sim_id = str(uuid.uuid4())
+      50          self.config = config
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/services/negotiation_si
+        mulator.py)
+  ⎿  Added 2 lines
+      49          self.sim_id = str(uuid.uuid4())
+      50          self.config = config
+      51          self.report_data = report_data
+      52 +        self.persona_data = persona_data                       
+      53 +        self.scenario_constraints = scenario_constraints or {} 
+      54          self.state = SimulationState(
+      55              negotiation_id=f"sim-{self.sim_id[:8]}",
+      56              property_id=config["property_id"],
+
+⏺ Now inject persona/constraints into agent context:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/services/negotiation_si
+        mulator.py)
+  ⎿  Added 14 lines
+      286              context["seller_position"] = self.state.seller_lat
+           est_price
+      287              context["asking_price"] = self.config["asking_pric
+           e"]
+      288  
+      289 +        # Inject scenario constraints                         
+      290 +        if self.scenario_constraints:                         
+      291 +            context["scenario_constraints"] = self.scenario_co
+          +nstraints                                                     
+      292 +                                                              
+      293 +        # Inject persona data                                 
+      294 +        if self.persona_data:                                 
+      295 +            if role == "buyer" and "buyer" in self.persona_dat
+          +a:                                                            
+      296 +                context["persona"] = self.persona_data["buyer"
+          +]                                                             
+      297 +            elif role == "seller" and "seller" in self.persona
+          +_data:                                                        
+      298 +                context["persona"] = self.persona_data["seller
+          +"]                                                            
+      299 +            elif role == "broker":                            
+      300 +                context["buyer_persona"] = self.persona_data.g
+          +et("buyer")                                                   
+      301 +                context["seller_persona"] = self.persona_data.
+          +get("seller")                                                 
+      302 +                                                              
+      303          # Inject intelligence report if available
+      304          if self.report_data:
+      305              if role == "buyer":
+
+⏺ Add price_path to _to_dict():
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/services/negotiation_si
+        mulator.py)
+  ⎿  Added 1 line
+      408              "progress": int((self.state.current_round / self.m
+           ax_rounds) * 100) if self.max_rounds > 0 else 0,
+      409              "final_price": self.final_price,
+      410              "transcript": self.transcript,
+      411 +            "price_path": self.state.price_path,              
+      412              "config": self.config,
+      413              "summary": {
+      414                  "rounds_completed": self.state.current_round,
+
+⏺ Now add build_persona_prompt to agent/prompts.py:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/agent/prompts.py)
+  ⎿  Added 30 lines
+       81  - You can call get_intelligence_report to fetch full report de
+           tails for any user
+       82  """
+       83  
+       84 +def build_persona_prompt(base_prompt: str, persona: dict | Non
+          +e, constraints: dict | None) -> str:                          
+       85 +    """Inject persona traits and scenario constraints into an 
+          +agent system prompt."""                                       
+       86 +    parts = [base_prompt]                                     
+       87 +                                                              
+       88 +    if persona:                                               
+       89 +        parts.append(f"""                                     
+       90 +## Your Persona                                               
+       91 +- Name: {persona.get('name', 'Unknown')}                      
+       92 +- Personality Type: {persona.get('personality_type', 'N/A')} (
+          +MBTI)                                                         
+       93 +- Negotiation Style: {persona.get('negotiation_style', 'balanc
+          +ed')}                                                         
+       94 +- Risk Tolerance: {persona.get('risk_tolerance', 'medium')}   
+       95 +- Experience Level: {persona.get('experience_level', 'experien
+          +ced')}                                                        
+       96 +- Motivations: {', '.join(persona.get('motivations', []))}    
+       97 +- Background: {persona.get('background', '')}                 
+       98 +- Pressure Points: {', '.join(persona.get('pressure_points', [
+          +]))}                                                          
+       99 +- Strengths: {', '.join(persona.get('strengths', []))}        
+      100 +                                                              
+      101 +Embody this persona throughout the negotiation. Let your perso
+          +nality type and negotiation style influence how you communicat
+          +e and make decisions.""")                                     
+      102 +                                                              
+      103 +    if constraints:                                           
+      104 +        constraint_lines = "\n".join(f"- {k}: {v}" for k, v in
+          + constraints.items())                                         
+      105 +        parts.append(f"""                                     
+      106 +## Scenario Constraints                                       
+      107 +{constraint_lines}                                            
+      108 +                                                              
+      109 +Factor these constraints into your strategy and decision-makin
+          +g.""")                                                        
+      110 +                                                              
+      111 +    return "\n".join(parts)                                   
+      112 +                                                              
+      113 +                                                              
+      114  BROKER_AGENT_PROMPT = """You are the Broker Agent — the neutra
+           l mediator in negotiations.
+      115  
+      116  ## Goals
+
+⏺ Phase 1.4 — Batch simulator:
+
+⏺ Write(~/Desktop/real-estate-agentic/real-estate-agent/services/batch_simulator
+       .py)
+  ⎿  Wrote 188 lines to ../services/batch_simulator.py
+       1 """Batch simulator — orchestrates multiple scenario simulations 
+         in parallel."""
+       2 
+       3 import asyncio
+       4 import uuid
+       5 from datetime import datetime, timezone
+       6 from typing import Any
+       7 
+       8 from services.negotiation_simulator import NegotiationSimulator
+       9 from services.scenario_variants import ScenarioVariant, get_vari
+         ant, SCENARIO_VARIANTS
+      10 from config import settings
+     … +178 lines (ctrl+o to expand)
+
+⏺ Phase 1.5 — API endpoints for batch simulation:
+
+⏺ Write(~/Desktop/real-estate-agentic/real-estate-agent/api/batch_simulation.py)
+  ⎿  Wrote 123 lines to ../api/batch_simulation.py
+      1 """Batch simulation API — personas, multi-scenario runs, and comp
+        arison results."""
+      2 
+      3 from fastapi import APIRouter, BackgroundTasks, HTTPException
+      4 from pydantic import BaseModel
+      5 
+      6 from services.persona_generator import generate_personas
+      7 from services.batch_simulator import BatchSimulator, get_batch
+      8 from services.scenario_variants import list_variants
+      9 from api.simulation import _fetch_report_data
+     … +113 lines (ctrl+o to expand)
+
+⏺ I need to fix the batch simulator to store the result dict properly. Let me
+  update the _update_store in batch_simulator.py:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/services/batch_simulato
+        r.py)
+  ⎿  Added 3 lines, removed 2 lines
+      108          await asyncio.gather(*tasks, return_exceptions=True)
+      109  
+      110          self.status = "completed"
+      111 -        self._update_store()                                  
+      112 -        return self._to_result_dict()                         
+      111 +        result = self._to_result_dict()                       
+      112 +        _batches[self.batch_id] = result                      
+      113 +        return result                                         
+      114  
+      115      def _to_status_dict(self) -> dict:
+      116          scenarios_status: list[dict] = []
+
+⏺ Phase 1.6 — Update config.py:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/config.py)
+  ⎿  Added 2 lines, removed 1 line
+      35      monte_carlo_scenarios: int = 300
+      36  
+      37      # Negotiation simulation
+      38 -    max_simulation_rounds: int = 15                            
+      38 +    max_simulation_rounds: int = 30                            
+      39 +    max_batch_scenarios: int = 6                               
+      40  
+      41      model_config = {"env_file": ".env", "env_file_encoding": "u
+          tf-8"}
+      42  
+
+⏺ Phase 1.7 — Register the new router in main.py:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/main.py)
+  ⎿  Added 1 line
+      16  from api.webhooks import router as webhooks_router
+      17  from api.agent import router as agent_router
+      18  from api.simulation import router as simulation_router
+      19 +from api.batch_simulation import router as batch_simulation_rou
+         +ter                                                            
+      20  from db.database import engine
+      21  from middleware.correlation import CorrelationIdMiddleware
+      22  from services.logging import setup_logging
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/main.py)
+  ⎿  Added 1 line
+      66  app.include_router(webhooks_router, prefix="/api/webhooks", tag
+          s=["webhooks"])
+      67  app.include_router(agent_router, prefix="/api/agent", tags=["ag
+          ent"])
+      68  app.include_router(simulation_router, prefix="/api/simulation",
+           tags=["simulation"])
+      69 +app.include_router(batch_simulation_router, prefix="/api/simula
+         +tion", tags=["batch-simulation"])                              
+      70  
+      71  
+      72  @app.get("/health")
+
+⏺ Backend is done. Now Phase 2: Frontend — Extract Reusable Components. I'll
+  create all the extracted components and new components in parallel.
+
+⏺ Write(src/components/UserProfileCard.tsx)
+  ⎿  Wrote 50 lines to src/components/UserProfileCard.tsx
+      1 import type { UserProfile } from '../utils/types'
+      2 
+      3 function formatCurrency(value: number | null | undefined): string
+         {
+      4   return typeof value === 'number' ? `$${value.toLocaleString()}`
+         : 'N/A'
+      5 }
+      6 
+      7 interface Props {
+      8   user: UserProfile
+      9 }
+     … +40 lines (ctrl+o to expand)
+
+⏺ Write(src/components/ReportGenerator.tsx)
+  ⎿  Wrote 67 lines to src/components/ReportGenerator.tsx
+       1 import { useState } from 'react'
+       2 import { useNavigate } from 'react-router-dom'
+       3 import { api } from '../utils/api'
+       4 import type { UserProfile } from '../utils/types'
+       5 
+       6 const DEFAULT_QUESTION = 'What is the best investment strategy f
+         or this buyer?'
+       7 
+       8 interface Props {
+       9   users: UserProfile[]
+      10   selectedUserId: string
+     … +57 lines (ctrl+o to expand)
+
+⏺ Write(src/components/ReportViewer.tsx)
+  ⎿  Wrote 467 lines to src/components/ReportViewer.tsx
+       1 import { useCallback, useEffect, useRef, useState } from 'react'
+       2 import { api } from '../utils/api'
+       3 
+       4 interface ReportSection {
+       5   id: string
+       6   title: string
+       7   content: unknown
+       8 }
+       9 
+      10 interface ReportStatus {
+     … +457 lines (ctrl+o to expand)
+
+⏺ Now create the remaining components: ReportList, SearchDrawer, SystemDrawer,
+  and all the simulation components.
+
+⏺ Write(src/components/ReportList.tsx)
+  ⎿  Wrote 117 lines to src/components/ReportList.tsx
+       1 import { useEffect, useState } from 'react'
+       2 import { useNavigate } from 'react-router-dom'
+       3 import { api } from '../utils/api'
+       4 
+       5 interface ReportStatus {
+       6   id: string
+       7   user_id: string
+       8   status: string
+       9   progress: number
+      10   current_step: string
+     … +107 lines (ctrl+o to expand)
+
+⏺ Write(src/components/SearchDrawer.tsx)
+  ⎿  Wrote 136 lines to src/components/SearchDrawer.tsx
+       1 import { useEffect, useRef, useState } from 'react'
+       2 import { useNavigate } from 'react-router-dom'
+       3 import PropertyCard from './PropertyCard'
+       4 import MapView from './MapView'
+       5 import type { Property } from '../utils/types'
+       6 import { api } from '../utils/api'
+       7 
+       8 const LOCATIONS = [
+       9   { label: 'All Chicago', zip: '60601', lat: 41.8781, lng: -87.6
+         298 },
+      10   { label: 'The Loop (60601)', zip: '60601', lat: 41.8819, lng: 
+         -87.6278 },
+     … +126 lines (ctrl+o to expand)
+
+⏺ Write(src/components/SystemDrawer.tsx)
+  ⎿  Wrote 100 lines to src/components/SystemDrawer.tsx
+       1 import { useEffect, useState } from 'react'
+       2 import { api } from '../utils/api'
+       3 
+       4 interface SystemHealth {
+       5   status: string
+       6   version: string
+       7 }
+       8 
+       9 interface SystemMetrics {
+      10   counters: Record<string, number>
+     … +90 lines (ctrl+o to expand)
+
+⏺ Now the new simulation components:
+
+⏺ Write(src/components/PersonaBuilder.tsx)
+  ⎿  Wrote 105 lines to src/components/PersonaBuilder.tsx
+       1 import { useState } from 'react'
+       2 import { api } from '../utils/api'
+       3 import type { AgentPersona } from '../utils/types'
+       4 
+       5 interface Props {
+       6   buyerProfile: Record<string, unknown> | null
+       7   propertyContext: Record<string, unknown> | null
+       8   personas: { buyer: AgentPersona | null; seller: AgentPersona |
+          null }
+       9   onPersonasGenerated: (personas: { buyer: AgentPersona; seller:
+          AgentPersona }) => void
+      10 }
+     … +95 lines (ctrl+o to expand)
+
+⏺ Write(src/components/ScenarioSelector.tsx)
+  ⎿  Wrote 37 lines to src/components/ScenarioSelector.tsx
+       1 import type { ScenarioVariant } from '../utils/types'
+       2 
+       3 interface Props {
+       4   scenarios: ScenarioVariant[]
+       5   selected: Set<string>
+       6   onToggle: (name: string) => void
+       7 }
+       8 
+       9 export default function ScenarioSelector({ scenarios, selected, 
+         onToggle }: Props) {
+      10   return (
+     … +27 lines (ctrl+o to expand)
+
+⏺ Write(src/components/SimulationRunner.tsx)
+  ⎿  Wrote 68 lines to src/components/SimulationRunner.tsx
+       1 import type { BatchSimulationStatus } from '../utils/types'
+       2 
+       3 const ROLE_COLORS: Record<string, string> = {
+       4   buyer: '#1d4ed8',
+       5   seller: '#b45309',
+       6   broker: '#7c3aed',
+       7   system: '#666',
+       8 }
+       9 
+      10 const ROLE_BG: Record<string, string> = {
+     … +58 lines (ctrl+o to expand)
+
+⏺ Write(src/components/PriceChart.tsx)
+  ⎿  Wrote 121 lines to src/components/PriceChart.tsx
+       1 interface PricePoint {
+       2   round: number
+       3   role: string
+       4   price: number
+       5 }
+       6 
+       7 interface ScenarioPath {
+       8   scenario: string
+       9   price_path: PricePoint[]
+      10 }
+     … +111 lines (ctrl+o to expand)
+
+⏺ Write(src/components/ResultsComparison.tsx)
+  ⎿  Wrote 110 lines to src/components/ResultsComparison.tsx
+      1 import { useNavigate } from 'react-router-dom'
+      2 import PriceChart from './PriceChart'
+      3 import type { BatchSimulationResult, ScenarioOutcome } from '../u
+        tils/types'
+      4 
+      5 interface Props {
+      6   result: BatchSimulationResult
+      7   propertyId: string
+      8   askingPrice: number
+      9 }
+     … +100 lines (ctrl+o to expand)
+
+⏺ Now Phase 3: New Pages. Let me create DashboardPage, AnalysisPage, and rewrite
+   SimulationPage.
+
+⏺ Write(src/pages/DashboardPage.tsx)
+  ⎿  Wrote 152 lines to src/pages/DashboardPage.tsx
+       1 import { useEffect, useState } from 'react'
+       2 import { Link, useNavigate } from 'react-router-dom'
+       3 import { api } from '../utils/api'
+       4 import type { UserProfile } from '../utils/types'
+       5 import UserProfileCard from '../components/UserProfileCard'
+       6 
+       7 const SELECTED_USER_KEY = 'selectedUserId'
+       8 
+       9 interface ReportMini {
+      10   id: string
+     … +142 lines (ctrl+o to expand)
+
+⏺ Write(src/pages/AnalysisPage.tsx)
+  ⎿  Wrote 107 lines to src/pages/AnalysisPage.tsx
+       1 import { useEffect, useState } from 'react'
+       2 import { Link, useNavigate, useParams } from 'react-router-dom'
+       3 import { api } from '../utils/api'
+       4 import type { UserProfile } from '../utils/types'
+       5 import ReportGenerator from '../components/ReportGenerator'
+       6 import ReportList from '../components/ReportList'
+       7 import ReportViewer from '../components/ReportViewer'
+       8 import SearchDrawer from '../components/SearchDrawer'
+       9 
+      10 const SELECTED_USER_KEY = 'selectedUserId'
+     … +97 lines (ctrl+o to expand)
+
+⏺ Now the complete rewrite of SimulationPage with the 3-step flow:
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Write(src/pages/SimulationPage.tsx)
+  ⎿  Added 203 lines, removed 294 lines
+       1  import { useCallback, useEffect, useRef, useState } from 'react
+          '
+       2 -import { useNavigate } from 'react-router-dom'                 
+       2  import { api } from '../utils/api'
+       3 +import type { AgentPersona, ScenarioVariant, BatchSimulationSta
+         +tus, BatchSimulationResult } from '../utils/types'             
+       4 +import PersonaBuilder from '../components/PersonaBuilder'      
+       5 +import ScenarioSelector from '../components/ScenarioSelector'  
+       6 +import SimulationRunner from '../components/SimulationRunner'  
+       7 +import ResultsComparison from '../components/ResultsComparison'
+       8  
+       9 +const SELECTED_USER_KEY = 'selectedUserId'                     
+      10 +                                                               
+      11  interface UserOption {
+      12    id: string
+      13    name: string
+     ...
+       15    budget_max?: number | null
+       16  }
+       17  
+       12 -interface TranscriptEntry {                                   
+       13 -  role: string                                                
+       14 -  message: string                                             
+       15 -  round: number                                               
+       16 -  timestamp: string                                           
+       17 -  price?: number                                              
+       18 -  tool_calls?: Array<{ tool: string; input: unknown; output: u
+          -nknown }>                                                     
+       19 -}                                                             
+       20 -                                                              
+       21 -interface SimStatus {                                         
+       22 -  id: string                                                  
+       23 -  status: string                                              
+       24 -  current_round: number                                       
+       25 -  max_rounds: number                                          
+       26 -  progress: number                                            
+       27 -  transcript: TranscriptEntry[]                               
+       28 -  created_at?: string                                         
+       29 -}                                                             
+       30 -                                                              
+       31 -interface SimResult {                                         
+       32 -  id: string                                                  
+       33 -  status: string                                              
+       34 -  outcome: string                                             
+       35 -  final_price: number | null                                  
+       36 -  rounds_completed: number                                    
+       37 -  transcript: TranscriptEntry[]                               
+       38 -  summary: Record<string, unknown>                            
+       39 -  created_at?: string                                         
+       40 -}                                                             
+       41 -                                                              
+       42 -const ROLE_COLORS: Record<string, string> = {                 
+       43 -  buyer: '#1d4ed8',                                           
+       44 -  seller: '#b45309',                                          
+       45 -  broker: '#7c3aed',                                          
+       46 -  system: '#666',                                             
+       47 -}                                                             
+       48 -                                                              
+       49 -const ROLE_BG: Record<string, string> = {                     
+       50 -  buyer: '#eff6ff',                                           
+       51 -  seller: '#fffbeb',                                          
+       52 -  broker: '#f5f3ff',                                          
+       53 -  system: '#f5f5f5',                                          
+       54 -}                                                             
+       55 -                                                              
+       18  export default function SimulationPage() {
+       57 -  const navigate = useNavigate()                              
+       19 +  // Step: 'configure' | 'running' | 'results'                
+       20 +  const [step, setStep] = useState<'configure' | 'running' | '
+          +results'>('configure')                                        
+       21 +                                                              
+       22 +  // User/report state                                        
+       23    const [users, setUsers] = useState<UserOption[]>([])
+       24    const [reports, setReports] = useState<Array<{ id: string; s
+           tatus: string }>>([])
+       60 -  const [buyerId, setBuyerId] = useState('')                  
+       25 +  const [buyerId, setBuyerId] = useState(() => localStorage.ge
+          +tItem(SELECTED_USER_KEY) || '')                               
+       26    const [sellerId, setSellerId] = useState('')
+       27    const [reportId, setReportId] = useState('')
+       28 +                                                              
+       29 +  // Config                                                   
+       30    const [propertyId, setPropertyId] = useState('sim-property-0
+           01')
+       31    const [askingPrice, setAskingPrice] = useState(450000)
+       32    const [initialOffer, setInitialOffer] = useState(400000)
+       33    const [sellerMin, setSellerMin] = useState(420000)
+       34    const [buyerMax, setBuyerMax] = useState(500000)
+       68 -  const [strategy, setStrategy] = useState('balanced')        
+       69 -  const [maxRounds, setMaxRounds] = useState(10)              
+       35 +  const [maxRounds, setMaxRounds] = useState(15)              
+       36  
+       71 -  const [simId, setSimId] = useState('')                      
+       72 -  const [simStatus, setSimStatus] = useState<SimStatus | null>
+          -(null)                                                        
+       73 -  const [simResult, setSimResult] = useState<SimResult | null>
+          -(null)                                                        
+       37 +  // Personas                                                 
+       38 +  const [personas, setPersonas] = useState<{ buyer: AgentPerso
+          +na | null; seller: AgentPersona | null }>({                   
+       39 +    buyer: null, seller: null,                                
+       40 +  })                                                          
+       41 +                                                              
+       42 +  // Scenarios                                                
+       43 +  const [availableScenarios, setAvailableScenarios] = useState
+          +<ScenarioVariant[]>([])                                       
+       44 +  const [selectedScenarios, setSelectedScenarios] = useState<S
+          +et<string>>(new Set(['balanced_market', 'market_favors_buyer',
+          + 'aggressive_buyer']))                                        
+       45 +                                                              
+       46 +  // Batch state                                              
+       47 +  const [batchId, setBatchId] = useState('')                  
+       48 +  const [batchStatus, setBatchStatus] = useState<BatchSimulati
+          +onStatus | null>(null)                                        
+       49 +  const [batchResult, setBatchResult] = useState<BatchSimulati
+          +onResult | null>(null)                                        
+       50    const [loading, setLoading] = useState(false)
+       51    const [error, setError] = useState('')
+       52  
+       53    const pollRef = useRef<ReturnType<typeof setInterval> | null
+           >(null)
+       78 -  const transcriptRef = useRef<HTMLDivElement>(null)          
+       54  
+       55    useEffect(() => {
+       56      void loadUsers()
+       57 +    void loadScenarios()                                      
+       58    }, [])
+       59  
+       60    useEffect(() => {
+       61      if (buyerId) void loadReports(buyerId)
+       62    }, [buyerId])
+       63  
+       88 -  // Auto-scroll transcript                                   
+       89 -  useEffect(() => {                                           
+       90 -    if (transcriptRef.current) {                              
+       91 -      transcriptRef.current.scrollTop = transcriptRef.current.
+          -scrollHeight                                                  
+       92 -    }                                                         
+       93 -  }, [simStatus?.transcript.length])                          
+       94 -                                                              
+       64    const loadUsers = async () => {
+       65      try {
+       66        const data = await api.users.list()
+       67        setUsers(data.map(u => ({ id: u.id, name: u.name, role: 
+           u.role, budget_max: u.budget_max })))
+       68        const buyers = data.filter(u => u.role === 'buyer')
+       69        const sellers = data.filter(u => u.role === 'seller')
+      101 -      if (buyers.length) setBuyerId(buyers[0].id)             
+       70 +      if (!buyerId && buyers.length) setBuyerId(buyers[0].id) 
+       71        if (sellers.length) setSellerId(sellers[0].id)
+       72        else if (data.length > 1) setSellerId(data[1].id)
+       73      } catch (err) {
+     ...
+       80        const data = await api.reports.listByUser(userId)
+       81        setReports(data.filter(r => r.status === 'completed').ma
+           p(r => ({ id: r.id, status: r.status })))
+       82      } catch {
+      114 -      // Ignore                                               
+       83 +      // ignore                                               
+       84      }
+       85    }
+       86  
+       87 +  const loadScenarios = async () => {                         
+       88 +    try {                                                     
+       89 +      const data = await api.simulation.getScenarios()        
+       90 +      setAvailableScenarios(data.scenarios)                   
+       91 +    } catch {                                                 
+       92 +      // Use defaults                                         
+       93 +      setAvailableScenarios([                                 
+       94 +        { name: 'market_favors_buyer', description: 'Low deman
+          +d, seller urgency', max_rounds: 15, constraints: {} },        
+       95 +        { name: 'market_favors_seller', description: 'Hot mark
+          +et, multiple offers', max_rounds: 12, constraints: {} },      
+       96 +        { name: 'balanced_market', description: 'Normal market
+          + conditions', max_rounds: 15, constraints: {} },              
+       97 +        { name: 'aggressive_buyer', description: 'Buyer pushes
+          + hard with low offer', max_rounds: 20, constraints: {} },     
+       98 +        { name: 'conservative_approach', description: 'Patient
+          +, many rounds', max_rounds: 25, constraints: {} },            
+       99 +        { name: 'time_pressure', description: 'Both sides want
+          + quick close', max_rounds: 8, constraints: {} },              
+      100 +      ])                                                      
+      101 +    }                                                         
+      102 +  }                                                           
+      103 +                                                              
+      104    const stopPolling = useCallback(() => {
+      105      if (pollRef.current) {
+      106        clearInterval(pollRef.current)
+     ...
+      108      }
+      109    }, [])
+      110  
+      125 -  const pollSimulation = useCallback(async (id: string) => {  
+      111 +  const pollBatch = useCallback(async (id: string) => {       
+      112      try {
+      127 -      const data = await api.simulation.status(id)            
+      128 -      setSimStatus(data as unknown as SimStatus)              
+      113 +      const data = await api.simulation.batchStatus(id) as Bat
+          +chSimulationStatus                                            
+      114 +      setBatchStatus(data)                                    
+      115  
+      130 -      if (data.status === 'completed' || data.status === 'fail
+          -ed') {                                                        
+      116 +      if (data.status === 'completed') {                      
+      117          stopPolling()
+      118          try {
+      133 -          const result = await api.simulation.result(id)      
+      134 -          setSimResult(result as unknown as SimResult)        
+      119 +          const result = await api.simulation.batchResult(id) 
+          +as BatchSimulationResult                                      
+      120 +          setBatchResult(result)                              
+      121 +          setStep('results')                                  
+      122          } catch {
+      136 -          // Result not ready yet                             
+      123 +          // result not ready yet                             
+      124          }
+      125          setLoading(false)
+      126        }
+      127      } catch (err) {
+      141 -      setError(err instanceof Error ? err.message : 'Failed to
+          - poll status')                                                
+      128 +      setError(err instanceof Error ? err.message : 'Failed to
+          + poll batch status')                                          
+      129        stopPolling()
+      130        setLoading(false)
+      131      }
+      132    }, [stopPolling])
+      133  
+      147 -  const startSimulation = async () => {                       
+      134 +  const handleToggleScenario = (name: string) => {            
+      135 +    setSelectedScenarios(prev => {                            
+      136 +      const next = new Set(prev)                              
+      137 +      if (next.has(name)) next.delete(name)                   
+      138 +      else next.add(name)                                     
+      139 +      return next                                             
+      140 +    })                                                        
+      141 +  }                                                           
+      142 +                                                              
+      143 +  const startBatch = async () => {                            
+      144 +    if (selectedScenarios.size === 0) {                       
+      145 +      setError('Select at least one scenario')                
+      146 +      return                                                  
+      147 +    }                                                         
+      148      setError('')
+      149 -    setSimStatus(null)                                        
+      150 -    setSimResult(null)                                        
+      149      setLoading(true)
+      150 +    setBatchStatus(null)                                      
+      151 +    setBatchResult(null)                                      
+      152 +    setStep('running')                                        
+      153  
+      154      try {
+      154 -      const data = await api.simulation.start({               
+      155 +      const personaPayload = personas.buyer && personas.seller
+      156 +        ? { buyer: personas.buyer, seller: personas.seller }  
+      157 +        : undefined                                           
+      158 +                                                              
+      159 +      const data = await api.simulation.batchStart({          
+      160          property_id: propertyId,
+      156 -        buyer_user_id: buyerId,                               
+      157 -        seller_user_id: sellerId,                             
+      158 -        initial_offer: initialOffer,                          
+      161          asking_price: askingPrice,
+      162 +        initial_offer: initialOffer,                          
+      163          seller_minimum: sellerMin,
+      164          buyer_maximum: buyerMax,
+      162 -        strategy,                                             
+      163 -        max_rounds: maxRounds,                                
+      165 +        buyer_user_id: buyerId,                               
+      166 +        seller_user_id: sellerId,                             
+      167 +        strategy: 'balanced',                                 
+      168 +        scenario_names: Array.from(selectedScenarios),        
+      169          report_id: reportId || undefined,
+      170 +        persona_data: personaPayload as Record<string, unknown
+          +> | undefined,                                                
+      171        })
+      166 -      const id = (data as { id: string }).id                  
+      167 -      setSimId(id)                                            
+      172  
+      169 -      // Start polling                                        
+      170 -      pollRef.current = setInterval(() => void pollSimulation(
+          -id), 2000)                                                    
+      173 +      const id = data.batch_id                                
+      174 +      setBatchId(id)                                          
+      175 +      pollRef.current = setInterval(() => void pollBatch(id), 
+          +2500)                                                         
+      176      } catch (err) {
+      172 -      setError(err instanceof Error ? err.message : 'Failed to
+          - start simulation')                                           
+      177 +      setError(err instanceof Error ? err.message : 'Failed to
+          + start batch simulation')                                     
+      178 +      setStep('configure')                                    
+      179        setLoading(false)
+      180      }
+      181    }
+     ...
+      184      return () => stopPolling()
+      185    }, [stopPolling])
+      186  
+      181 -  const isRunning = simStatus?.status === 'running' || simStat
+          -us?.status === 'pending'                                      
+      182 -  const isCompleted = simStatus?.status === 'completed'       
+      183 -  const isFailed = simStatus?.status === 'failed'             
+      184 -  const transcript = simStatus?.transcript || []              
+      187 +  const handleReset = () => {                                 
+      188 +    setBatchId('')                                            
+      189 +    setBatchStatus(null)                                      
+      190 +    setBatchResult(null)                                      
+      191 +    setStep('configure')                                      
+      192 +    setError('')                                              
+      193 +  }                                                           
+      194  
+      195 +  const buyerProfile = users.find(u => u.id === buyerId)      
+      196 +                                                              
+      197    return (
+      198      <div className="simulation-page">
+      199        <div className="page-title-row">
+      200          <h2>Negotiation Simulation</h2>
+      190 -        {simStatus && (                                       
+      191 -          <span className={`status-pill ${isCompleted ? 'ok' :
+          - isFailed ? 'error' : 'running'}`}>                           
+      192 -            {simStatus.status}                                
+      193 -          </span>                                             
+      201 +        {step !== 'configure' && (                            
+      202 +          <button className="secondary-btn" onClick={handleRes
+          +et}>New Simulation</button>                                   
+      203          )}
+      204        </div>
+      205  
+      197 -      {/* Config Form */}                                     
+      198 -      {!simId && (                                            
+      199 -        <div className="sim-config">                          
+      200 -          <h3>Configure Simulation</h3>                       
+      201 -          <div className="sim-config-grid">                   
+      202 -            <div className="agent-control-group">             
+      203 -              <label>Buyer</label>                            
+      204 -              <select value={buyerId} onChange={e => setBuyerI
+          -d(e.target.value)}>                                           
+      205 -                <option value="">Select buyer</option>        
+      206 -                {users.map(u => (                             
+      207 -                  <option key={u.id} value={u.id}>{u.name} ({u
+          -.role})</option>                                              
+      208 -                ))}                                           
+      209 -              </select>                                       
+      210 -            </div>                                            
+      206 +      {/* Step Indicator */}                                  
+      207 +      <div className="sim-step-indicator">                    
+      208 +        <span className={`sim-step ${step === 'configure' ? 'a
+          +ctive' : step !== 'configure' ? 'done' : ''}`}>1. Configure</s
+          +pan>                                                          
+      209 +        <span className="sim-step-arrow">&rarr;</span>        
+      210 +        <span className={`sim-step ${step === 'running' ? 'act
+          +ive' : step === 'results' ? 'done' : ''}`}>2. Running</span>  
+      211 +        <span className="sim-step-arrow">&rarr;</span>        
+      212 +        <span className={`sim-step ${step === 'results' ? 'act
+          +ive' : ''}`}>3. Results</span>                                
+      213 +      </div>                                                  
+      214  
+      212 -            <div className="agent-control-group">             
+      213 -              <label>Seller</label>                           
+      214 -              <select value={sellerId} onChange={e => setSelle
+          -rId(e.target.value)}>                                         
+      215 -                <option value="">Select seller</option>       
+      216 -                {users.map(u => (                             
+      217 -                  <option key={u.id} value={u.id}>{u.name} ({u
+          -.role})</option>                                              
+      218 -                ))}                                           
+      219 -              </select>                                       
+      220 -            </div>                                            
+      215 +      {error && <p className="error">{error}</p>}             
+      216  
+      222 -            <div className="agent-control-group">             
+      223 -              <label>Intelligence Report (optional)</label>   
+      224 -              <select value={reportId} onChange={e => setRepor
+          -tId(e.target.value)}>                                         
+      225 -                <option value="">None</option>                
+      226 -                {reports.map(r => (                           
+      227 -                  <option key={r.id} value={r.id}>{r.id.slice(
+          -0, 12)}...</option>                                           
+      228 -                ))}                                           
+      229 -              </select>                                       
+      230 -            </div>                                            
+      217 +      {/* STEP 1: Configure */}                               
+      218 +      {step === 'configure' && (                              
+      219 +        <>                                                    
+      220 +          {/* Persona Builder */}                             
+      221 +          <PersonaBuilder                                     
+      222 +            buyerProfile={buyerProfile ? { name: buyerProfile.
+          +name, role: buyerProfile.role, budget_max: buyerProfile.budget
+          +_max } : null}                                                
+      223 +            propertyContext={{ property_id: propertyId, asking
+          +_price: askingPrice }}                                        
+      224 +            personas={personas}                               
+      225 +            onPersonasGenerated={(p) => setPersonas(p)}       
+      226 +          />                                                  
+      227  
+      232 -            <div className="agent-control-group">             
+      233 -              <label>Strategy</label>                         
+      234 -              <select value={strategy} onChange={e => setStrat
+          -egy(e.target.value)}>                                         
+      235 -                <option value="aggressive">Aggressive</option>
+      236 -                <option value="balanced">Balanced</option>    
+      237 -                <option value="conservative">Conservative</opt
+          -ion>                                                          
+      238 -              </select>                                       
+      239 -            </div>                                            
+      228 +          {/* Scenario Selector */}                           
+      229 +          <ScenarioSelector                                   
+      230 +            scenarios={availableScenarios}                    
+      231 +            selected={selectedScenarios}                      
+      232 +            onToggle={handleToggleScenario}                   
+      233 +          />                                                  
+      234  
+      241 -            <div className="agent-control-group">             
+      242 -              <label>Property ID</label>                      
+      243 -              <input                                          
+      244 -                type="text"                                   
+      245 -                value={propertyId}                            
+      246 -                onChange={e => setPropertyId(e.target.value)} 
+      247 -              />                                              
+      235 +          {/* Simulation Settings */}                         
+      236 +          <div className="sim-config">                        
+      237 +            <h3>Simulation Settings</h3>                      
+      238 +            <div className="sim-config-grid">                 
+      239 +              <div className="agent-control-group">           
+      240 +                <label>Buyer</label>                          
+      241 +                <select value={buyerId} onChange={e => setBuye
+          +rId(e.target.value)}>                                         
+      242 +                  <option value="">Select buyer</option>      
+      243 +                  {users.map(u => <option key={u.id} value={u.
+          +id}>{u.name} ({u.role})</option>)}                            
+      244 +                </select>                                     
+      245 +              </div>                                          
+      246 +              <div className="agent-control-group">           
+      247 +                <label>Seller</label>                         
+      248 +                <select value={sellerId} onChange={e => setSel
+          +lerId(e.target.value)}>                                       
+      249 +                  <option value="">Select seller</option>     
+      250 +                  {users.map(u => <option key={u.id} value={u.
+          +id}>{u.name} ({u.role})</option>)}                            
+      251 +                </select>                                     
+      252 +              </div>                                          
+      253 +              <div className="agent-control-group">           
+      254 +                <label>Intelligence Report (optional)</label> 
+      255 +                <select value={reportId} onChange={e => setRep
+          +ortId(e.target.value)}>                                       
+      256 +                  <option value="">None</option>              
+      257 +                  {reports.map(r => <option key={r.id} value={
+          +r.id}>{r.id.slice(0, 12)}...</option>)}                       
+      258 +                </select>                                     
+      259 +              </div>                                          
+      260 +              <div className="agent-control-group">           
+      261 +                <label>Property ID</label>                    
+      262 +                <input type="text" value={propertyId} onChange
+          +={e => setPropertyId(e.target.value)} />                      
+      263 +              </div>                                          
+      264 +              <div className="agent-control-group">           
+      265 +                <label>Asking Price ($)</label>               
+      266 +                <input type="number" value={askingPrice} onCha
+          +nge={e => setAskingPrice(Number(e.target.value))} />          
+      267 +              </div>                                          
+      268 +              <div className="agent-control-group">           
+      269 +                <label>Initial Offer ($)</label>              
+      270 +                <input type="number" value={initialOffer} onCh
+          +ange={e => setInitialOffer(Number(e.target.value))} />        
+      271 +              </div>                                          
+      272 +              <div className="agent-control-group">           
+      273 +                <label>Seller Minimum ($)</label>             
+      274 +                <input type="number" value={sellerMin} onChang
+          +e={e => setSellerMin(Number(e.target.value))} />              
+      275 +              </div>                                          
+      276 +              <div className="agent-control-group">           
+      277 +                <label>Buyer Maximum ($)</label>              
+      278 +                <input type="number" value={buyerMax} onChange
+          +={e => setBuyerMax(Number(e.target.value))} />                
+      279 +              </div>                                          
+      280 +              <div className="agent-control-group">           
+      281 +                <label>Max Rounds ({maxRounds})</label>       
+      282 +                <input                                        
+      283 +                  type="range"                                
+      284 +                  min={5}                                     
+      285 +                  max={30}                                    
+      286 +                  value={maxRounds}                           
+      287 +                  onChange={e => setMaxRounds(Number(e.target.
+          +value))}                                                      
+      288 +                  style={{ width: '100%' }}                   
+      289 +                />                                            
+      290 +              </div>                                          
+      291              </div>
+      249 -                                                              
+      250 -            <div className="agent-control-group">             
+      251 -              <label>Asking Price ($)</label>                 
+      252 -              <input                                          
+      253 -                type="number"                                 
+      254 -                value={askingPrice}                           
+      255 -                onChange={e => setAskingPrice(Number(e.target.
+          -value))}                                                      
+      256 -              />                                              
+      257 -            </div>                                            
+      258 -                                                              
+      259 -            <div className="agent-control-group">             
+      260 -              <label>Initial Offer ($)</label>                
+      261 -              <input                                          
+      262 -                type="number"                                 
+      263 -                value={initialOffer}                          
+      264 -                onChange={e => setInitialOffer(Number(e.target
+          -.value))}                                                     
+      265 -              />                                              
+      266 -            </div>                                            
+      267 -                                                              
+      268 -            <div className="agent-control-group">             
+      269 -              <label>Seller Minimum ($)</label>               
+      270 -              <input                                          
+      271 -                type="number"                                 
+      272 -                value={sellerMin}                             
+      273 -                onChange={e => setSellerMin(Number(e.target.va
+          -lue))}                                                        
+      274 -              />                                              
+      275 -            </div>                                            
+      276 -                                                              
+      277 -            <div className="agent-control-group">             
+      278 -              <label>Buyer Maximum ($)</label>                
+      279 -              <input                                          
+      280 -                type="number"                                 
+      281 -                value={buyerMax}                              
+      282 -                onChange={e => setBuyerMax(Number(e.target.val
+          -ue))}                                                         
+      283 -              />                                              
+      284 -            </div>                                            
+      285 -                                                              
+      286 -            <div className="agent-control-group">             
+      287 -              <label>Max Rounds</label>                       
+      288 -              <input                                          
+      289 -                type="number"                                 
+      290 -                min={1}                                       
+      291 -                max={15}                                      
+      292 -                value={maxRounds}                             
+      293 -                onChange={e => setMaxRounds(Number(e.target.va
+          -lue))}                                                        
+      294 -              />                                              
+      295 -            </div>                                            
+      296 -          </div>                                              
+      297 -                                                              
+      298 -          <button                                             
+      299 -            className="primary-btn sim-start-btn"             
+      300 -            onClick={() => void startSimulation()}            
+      301 -            disabled={!buyerId || !sellerId || loading}       
+      302 -          >                                                   
+      303 -            Start Simulation                                  
+      304 -          </button>                                           
+      305 -        </div>                                                
+      306 -      )}                                                      
+      307 -                                                              
+      308 -      {error && <p className="error">{error}</p>}             
+      309 -                                                              
+      310 -      {/* Progress */}                                        
+      311 -      {simId && simStatus && (                                
+      312 -        <div className="sim-progress">                        
+      313 -          <div className="sim-progress-header">               
+      314 -            <span>Round {simStatus.current_round} / {simStatus
+          -.max_rounds}</span>                                           
+      315 -            <span>{simStatus.progress}%</span>                
+      316 -          </div>                                              
+      317 -          <div className="workflow-progress-bar">             
+      318 -            <div                                              
+      319 -              className={`workflow-progress-fill ${isCompleted
+          - ? 'complete' : isFailed ? 'failed' : ''}`}                   
+      320 -              style={{ width: `${simStatus.progress}%` }}     
+      321 -            />                                                
+      322 -          </div>                                              
+      323 -        </div>                                                
+      324 -      )}                                                      
+      325 -                                                              
+      326 -      {/* Result Summary */}                                  
+      327 -      {isCompleted && simResult && (                          
+      328 -        <div className="sim-result-summary">                  
+      329 -          <h3>Result: {simResult.outcome.replace('_', ' ').toU
+          -pperCase()}</h3>                                              
+      330 -          <div className="sim-result-grid">                   
+      331 -            <div className="sim-result-item">                 
+      332 -              <span className="sim-result-label">Final Price</
+          -span>                                                         
+      333 -              <span className="sim-result-value">             
+      334 -                {simResult.final_price ? `$${simResult.final_p
+          -rice.toLocaleString()}` : 'N/A'}                              
+      335 -              </span>                                         
+      336 -            </div>                                            
+      337 -            <div className="sim-result-item">                 
+      338 -              <span className="sim-result-label">Rounds</span>
+      339 -              <span className="sim-result-value">{simResult.ro
+          -unds_completed}</span>                                        
+      340 -            </div>                                            
+      341 -            <div className="sim-result-item">                 
+      342 -              <span className="sim-result-label">Outcome</span
+          ->                                                             
+      343 -              <span className="sim-result-value">{simResult.ou
+          -tcome}</span>                                                 
+      344 -            </div>                                            
+      345 -          </div>                                              
+      346 -          <div style={{ display: 'flex', gap: '0.75rem' }}>   
+      347 -            <button className="secondary-btn" onClick={() => {
+          - setSimId(''); setSimStatus(null); setSimResult(null) }}>     
+      348 -              New Simulation                                  
+      349 -            </button>                                         
+      292              <button
+      351 -              className="primary-btn"                         
+      352 -              onClick={() => {                                
+      353 -                const params = new URLSearchParams({          
+      354 -                  property_id: propertyId,                    
+      355 -                  price: String(simResult.final_price ?? askin
+          -gPrice),                                                      
+      356 -                })                                            
+      357 -                navigate(`/negotiate?${params.toString()}`)   
+      358 -              }}                                              
+      293 +              className="primary-btn sim-start-btn"           
+      294 +              onClick={() => void startBatch()}               
+      295 +              disabled={!buyerId || !sellerId || selectedScena
+          +rios.size === 0 || loading}                                   
+      296              >
+      360 -              Start Real Negotiation                          
+      297 +              Start Batch Simulation ({selectedScenarios.size}
+          + scenarios)                                                   
+      298              </button>
+      299            </div>
+      363 -        </div>                                                
+      300 +        </>                                                   
+      301        )}
+      302  
+      366 -      {/* Transcript */}                                      
+      367 -      {simId && transcript.length > 0 && (                    
+      368 -        <div className="sim-transcript" ref={transcriptRef}>  
+      369 -          <h3>Negotiation Transcript</h3>                     
+      370 -          {transcript.map((entry, i) => (                     
+      371 -            <div                                              
+      372 -              key={i}                                         
+      373 -              className={`sim-bubble sim-bubble-${entry.role}`
+          -}                                                             
+      374 -              style={{                                        
+      375 -                borderLeftColor: ROLE_COLORS[entry.role] || '#
+          -999',                                                         
+      376 -                background: ROLE_BG[entry.role] || '#f5f5f5', 
+      377 -              }}                                              
+      378 -            >                                                 
+      379 -              <div className="sim-bubble-header">             
+      380 -                <span className="sim-bubble-role" style={{ col
+          -or: ROLE_COLORS[entry.role] || '#333' }}>                     
+      381 -                  {entry.role.toUpperCase()}                  
+      382 -                </span>                                       
+      383 -                <span className="sim-bubble-meta">            
+      384 -                  Round {entry.round}                         
+      385 -                  {entry.price != null && (                   
+      386 -                    <span className="sim-bubble-price">${entry
+          -.price.toLocaleString()}</span>                               
+      387 -                  )}                                          
+      388 -                </span>                                       
+      389 -              </div>                                          
+      390 -              <div className="sim-bubble-body">{entry.message}
+          -</div>                                                        
+      391 -              {entry.tool_calls && entry.tool_calls.length > 0
+          - && (                                                         
+      392 -                <div className="sim-bubble-tools">            
+      393 -                  {entry.tool_calls.map((tc, j) => (          
+      394 -                    <details key={j} className="agent-tool-det
+          -ail">                                                         
+      395 -                      <summary>{tc.tool}</summary>            
+      396 -                      <div className="agent-tool-io">         
+      397 -                        <pre>{JSON.stringify(tc.output, null, 
+          -2)}</pre>                                                     
+      398 -                      </div>                                  
+      399 -                    </details>                                
+      400 -                  ))}                                         
+      401 -                </div>                                        
+      402 -              )}                                              
+      403 -            </div>                                            
+      404 -          ))}                                                 
+      405 -          {isRunning && (                                     
+      406 -            <div className="sim-thinking">                    
+      407 -              <span className="workflow-spinner" /> Agents neg
+          -otiating...                                                   
+      408 -            </div>                                            
+      409 -          )}                                                  
+      303 +      {/* STEP 2: Running */}                                 
+      304 +      {step === 'running' && batchStatus && (                 
+      305 +        <SimulationRunner batchStatus={batchStatus} />        
+      306 +      )}                                                      
+      307 +      {step === 'running' && !batchStatus && (                
+      308 +        <div className="sim-thinking">                        
+      309 +          <span className="workflow-spinner" /> Starting simul
+          +ation...                                                      
+      310          </div>
+      311        )}
+      312 +                                                              
+      313 +      {/* STEP 3: Results */}                                 
+      314 +      {step === 'results' && batchResult && (                 
+      315 +        <ResultsComparison                                    
+      316 +          result={batchResult}                                
+      317 +          propertyId={propertyId}                             
+      318 +          askingPrice={askingPrice}                           
+      319 +        />                                                    
+      320 +      )}                                                      
+      321      </div>
+      322    )
+      323  }
+
+⏺ Now Phase 4: Wiring. Update types.ts, api.ts, App.tsx, and CSS.
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Update(src/utils/types.ts)
+  ⎿  Added 64 lines
+      105    preferred_types: string[]
+      106    created_at?: string | null
+      107  }
+      108 +                                                              
+      109 +// ── Batch Simulation Types ──                               
+      110 +                                                              
+      111 +export interface AgentPersona {                               
+      112 +  role: string                                                
+      113 +  name: string                                                
+      114 +  personality_type: string                                    
+      115 +  negotiation_style: string                                   
+      116 +  risk_tolerance: string                                      
+      117 +  experience_level: string                                    
+      118 +  motivations: string[]                                       
+      119 +  background: string                                          
+      120 +  pressure_points: string[]                                   
+      121 +  strengths: string[]                                         
+      122 +}                                                             
+      123 +                                                              
+      124 +export interface ScenarioVariant {                            
+      125 +  name: string                                                
+      126 +  description: string                                         
+      127 +  constraints: Record<string, unknown>                        
+      128 +  max_rounds: number                                          
+      129 +}                                                             
+      130 +                                                              
+      131 +export interface BatchSimulationStatus {                      
+      132 +  batch_id: string                                            
+      133 +  status: string                                              
+      134 +  total_scenarios: number                                     
+      135 +  completed_scenarios: number                                 
+      136 +  total_progress: number                                      
+      137 +  scenarios: Array<{                                          
+      138 +    scenario: string                                          
+      139 +    status: string                                            
+      140 +    current_round: number                                     
+      141 +    max_rounds: number                                        
+      142 +    progress: number                                          
+      143 +  }>                                                          
+      144 +  created_at: string                                          
+      145 +}                                                             
+      146 +                                                              
+      147 +export interface ScenarioOutcome {                            
+      148 +  scenario: string                                            
+      149 +  description: string                                         
+      150 +  outcome: string                                             
+      151 +  final_price: number | null                                  
+      152 +  rounds_completed: number                                    
+      153 +  final_spread: number                                        
+      154 +  price_path: Array<{ round: number; role: string; price: numb
+          +er }>                                                         
+      155 +  transcript: Array<Record<string, unknown>>                  
+      156 +}                                                             
+      157 +                                                              
+      158 +export interface BatchSimulationResult {                      
+      159 +  batch_id: string                                            
+      160 +  status: string                                              
+      161 +  outcomes: ScenarioOutcome[]                                 
+      162 +  comparison: {                                               
+      163 +    win_rate: number                                          
+      164 +    deals_reached: number                                     
+      165 +    total_scenarios: number                                   
+      166 +    average_deal_price: number | null                         
+      167 +    best_scenario: string | null                              
+      168 +    best_price: number | null                                 
+      169 +  }                                                           
+      170 +  created_at: string                                          
+      171 +}                                                             
+
+⏺ Now update api.ts with the new methods:
+
+⏺ Update(src/utils/api.ts)
+  ⎿  Added 19 lines
+      121        rounds_completed: number; transcript: Array<Record<strin
+           g, unknown>>;
+      122        summary: Record<string, unknown>; created_at?: string;
+      123      }>(`/simulation/result/${id}`),
+      124 +    // Batch simulation                                       
+      125 +    generatePersonas: (data: { buyer_profile: Record<string, u
+          +nknown>; property_context: Record<string, unknown> }) =>      
+      126 +      fetchJSON<{ buyer: Record<string, unknown>; seller: Reco
+          +rd<string, unknown> }>('/simulation/personas', { method: 'POST
+          +', body: JSON.stringify(data) }),                             
+      127 +    getScenarios: () => fetchJSON<{ scenarios: Array<{ name: s
+          +tring; description: string; constraints: Record<string, unknow
+          +n>; max_rounds: number }> }>('/simulation/scenarios'),        
+      128 +    batchStart: (data: {                                      
+      129 +      property_id: string;                                    
+      130 +      asking_price: number;                                   
+      131 +      initial_offer: number;                                  
+      132 +      seller_minimum: number;                                 
+      133 +      buyer_maximum: number;                                  
+      134 +      buyer_user_id?: string;                                 
+      135 +      seller_user_id?: string;                                
+      136 +      strategy?: string;                                      
+      137 +      scenario_names: string[];                               
+      138 +      report_id?: string;                                     
+      139 +      persona_data?: Record<string, unknown>;                 
+      140 +    }) => fetchJSON<{ batch_id: string; status: string; total_
+          +scenarios: number; message: string }>('/simulation/batch/start
+          +', { method: 'POST', body: JSON.stringify(data) }),           
+      141 +    batchStatus: (batchId: string) => fetchJSON<Record<string,
+          + unknown>>(`/simulation/batch/status/${batchId}`),            
+      142 +    batchResult: (batchId: string) => fetchJSON<Record<string,
+          + unknown>>(`/simulation/batch/result/${batchId}`),            
+      143    },
+      144    system: {
+      145      health: () => fetchRootJSON<{ status: string; version: str
+           ing }>('/health'),
+
+⏺ Now update App.tsx with the new 3-page navigation + gear icon + routes:
+
+⏺ Write(src/App.tsx)
+  ⎿  Added 23 lines, removed 15 lines
+       1 +import { useState } from 'react'                               
+       2  import { NavLink, Route, Routes } from 'react-router-dom'
+       2 -import SearchPage from './pages/SearchPage'                    
+       3 -import NegotiationPage from './pages/NegotiationPage'          
+       4 -import ReportPage from './pages/ReportPage'                    
+       5 -import UsersPage from './pages/UsersPage'                      
+       6 -import SystemPage from './pages/SystemPage'                    
+       3 +import DashboardPage from './pages/DashboardPage'              
+       4 +import AnalysisPage from './pages/AnalysisPage'                
+       5  import SimulationPage from './pages/SimulationPage'
+       6 +import NegotiationPage from './pages/NegotiationPage'          
+       7 +import SystemDrawer from './components/SystemDrawer'           
+       8  
+       9  export default function App() {
+      10 +  const [systemOpen, setSystemOpen] = useState(false)          
+      11 +                                                               
+      12    return (
+      13      <div className="app">
+      14        <header className="app-header">
+      15          <h1>Real Estate Agentic Platform</h1>
+      16          <nav>
+      15 -          <NavLink to="/" end>Search</NavLink>                 
+      16 -          <NavLink to="/users">Users</NavLink>                 
+      17 -          <NavLink to="/negotiate">Negotiate</NavLink>         
+      17 +          <NavLink to="/" end>Dashboard</NavLink>              
+      18 +          <NavLink to="/analysis">Analysis</NavLink>           
+      19            <NavLink to="/simulation">Simulation</NavLink>
+      19 -          <NavLink to="/reports">Intelligence</NavLink>        
+      20 -          <NavLink to="/system">System</NavLink>               
+      20 +          <button                                              
+      21 +            className="header-gear-btn"                        
+      22 +            onClick={() => setSystemOpen(true)}                
+      23 +            title="System Health"                              
+      24 +          >                                                    
+      25 +            <svg width="18" height="18" viewBox="0 0 24 24" fil
+         +l="none" stroke="currentColor" strokeWidth="2" strokeLinecap="r
+         +ound" strokeLinejoin="round">                                  
+      26 +              <circle cx="12" cy="12" r="3" />                 
+      27 +              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.3
+         +6 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.6
+         +4l1.42-1.42" />                                                
+      28 +            </svg>                                             
+      29 +          </button>                                            
+      30          </nav>
+      31        </header>
+      32        <main>
+      33          <Routes>
+      25 -          <Route path="/" element={<SearchPage />} />          
+      26 -          <Route path="/users" element={<UsersPage />} />      
+      27 -          <Route path="/negotiate/:id?" element={<NegotiationPa
+         -ge />} />                                                      
+      34 +          <Route path="/" element={<DashboardPage />} />       
+      35 +          <Route path="/analysis/:id?" element={<AnalysisPage /
+         +>} />                                                          
+      36            <Route path="/simulation" element={<SimulationPage />
+          } />
+      29 -          <Route path="/reports/:id?" element={<ReportPage />} 
+         -/>                                                             
+      30 -          <Route path="/system" element={<SystemPage />} />    
+      37 +          <Route path="/negotiate/:id?" element={<NegotiationPa
+         +ge />} />                                                      
+      38          </Routes>
+      39        </main>
+      40 +      <SystemDrawer open={systemOpen} onClose={() => setSystemO
+         +pen(false)} />                                                 
+      41      </div>
+      42    )
+      43  }
+
+⏺ Now add the new CSS styles for all new components:
+
+⏺ Update(src/styles/index.css)
+  ⎿  Added 485 lines
+      1600    text-align: right;
+      1601  }
+      1602  
+      1603 +/* ── Header Gear Button ── */                               
+      1604 +.header-gear-btn {                                           
+      1605 +  background: none;                                          
+      1606 +  border: none;                                              
+      1607 +  color: #e0e0e0;                                            
+      1608 +  cursor: pointer;                                           
+      1609 +  padding: 0.3rem;                                           
+      1610 +  display: flex;                                             
+      1611 +  align-items: center;                                       
+      1612 +  justify-content: center;                                   
+      1613 +  border-radius: 6px;                                        
+      1614 +  transition: background 0.2s, color 0.2s;                   
+      1615 +}                                                            
+      1616 +                                                             
+      1617 +.header-gear-btn:hover {                                     
+      1618 +  background: rgba(255, 255, 255, 0.15);                     
+      1619 +  color: white;                                              
+      1620 +}                                                            
+      1621 +                                                             
+      1622 +/* ── Drawer ── */                                           
+      1623 +.drawer-overlay {                                            
+      1624 +  position: fixed;                                           
+      1625 +  inset: 0;                                                  
+      1626 +  background: rgba(0, 0, 0, 0.4);                            
+      1627 +  z-index: 200;                                              
+      1628 +  display: flex;                                             
+      1629 +  justify-content: flex-end;                                 
+      1630 +}                                                            
+      1631 +                                                             
+      1632 +.drawer-panel {                                              
+      1633 +  background: white;                                         
+      1634 +  width: 540px;                                              
+      1635 +  max-width: 90vw;                                           
+      1636 +  height: 100%;                                              
+      1637 +  display: flex;                                             
+      1638 +  flex-direction: column;                                    
+      1639 +  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);               
+      1640 +}                                                            
+      1641 +                                                             
+      1642 +.drawer-header {                                             
+      1643 +  display: flex;                                             
+      1644 +  align-items: center;                                       
+      1645 +  justify-content: space-between;                            
+      1646 +  padding: 0.75rem 1.25rem;                                  
+      1647 +  border-bottom: 1px solid #e0e0e0;                          
+      1648 +  background: #fafafa;                                       
+      1649 +  flex-shrink: 0;                                            
+      1650 +}                                                            
+      1651 +                                                             
+      1652 +.drawer-header h3 {                                          
+      1653 +  font-size: 1rem;                                           
+      1654 +  color: #1a1a2e;                                            
+      1655 +}                                                            
+      1656 +                                                             
+      1657 +.drawer-close-btn {                                          
+      1658 +  background: none;                                          
+      1659 +  border: 1px solid #ddd;                                    
+      1660 +  border-radius: 4px;                                        
+      1661 +  cursor: pointer;                                           
+      1662 +  padding: 0.15rem 0.5rem;                                   
+      1663 +  font-size: 0.85rem;                                        
+      1664 +  color: #666;                                               
+      1665 +}                                                            
+      1666 +                                                             
+      1667 +.drawer-body {                                               
+      1668 +  flex: 1;                                                   
+      1669 +  overflow-y: auto;                                          
+      1670 +  padding: 1rem 1.25rem;                                     
+      1671 +}                                                            
+      1672 +                                                             
+      1673 +.drawer-footer {                                             
+      1674 +  padding: 0.75rem 1.25rem;                                  
+      1675 +  border-top: 1px solid #e0e0e0;                             
+      1676 +  background: #fafafa;                                       
+      1677 +  flex-shrink: 0;                                            
+      1678 +}                                                            
+      1679 +                                                             
+      1680 +/* ── Dashboard Page ── */                                   
+      1681 +.dashboard-page {                                            
+      1682 +  max-width: 1100px;                                         
+      1683 +  margin: 0 auto;                                            
+      1684 +}                                                            
+      1685 +                                                             
+      1686 +.dashboard-layout {                                          
+      1687 +  display: grid;                                             
+      1688 +  grid-template-columns: 360px 1fr;                          
+      1689 +  gap: 1.5rem;                                               
+      1690 +}                                                            
+      1691 +                                                             
+      1692 +.dashboard-profile-section {                                 
+      1693 +  min-width: 0;                                              
+      1694 +}                                                            
+      1695 +                                                             
+      1696 +.dashboard-right-col {                                       
+      1697 +  display: flex;                                             
+      1698 +  flex-direction: column;                                    
+      1699 +  gap: 1.5rem;                                               
+      1700 +}                                                            
+      1701 +                                                             
+      1702 +.dashboard-quick-actions {                                   
+      1703 +  background: white;                                         
+      1704 +  border: 1px solid #e0e0e0;                                 
+      1705 +  border-radius: 12px;                                       
+      1706 +  padding: 1.25rem;                                          
+      1707 +}                                                            
+      1708 +                                                             
+      1709 +.dashboard-quick-actions h3 {                                
+      1710 +  margin-bottom: 0.75rem;                                    
+      1711 +  font-size: 1rem;                                           
+      1712 +}                                                            
+      1713 +                                                             
+      1714 +.dashboard-action-buttons {                                  
+      1715 +  display: flex;                                             
+      1716 +  gap: 0.75rem;                                              
+      1717 +}                                                            
+      1718 +                                                             
+      1719 +.dashboard-recent {                                          
+      1720 +  background: white;                                         
+      1721 +  border: 1px solid #e0e0e0;                                 
+      1722 +  border-radius: 12px;                                       
+      1723 +  padding: 1.25rem;                                          
+      1724 +}                                                            
+      1725 +                                                             
+      1726 +.dashboard-recent h3 {                                       
+      1727 +  margin-bottom: 0.75rem;                                    
+      1728 +  font-size: 1rem;                                           
+      1729 +}                                                            
+      1730 +                                                             
+      1731 +/* ── Analysis Page ── */                                    
+      1732 +.analysis-page {                                             
+      1733 +  max-width: 1100px;                                         
+      1734 +  margin: 0 auto;                                            
+      1735 +}                                                            
+      1736 +                                                             
+      1737 +/* ── Persona Cards ── */                                    
+      1738 +.persona-builder {                                           
+      1739 +  background: white;                                         
+      1740 +  border: 1px solid #e0e0e0;                                 
+      1741 +  border-radius: 12px;                                       
+      1742 +  padding: 1.25rem;                                          
+      1743 +  margin-bottom: 1.5rem;                                     
+      1744 +}                                                            
+      1745 +                                                             
+      1746 +.persona-builder-header {                                    
+      1747 +  display: flex;                                             
+      1748 +  align-items: center;                                       
+      1749 +  justify-content: space-between;                            
+      1750 +  margin-bottom: 0.75rem;                                    
+      1751 +}                                                            
+      1752 +                                                             
+      1753 +.persona-cards-row {                                         
+      1754 +  display: grid;                                             
+      1755 +  grid-template-columns: 1fr 1fr;                            
+      1756 +  gap: 1rem;                                                 
+      1757 +}                                                            
+      1758 +                                                             
+      1759 +.persona-card {                                              
+      1760 +  background: #fafafa;                                       
+      1761 +  border: 1px solid #eee;                                    
+      1762 +  border-radius: 10px;                                       
+      1763 +  padding: 1rem;                                             
+      1764 +}                                                            
+      1765 +                                                             
+      1766 +.persona-card-header {                                       
+      1767 +  display: flex;                                             
+      1768 +  align-items: center;                                       
+      1769 +  gap: 0.75rem;                                              
+      1770 +  margin-bottom: 0.75rem;                                    
+      1771 +}                                                            
+      1772 +                                                             
+      1773 +.persona-role {                                              
+      1774 +  padding: 0.15rem 0.5rem;                                   
+      1775 +  border-radius: 999px;                                      
+      1776 +  font-size: 0.7rem;                                         
+      1777 +  font-weight: 700;                                          
+      1778 +  text-transform: uppercase;                                 
+      1779 +  letter-spacing: 0.04em;                                    
+      1780 +}                                                            
+      1781 +                                                             
+      1782 +.persona-role.buyer {                                        
+      1783 +  background: #eff6ff;                                       
+      1784 +  color: #1d4ed8;                                            
+      1785 +}                                                            
+      1786 +                                                             
+      1787 +.persona-role.seller {                                       
+      1788 +  background: #fffbeb;                                       
+      1789 +  color: #b45309;                                            
+      1790 +}                                                            
+      1791 +                                                             
+      1792 +.persona-name {                                              
+      1793 +  font-weight: 700;                                          
+      1794 +  font-size: 0.95rem;                                        
+      1795 +  color: #1a1a2e;                                            
+      1796 +}                                                            
+      1797 +                                                             
+      1798 +.persona-traits {                                            
+      1799 +  display: grid;                                             
+      1800 +  grid-template-columns: repeat(2, 1fr);                     
+      1801 +  gap: 0.4rem;                                               
+      1802 +  margin-bottom: 0.75rem;                                    
+      1803 +}                                                            
+      1804 +                                                             
+      1805 +.persona-trait {                                             
+      1806 +  display: flex;                                             
+      1807 +  flex-direction: column;                                    
+      1808 +}                                                            
+      1809 +                                                             
+      1810 +.persona-trait-label {                                       
+      1811 +  font-size: 0.68rem;                                        
+      1812 +  color: #888;                                               
+      1813 +  text-transform: uppercase;                                 
+      1814 +  font-weight: 600;                                          
+      1815 +}                                                            
+      1816 +                                                             
+      1817 +.persona-trait-value {                                       
+      1818 +  font-size: 0.85rem;                                        
+      1819 +  color: #333;                                               
+      1820 +  text-transform: capitalize;                                
+      1821 +}                                                            
+      1822 +                                                             
+      1823 +.persona-background {                                        
+      1824 +  font-size: 0.82rem;                                        
+      1825 +  color: #555;                                               
+      1826 +  line-height: 1.5;                                          
+      1827 +  margin-bottom: 0.75rem;                                    
+      1828 +}                                                            
+      1829 +                                                             
+      1830 +.persona-lists {                                             
+      1831 +  display: grid;                                             
+      1832 +  grid-template-columns: repeat(3, 1fr);                     
+      1833 +  gap: 0.5rem;                                               
+      1834 +}                                                            
+      1835 +                                                             
+      1836 +.persona-list-label {                                        
+      1837 +  font-size: 0.68rem;                                        
+      1838 +  color: #888;                                               
+      1839 +  text-transform: uppercase;                                 
+      1840 +  font-weight: 600;                                          
+      1841 +  display: block;                                            
+      1842 +  margin-bottom: 0.2rem;                                     
+      1843 +}                                                            
+      1844 +                                                             
+      1845 +.persona-lists ul {                                          
+      1846 +  list-style: none;                                          
+      1847 +  padding: 0;                                                
+      1848 +  margin: 0;                                                 
+      1849 +}                                                            
+      1850 +                                                             
+      1851 +.persona-lists li {                                          
+      1852 +  font-size: 0.78rem;                                        
+      1853 +  color: #555;                                               
+      1854 +  padding: 0.1rem 0;                                         
+      1855 +}                                                            
+      1856 +                                                             
+      1857 +.persona-lists li::before {                                  
+      1858 +  content: "\2022 ";                                         
+      1859 +  color: #bbb;                                               
+      1860 +}                                                            
+      1861 +                                                             
+      1862 +/* ── Scenario Selector ── */                                
+      1863 +.scenario-selector {                                         
+      1864 +  background: white;                                         
+      1865 +  border: 1px solid #e0e0e0;                                 
+      1866 +  border-radius: 12px;                                       
+      1867 +  padding: 1.25rem;                                          
+      1868 +  margin-bottom: 1.5rem;                                     
+      1869 +}                                                            
+      1870 +                                                             
+      1871 +.scenario-grid {                                             
+      1872 +  display: grid;                                             
+      1873 +  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)
+           +);                                                           
+      1874 +  gap: 0.75rem;                                              
+      1875 +}                                                            
+      1876 +                                                             
+      1877 +.scenario-card {                                             
+      1878 +  display: flex;                                             
+      1879 +  gap: 0.5rem;                                               
+      1880 +  align-items: flex-start;                                   
+      1881 +  background: #fafafa;                                       
+      1882 +  border: 2px solid #eee;                                    
+      1883 +  border-radius: 10px;                                       
+      1884 +  padding: 0.85rem;                                          
+      1885 +  cursor: pointer;                                           
+      1886 +  transition: border-color 0.2s, background 0.2s;            
+      1887 +}                                                            
+      1888 +                                                             
+      1889 +.scenario-card:hover {                                       
+      1890 +  border-color: #ccc;                                        
+      1891 +}                                                            
+      1892 +                                                             
+      1893 +.scenario-card.selected {                                    
+      1894 +  border-color: #1a1a2e;                                     
+      1895 +  background: #f0f4ff;                                       
+      1896 +}                                                            
+      1897 +                                                             
+      1898 +.scenario-card input[type="checkbox"] {                      
+      1899 +  margin-top: 0.15rem;                                       
+      1900 +  flex-shrink: 0;                                            
+      1901 +}                                                            
+      1902 +                                                             
+      1903 +.scenario-card-body {                                        
+      1904 +  display: flex;                                             
+      1905 +  flex-direction: column;                                    
+      1906 +  gap: 0.2rem;                                               
+      1907 +}                                                            
+      1908 +                                                             
+      1909 +.scenario-card-name {                                        
+      1910 +  font-weight: 600;                                          
+      1911 +  font-size: 0.88rem;                                        
+      1912 +  color: #1a1a2e;                                            
+      1913 +  text-transform: capitalize;                                
+      1914 +}                                                            
+      1915 +                                                             
+      1916 +.scenario-card-desc {                                        
+      1917 +  font-size: 0.78rem;                                        
+      1918 +  color: #666;                                               
+      1919 +  line-height: 1.4;                                          
+      1920 +}                                                            
+      1921 +                                                             
+      1922 +.scenario-card-rounds {                                      
+      1923 +  font-size: 0.72rem;                                        
+      1924 +  color: #999;                                               
+      1925 +}                                                            
+      1926 +                                                             
+      1927 +/* ── Simulation Step Indicator ── */                        
+      1928 +.sim-step-indicator {                                        
+      1929 +  display: flex;                                             
+      1930 +  align-items: center;                                       
+      1931 +  gap: 0.5rem;                                               
+      1932 +  margin-bottom: 1.5rem;                                     
+      1933 +  padding: 0.5rem 0;                                         
+      1934 +}                                                            
+      1935 +                                                             
+      1936 +.sim-step {                                                  
+      1937 +  font-size: 0.85rem;                                        
+      1938 +  font-weight: 500;                                          
+      1939 +  color: #999;                                               
+      1940 +  padding: 0.3rem 0.75rem;                                   
+      1941 +  border-radius: 999px;                                      
+      1942 +  transition: all 0.2s;                                      
+      1943 +}                                                            
+      1944 +                                                             
+      1945 +.sim-step.active {                                           
+      1946 +  background: #1a1a2e;                                       
+      1947 +  color: white;                                              
+      1948 +  font-weight: 700;                                          
+      1949 +}                                                            
+      1950 +                                                             
+      1951 +.sim-step.done {                                             
+      1952 +  background: #dcfce7;                                       
+      1953 +  color: #15803d;                                            
+      1954 +  font-weight: 600;                                          
+      1955 +}                                                            
+      1956 +                                                             
+      1957 +.sim-step-arrow {                                            
+      1958 +  color: #ccc;                                               
+      1959 +  font-size: 1rem;                                           
+      1960 +}                                                            
+      1961 +                                                             
+      1962 +/* ── Simulation Runner ── */                                
+      1963 +.sim-runner {                                                
+      1964 +  background: white;                                         
+      1965 +  border: 1px solid #e0e0e0;                                 
+      1966 +  border-radius: 12px;                                       
+      1967 +  padding: 1.5rem;                                           
+      1968 +}                                                            
+      1969 +                                                             
+      1970 +.sim-runner-scenarios {                                      
+      1971 +  display: grid;                                             
+      1972 +  gap: 0.75rem;                                              
+      1973 +  margin-top: 1rem;                                          
+      1974 +}                                                            
+      1975 +                                                             
+      1976 +.sim-runner-scenario {                                       
+      1977 +  background: #fafafa;                                       
+      1978 +  border: 1px solid #eee;                                    
+      1979 +  border-radius: 8px;                                        
+      1980 +  padding: 0.75rem;                                          
+      1981 +}                                                            
+      1982 +                                                             
+      1983 +.sim-runner-scenario-header {                                
+      1984 +  display: flex;                                             
+      1985 +  justify-content: space-between;                            
+      1986 +  align-items: center;                                       
+      1987 +  margin-bottom: 0.35rem;                                    
+      1988 +}                                                            
+      1989 +                                                             
+      1990 +.sim-runner-scenario-name {                                  
+      1991 +  font-weight: 600;                                          
+      1992 +  font-size: 0.88rem;                                        
+      1993 +  text-transform: capitalize;                                
+      1994 +  color: #1a1a2e;                                            
+      1995 +}                                                            
+      1996 +                                                             
+      1997 +/* ── Results Comparison ── */                               
+      1998 +.results-comparison {                                        
+      1999 +  display: flex;                                             
+      2000 +  flex-direction: column;                                    
+      2001 +  gap: 1.5rem;                                               
+      2002 +}                                                            
+      2003 +                                                             
+      2004 +.win-rate-bar {                                              
+      2005 +  background: white;                                         
+      2006 +  border: 1px solid #e0e0e0;                                 
+      2007 +  border-radius: 12px;                                       
+      2008 +  padding: 1.25rem;                                          
+      2009 +}                                                            
+      2010 +                                                             
+      2011 +.win-rate-header {                                           
+      2012 +  display: flex;                                             
+      2013 +  justify-content: space-between;                            
+      2014 +  align-items: center;                                       
+      2015 +  margin-bottom: 0.5rem;                                     
+      2016 +  font-weight: 600;                                          
+      2017 +}                                                            
+      2018 +                                                             
+      2019 +.win-rate-value {                                            
+      2020 +  font-size: 1.3rem;                                         
+      2021 +  font-weight: 800;                                          
+      2022 +  color: #15803d;                                            
+      2023 +}                                                            
+      2024 +                                                             
+      2025 +.recommendation-card {                                       
+      2026 +  background: linear-gradient(135deg, #f0f4ff, #eff6ff);     
+      2027 +  border: 1px solid #bfdbfe;                                 
+      2028 +  border-radius: 12px;                                       
+      2029 +  padding: 1.25rem;                                          
+      2030 +}                                                            
+      2031 +                                                             
+      2032 +.recommendation-card h4 {                                    
+      2033 +  margin-bottom: 0.5rem;                                     
+      2034 +  color: #1d4ed8;                                            
+      2035 +}                                                            
+      2036 +                                                             
+      2037 +.outcome-table-wrap {                                        
+      2038 +  background: white;                                         
+      2039 +  border: 1px solid #e0e0e0;                                 
+      2040 +  border-radius: 12px;                                       
+      2041 +  padding: 1.25rem;                                          
+      2042 +}                                                            
+      2043 +                                                             
+      2044 +.outcome-table-wrap h4 {                                     
+      2045 +  margin-bottom: 0.75rem;                                    
+      2046 +}                                                            
+      2047 +                                                             
+      2048 +/* ── Price Chart ── */                                      
+      2049 +.price-chart {                                               
+      2050 +  background: white;                                         
+      2051 +  border: 1px solid #e0e0e0;                                 
+      2052 +  border-radius: 12px;                                       
+      2053 +  padding: 1.25rem;                                          
+      2054 +}                                                            
+      2055 +                                                             
+      2056 +.price-chart h4 {                                            
+      2057 +  margin-bottom: 0.75rem;                                    
+      2058 +}                                                            
+      2059 +                                                             
+      2060 +.price-chart-svg {                                           
+      2061 +  width: 100%;                                               
+      2062 +  height: auto;                                              
+      2063 +}                                                            
+      2064 +                                                             
+      2065 +.price-chart-legend {                                        
+      2066 +  display: flex;                                             
+      2067 +  flex-wrap: wrap;                                           
+      2068 +  gap: 1rem;                                                 
+      2069 +  margin-top: 0.75rem;                                       
+      2070 +}                                                            
+      2071 +                                                             
+      2072 +.price-chart-legend-item {                                   
+      2073 +  display: flex;                                             
+      2074 +  align-items: center;                                       
+      2075 +  gap: 0.35rem;                                              
+      2076 +  font-size: 0.78rem;                                        
+      2077 +  color: #555;                                               
+      2078 +  text-transform: capitalize;                                
+      2079 +}                                                            
+      2080 +                                                             
+      2081 +.price-chart-legend-dot {                                    
+      2082 +  width: 10px;                                               
+      2083 +  height: 10px;                                              
+      2084 +  border-radius: 50%;                                        
+      2085 +  flex-shrink: 0;                                            
+      2086 +}                                                            
+      2087 +                                                             
+      2088  @media (max-width: 1024px) {
+      2089    .search-content {
+      2090      grid-template-columns: 1fr;
+
+⏺ Add responsive rules for the new layouts:
+
+⏺ Update(src/styles/index.css)
+  ⎿  Added 16 lines
+      2123      gap: 0.5rem;
+      2124      align-items: flex-start;
+      2125    }
+      2126 +                                                             
+      2127 +  .dashboard-layout {                                        
+      2128 +    grid-template-columns: 1fr;                              
+      2129 +  }                                                          
+      2130 +                                                             
+      2131 +  .persona-cards-row {                                       
+      2132 +    grid-template-columns: 1fr;                              
+      2133 +  }                                                          
+      2134 +                                                             
+      2135 +  .persona-lists {                                           
+      2136 +    grid-template-columns: 1fr;                              
+      2137 +  }                                                          
+      2138 +                                                             
+      2139 +  .drawer-panel {                                            
+      2140 +    width: 100vw;                                            
+      2141 +  }                                                          
+      2142  }
+
+⏺ Now Phase 4.5: Delete old pages. The old SearchPage, UsersPage, ReportPage,
+  and SystemPage are no longer referenced from App.tsx. Let me remove them.
+
+⏺ Bash(rm /Users/maruyamayuto/Desktop/real-estate-agentic/real-estate-agent/fron
+      tend/src/pages/SearchPage.tsx
+      /Users/maruyamayuto/Desktop/real-estate-agentic/real-esta…)
+  ⎿  Done
+
+⏺ Now let me verify the TypeScript compilation:
+
+⏺ Bash(cd
+      /Users/maruyamayuto/Desktop/real-estate-agentic/real-estate-agent/frontend
+       && npx tsc --noEmit 2>&1 | head -80)
+  ⎿  src/components/PersonaBuilder.tsx(69,16): error TS2352: Conversion of
+     type 'Record<string, unknown>' to type 'AgentPersona' may be a mistake
+      because neither type sufficiently overlaps with the other. If this wa
+     … +32 lines (ctrl+o to expand)
+
+⏺ Let me fix these TypeScript errors:
+
+⏺ Update(src/components/PersonaBuilder.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      66          property_context: propertyContext || {},
+      67        })
+      68        onPersonasGenerated({
+      69 -        buyer: result.buyer as AgentPersona,                   
+      70 -        seller: result.seller as AgentPersona,                 
+      69 +        buyer: result.buyer as unknown as AgentPersona,        
+      70 +        seller: result.seller as unknown as AgentPersona,      
+      71        })
+      72      } catch (err) {
+      73        setError(err instanceof Error ? err.message : 'Failed to 
+          generate personas')
+
+⏺ Update(src/components/ResultsComparison.tsx)
+  ⎿  Added 1 line, removed 1 line
+      1  import { useNavigate } from 'react-router-dom'
+      2  import PriceChart from './PriceChart'
+      3 -import type { BatchSimulationResult, ScenarioOutcome } from '../
+        -utils/types'                                                    
+      3 +import type { BatchSimulationResult } from '../utils/types'     
+      4  
+      5  interface Props {
+      6    result: BatchSimulationResult
+
+⏺ Update(src/components/SearchDrawer.tsx)
+  ⎿  Added 1 line, removed 1 line
+      1 -import { useEffect, useRef, useState } from 'react'             
+      1 +import { useEffect, useState } from 'react'                     
+      2  import { useNavigate } from 'react-router-dom'
+      3  import PropertyCard from './PropertyCard'
+      4  import MapView from './MapView'
+
+⏺ Update(src/components/SimulationRunner.tsx)
+  ⎿  Removed 14 lines
+       1  import type { BatchSimulationStatus } from '../utils/types'
+       2  
+       3 -const ROLE_COLORS: Record<string, string> = {                  
+       4 -  buyer: '#1d4ed8',                                            
+       5 -  seller: '#b45309',                                           
+       6 -  broker: '#7c3aed',                                           
+       7 -  system: '#666',                                              
+       8 -}                                                              
+       9 -                                                               
+      10 -const ROLE_BG: Record<string, string> = {                      
+      11 -  buyer: '#eff6ff',                                            
+      12 -  seller: '#fffbeb',                                           
+      13 -  broker: '#f5f3ff',                                           
+      14 -  system: '#f5f5f5',                                           
+      15 -}                                                              
+      16 -                                                               
+       3  interface Props {
+       4    batchStatus: BatchSimulationStatus
+       5  }
+
+⏺ Fix SimulationPage — the batchId unused var and type casting issues:
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Removed 1 line
+      44    const [selectedScenarios, setSelectedScenarios] = useState<Se
+          t<string>>(new Set(['balanced_market', 'market_favors_buyer', '
+          aggressive_buyer']))
+      45  
+      46    // Batch state
+      47 -  const [batchId, setBatchId] = useState('')                   
+      47    const [batchStatus, setBatchStatus] = useState<BatchSimulatio
+          nStatus | null>(null)
+      48    const [batchResult, setBatchResult] = useState<BatchSimulatio
+          nResult | null>(null)
+      49    const [loading, setLoading] = useState(false)
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Added 1 line, removed 1 line
+      109  
+      110    const pollBatch = useCallback(async (id: string) => {
+      111      try {
+      112 -      const data = await api.simulation.batchStatus(id) as Bat
+          -chSimulationStatus                                            
+      112 +      const data = await api.simulation.batchStatus(id) as unk
+          +nown as BatchSimulationStatus                                 
+      113        setBatchStatus(data)
+      114  
+      115        if (data.status === 'completed') {
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Added 1 line, removed 1 line
+      115        if (data.status === 'completed') {
+      116          stopPolling()
+      117          try {
+      118 -          const result = await api.simulation.batchResult(id) 
+          -as BatchSimulationResult                                      
+      118 +          const result = await api.simulation.batchResult(id) 
+          +as unknown as BatchSimulationResult                           
+      119            setBatchResult(result)
+      120            setStep('results')
+      121          } catch {
+
+⏺ Fix the setBatchId references — need to remove those too:
+
+⏺ Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Removed 1 line
+      170        })
+      171  
+      172        const id = data.batch_id
+      173 -      setBatchId(id)                                          
+      173        pollRef.current = setInterval(() => void pollBatch(id), 
+           2500)
+      174      } catch (err) {
+      175        setError(err instanceof Error ? err.message : 'Failed to
+            start batch simulation')
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Removed 1 line
+      183    }, [stopPolling])
+      184  
+      185    const handleReset = () => {
+      186 -    setBatchId('')                                            
+      186      setBatchStatus(null)
+      187      setBatchResult(null)
+      188      setStep('configure')
+
+⏺ Now fix the step indicator comparison issue:
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Added 1 line, removed 1 line
+      202  
+      203        {/* Step Indicator */}
+      204        <div className="sim-step-indicator">
+      205 -        <span className={`sim-step ${step === 'configure' ? 'a
+          -ctive' : step !== 'configure' ? 'done' : ''}`}>1. Configure</s
+          -pan>                                                          
+      205 +        <span className={`sim-step ${step === 'configure' ? 'a
+          +ctive' : 'done'}`}>1. Configure</span>                        
+      206          <span className="sim-step-arrow">&rarr;</span>
+      207          <span className={`sim-step ${step === 'running' ? 'act
+           ive' : step === 'results' ? 'done' : ''}`}>2. Running</span>
+      208          <span className="sim-step-arrow">&rarr;</span>
+
+⏺ Let me run TypeScript check again:
+
+⏺ Bash(npx tsc --noEmit 2>&1 | head -30)
+  ⎿  (No output)
+
+⏺ Bash(npx tsc --noEmit 2>&1)
+  ⎿  (No output)
+
+⏺ Bash(npx tsc --noEmit 2>&1)
+  ⎿  (No output)
+
+⏺ Bash(npx tsc --noEmit 2>&1)
+  ⎿  (No output)
+
+⏺ Bash(npx tsc --noEmit 2>&1; echo "EXIT: $?")
+  ⎿  EXIT: 0
+
+⏺ Bash(npx tsc --noEmit 2>&1; echo "EXIT: $?")
+  ⎿  EXIT: 0
+
+⏺ Let me check from the correct working directory:
+
+⏺ Bash(npx tsc --noEmit 2>&1; echo "EXIT: $?")
+  ⎿  EXIT: 0
+
+⏺ Bash(ls /Users/maruyamayuto/Desktop/real-estate-agentic/real-estate-agent/fron
+      tend/tsconfig.json 2>&1 && npx tsc --noEmit 2>&1; echo "EXIT: $?")
+  ⎿  /Users/maruyamayuto/Desktop/real-estate-agentic/real-estate-agent/fron
+     tend/tsconfig.json
+     EXIT: 0
+
+⏺ TypeScript passes with exit code 0. Let me also verify the frontend builds:
+
+⏺ Bash(npx vite build 2>&1 | tail -10; echo "EXIT: $?")
+  ⎿  computing gzip size...
+     dist/index.html                     0.41 kB │ gzip:   0.29 kB
+     dist/assets/index-XEeb6IOr.css     92.86 kB │ gzip:  14.33 kB
+     … +10 lines (ctrl+o to expand)
+
+⏺ Build succeeds. Let me verify the final file structure:
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Everything is in place. Here's a summary of everything implemented:
+
+  Implementation Complete
+
+  Backend (4 new files, 5 modified)
+
+  New files:
+  - services/scenario_variants.py — 6 scenario variants (market_favors_buyer,
+  market_favors_seller, balanced_market, aggressive_buyer,
+  conservative_approach, time_pressure)
+  - services/persona_generator.py — Claude-powered persona generation with
+  AgentPersona dataclass and fallback defaults
+  - services/batch_simulator.py — BatchSimulator orchestrating parallel
+  scenarios with semaphore(2) concurrency
+  - api/batch_simulation.py — 4 new endpoints: GET /scenarios, POST /personas,
+  POST /batch/start, GET /batch/status/{id}, GET /batch/result/{id}
+
+  Modified files:
+  - agent/simulation_tools.py — Added price_path: list[dict] to SimulationState,
+   tracking every offer/counter/accept
+  - services/negotiation_simulator.py — Accepts persona_data +
+  scenario_constraints, injects into agent context, includes price_path in
+  output
+  - agent/prompts.py — Added build_persona_prompt() that injects persona traits
+  + scenario constraints into system prompts
+  - config.py — max_simulation_rounds: 30, max_batch_scenarios: 6
+  - main.py — Registered batch_simulation_router
+
+  Frontend (14 new/rewritten files, 4 deleted)
+
+  New navigation: Dashboard / Analysis / Simulation + gear icon for SystemDrawer
+
+  New pages:
+  - DashboardPage.tsx — User profile selector, UserProfileCard, quick actions,
+  recent reports
+  - AnalysisPage.tsx — Report generator + list view (no ID) or ReportViewer +
+  action bar (with ID), SearchDrawer toggle
+
+  Rewritten:
+  - SimulationPage.tsx — 3-step flow: Configure (PersonaBuilder +
+  ScenarioSelector + settings) → Running (SimulationRunner) → Results
+  (ResultsComparison + PriceChart)
+
+  New components:
+  - UserProfileCard, ReportGenerator, ReportViewer, ReportList — extracted from
+  old pages
+  - SearchDrawer, SystemDrawer — slide-out drawer wrappers
+  - PersonaBuilder, ScenarioSelector, SimulationRunner, ResultsComparison,
+  PriceChart — new simulation components
+
+  Deleted: SearchPage.tsx, UsersPage.tsx, ReportPage.tsx, SystemPage.tsx
+
+  Updated: App.tsx (3 nav links + gear icon), api.ts (5 new API methods),
+  types.ts (5 new types), styles/index.css (~300 lines of new styles)
+
+  Verification: TypeScript passes (npx tsc --noEmit exit 0), Vite build
+  succeeds.
+
+✻ Churned for 14m 22s
+
+❯ find out the reason why the simulation page goes white blank when trying to   
+run simulation, is it because overload                                          
+
+⏺ Let me investigate the issue. First, let me check the browser console errors
+  by examining the code flow.
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Let me trace the exact crash. The issue is not overload — it's a race
+  condition bug that causes a React crash.
+
+⏺ Read 2 files (ctrl+o to expand)
+
+⏺ Found it. Here's the root cause:
+
+  When the batch completes, batch_simulator.py line 112 replaces the store entry
+   with _to_result_dict() — which has outcomes and comparison keys but no 
+  scenarios key.
+
+  On the next poll, the frontend receives this result dict, casts it as
+  BatchSimulationStatus, and passes it to SimulationRunner. Line 26:
+  scenarios.map(...) — but scenarios is undefined → TypeError: Cannot read 
+  properties of undefined (reading 'map') → React crash → white screen.
+
+  There's also a secondary issue: even if sims fail fast (e.g. no API key), the
+  batch completes almost instantly, so the very first poll hits this bug.
+
+  Let me fix both the backend and frontend:
+
+⏺ Update(~/Desktop/real-estate-agentic/real-estate-agent/services/batch_simulato
+        r.py)
+  ⎿  Added 6 lines
+      109  
+      110          self.status = "completed"
+      111          result = self._to_result_dict()
+      112 +        # Merge status info into result so polling still works
+          + during transition                                            
+      113 +        status = self._to_status_dict()                       
+      114 +        result["total_scenarios"] = status["total_scenarios"] 
+      115 +        result["completed_scenarios"] = status["completed_scen
+          +arios"]                                                       
+      116 +        result["total_progress"] = status["total_progress"]   
+      117 +        result["scenarios"] = status["scenarios"]             
+      118          _batches[self.batch_id] = result
+      119          return result
+      120  
+
+⏺ Now make SimulationRunner resilient to missing scenarios:
+
+⏺ Update(src/components/SimulationRunner.tsx)
+  ⎿  Added 4 lines, removed 1 line
+       5  }
+       6  
+       7  export default function SimulationRunner({ batchStatus }: Props
+          ) {
+       8 -  const { scenarios, completed_scenarios, total_scenarios, tota
+         -l_progress } = batchStatus                                     
+       8 +  const scenarios = batchStatus.scenarios ?? []                
+       9 +  const completed_scenarios = batchStatus.completed_scenarios ?
+         +? 0                                                            
+      10 +  const total_scenarios = batchStatus.total_scenarios ?? 0     
+      11 +  const total_progress = batchStatus.total_progress ?? 0       
+      12  
+      13    return (
+      14      <div className="sim-runner">
+
+⏺ Now fix the polling logic in SimulationPage.tsx to avoid the race — don't set
+  batchStatus to the result dict when completed, jump straight to results step:
+
+⏺ Update(src/pages/SimulationPage.tsx)
+  ⎿  Added 5 lines, removed 2 lines
+      110    const pollBatch = useCallback(async (id: string) => {
+      111      try {
+      112        const data = await api.simulation.batchStatus(id) as unk
+           nown as BatchSimulationStatus
+      113 -      setBatchStatus(data)                                    
+      113  
+      114        if (data.status === 'completed') {
+      115          stopPolling()
+      116 +        // Don't update batchStatus with result-shaped data — 
+          +go straight to results                                        
+      117          try {
+      118            const result = await api.simulation.batchResult(id) 
+           as unknown as BatchSimulationResult
+      119            setBatchResult(result)
+      120            setStep('results')
+      121          } catch {
+      122 -          // result not ready yet                             
+      122 +          // result endpoint not ready yet — show last known s
+          +tatus                                                         
+      123 +          setBatchStatus(data)                                
+      124          }
+      125          setLoading(false)
+      126 +      } else {                                                
+      127 +        setBatchStatus(data)                                  
+      128        }
+      129      } catch (err) {
+      130        setError(err instanceof Error ? err.message : 'Failed to
+            poll batch status')
+
+⏺ Also add a guard in ResultsComparison in case outcomes is missing:
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Update(src/components/ResultsComparison.tsx)
+  ⎿  Added 2 lines, removed 1 line
+      10  
+      11  export default function ResultsComparison({ result, propertyId,
+           askingPrice }: Props) {
+      12    const navigate = useNavigate()
+      13 -  const { outcomes, comparison } = result                      
+      13 +  const outcomes = result.outcomes ?? []                       
+      14 +  const comparison = result.comparison ?? { win_rate: 0, deals_
+         +reached: 0, total_scenarios: 0, average_deal_price: null, best_
+         +scenario: null, best_price: null }                             
+      15  
+      16    const scenarioPaths = outcomes
+      17      .filter((o) => o.price_path && o.price_path.length > 0)
+
+⏺ Let me verify TypeScript still passes:
+
+⏺ Bash(npx tsc --noEmit 2>&1; echo "EXIT: $?")
+  ⎿  EXIT: 0
+
+⏺ TypeScript passes. Here's what was causing the white screen:
+
+  Root cause: When a batch simulation completes, batch_simulator.py replaced the
+   status dict in the store with a result dict that has outcomes/comparison but
+  no scenarios key. The next poll received this result-shaped data, set it as
+  batchStatus, and React re-rendered SimulationRunner which immediately called
+  scenarios.map() on undefined — crashing the entire page.
+
+  Three fixes applied:
+
+  1. Backend (batch_simulator.py): The result dict now includes scenarios,
+  total_scenarios, completed_scenarios, and total_progress merged from the
+  status dict, so the status endpoint always returns usable data regardless of
+  completion state.
+  2. Frontend polling (SimulationPage.tsx): When the poll detects status === 
+  'completed', it now skips setBatchStatus(data) and jumps directly to fetching
+  the result and setting step = 'results'. This avoids the render cycle where
+  SimulationRunner would see result-shaped data.
+  3. Frontend guards (SimulationRunner.tsx, ResultsComparison.tsx): Both
+  components now use ?? [] / ?? 0 defaults so they won't crash even if the data
+  shape is unexpected.
+
+✻ Brewed for 2m 33s
+
+❯ /plan                                                                         
+  ⎿  Enabled plan mode
+
+❯ /context                                                                      
+  ⎿  Context Usage
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛀ ⛀ ⛁   claude-opus-4-6 · 157k/200k tokens (79%)
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ 
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   Estimated usage by category
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ System prompt: 5.7k tokens (2.8%)
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ System tools: 8.5k tokens (4.2%)
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ Custom agents: 80 tokens (0.0%)
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ Skills: 565 tokens (0.3%)
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ Messages: 143.1k tokens (71.5%)
+     ⛀ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 9k (4.6%)
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (16.5%)
+
+     MCP tools · /mcp (loaded on-demand)
+
+     Available
+     └ mcp__ide__getDiagnostics
+     └ mcp__ide__executeCode
+
+     Custom agents · /agents
+
+     Plugin
+     └ prompts.chat:skill-manager: 41 tokens
+     └ prompts.chat:prompt-manager: 39 tokens
+
+     Skills · /skills
+
+     Plugin
+     └ skill-lookup: 68 tokens
+     └ prompt-lookup: 52 tokens
+     └ prompts.chat:skills: 18 tokens
+     └ prompts.chat:prompts: 17 tokens
+
+      Suggestions
+      ℹ Read results using 57.6k tokens (29%) → save ~17.3k
+        Use offset and limit parameters to read only the sections you need. 
+     Avoid 
+        re-reading entire files when you only need a few lines.
