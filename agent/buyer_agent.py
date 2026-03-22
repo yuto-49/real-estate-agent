@@ -21,6 +21,7 @@ class BuyerAgent(BaseAgent):
         self.tool_registry.register("get_comps", get_comps)
         self.tool_registry.register("counter_offer", counter_offer)
         self.tool_registry.register("get_intelligence_report", get_intelligence_report)
+        # get_negotiation_intel is registered dynamically by the simulator
 
     def system_prompt(self) -> str:
         return BUYER_AGENT_PROMPT
@@ -117,6 +118,21 @@ class BuyerAgent(BaseAgent):
                         "report_id": {"type": "string", "description": "Optional specific report ID"},
                     },
                     "required": ["user_id"],
+                },
+            },
+            {
+                "name": "get_negotiation_intel",
+                "description": "Get curated negotiation intelligence from the MiroFish analysis. Returns pricing anchors, risk data, strategy recommendations, market outlook, or comparable sales — distilled for negotiation decisions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "aspect": {
+                            "type": "string",
+                            "enum": ["pricing", "risk", "strategy", "market", "comps", "all"],
+                            "description": "Which aspect of the intelligence report to retrieve. Use 'pricing' for price anchors and comps, 'risk' for Monte Carlo and risk factors, 'strategy' for offer recommendations, 'market' for trends, 'comps' for recent sales, or 'all' for everything.",
+                        },
+                    },
+                    "required": ["aspect"],
                 },
             },
         ]

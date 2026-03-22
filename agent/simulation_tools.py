@@ -157,6 +157,88 @@ def create_simulation_tools(state: SimulationState) -> dict[str, Any]:
         """Pass-through — returns report data from kwargs if provided."""
         return kwargs.get("_report_data", {"status": "no_report_available"})
 
+    async def sim_get_negotiation_intel(
+        aspect: str = "all",
+        **kwargs,
+    ) -> dict:
+        """Return curated negotiation intelligence from the MiroFish report.
+
+        Aspect can be: 'pricing', 'risk', 'strategy', 'market', 'comps', or 'all'.
+        Returns only the data relevant to negotiation decisions, not raw financials.
+        """
+        report = kwargs.get("_report_data")
+        if not report:
+            return {"status": "no_report_available"}
+
+        result: dict[str, Any] = {}
+
+        if aspect in ("pricing", "all"):
+            anchors = report.get("decision_anchors", {})
+            comps = report.get("comparable_sales_analysis", {})
+            result["pricing"] = {
+                "max_recommended_price": anchors.get("max_recommended_price"),
+                "walk_away_price": anchors.get("walk_away_price"),
+                "value_indicator": comps.get("value_indicator"),
+                "median_price_per_sqft": comps.get("median_price_per_sqft"),
+                "subject_price_per_sqft": comps.get("subject_price_per_sqft"),
+                "asking_price": state.asking_price,
+                "current_spread": round(abs(state.seller_latest_price - state.buyer_latest_price), 2),
+            }
+
+        if aspect in ("risk", "all"):
+            mc = report.get("monte_carlo_results", {})
+            risks = report.get("risk_assessment", [])
+            result["risk"] = {
+                "probability_of_loss": mc.get("probability_of_loss"),
+                "mean_irr_pct": mc.get("mean_irr"),
+                "irr_range": mc.get("irr_distribution", {}),
+                "key_risks": [
+                    {"factor": r.get("factor"), "severity": r.get("severity"), "probability": r.get("probability")}
+                    for r in risks[:4]
+                ],
+            }
+
+        if aspect in ("strategy", "all"):
+            strategies = report.get("strategy_comparison", [])
+            result["strategy"] = {
+                "options": [
+                    {
+                        "name": s.get("name"),
+                        "recommended_offer_pct": s.get("recommended_offer_pct"),
+                        "success_probability": s.get("success_probability"),
+                        "risk_level": s.get("risk_level"),
+                    }
+                    for s in strategies
+                ],
+            }
+
+        if aspect in ("market", "all"):
+            market = report.get("market_outlook", {})
+            timing = report.get("timing_recommendation", {})
+            result["market"] = {
+                "trend": market.get("trend"),
+                "confidence": market.get("confidence"),
+                "projected_appreciation_pct": market.get("projected_appreciation_pct"),
+                "health_score": market.get("market_health_score"),
+                "timing_action": timing.get("action"),
+                "timing_reasoning": timing.get("reasoning", "")[:200],
+            }
+
+        if aspect in ("comps", "all"):
+            comps = report.get("comparable_sales_analysis", {})
+            result["comps"] = {
+                "value_indicator": comps.get("value_indicator"),
+                "median_price_per_sqft": comps.get("median_price_per_sqft"),
+                "comparables_count": comps.get("comparables_count"),
+                "recent_sales": [
+                    {"address": c.get("address"), "sale_price": c.get("sale_price"),
+                     "price_per_sqft": c.get("price_per_sqft"), "days_on_market": c.get("days_on_market")}
+                    for c in comps.get("comparables", [])[:5]
+                ],
+            }
+
+        return result if result else {"status": "no_data_for_aspect", "aspect": aspect}
+
     return {
         "place_offer": sim_place_offer,
         "counter_offer": sim_counter_offer,
@@ -164,6 +246,7 @@ def create_simulation_tools(state: SimulationState) -> dict[str, Any]:
         "evaluate_offer": sim_evaluate_offer,
         "mediate_negotiation": sim_mediate_negotiation,
         "get_intelligence_report": sim_get_intelligence_report,
+        "get_negotiation_intel": sim_get_negotiation_intel,
         # Pass-through tools that don't need simulation
         "search_properties": _noop_tool("search_properties"),
         "analyze_neighborhood": _noop_tool("analyze_neighborhood"),

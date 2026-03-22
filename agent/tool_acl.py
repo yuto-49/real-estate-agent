@@ -21,9 +21,11 @@ TOOL_PERMISSIONS: MappingProxyType[AgentRole, frozenset[str]] = MappingProxyType
         "search_properties",
         "analyze_neighborhood",
         "place_offer",
+        "accept_offer",
         "get_comps",
         "counter_offer",
         "get_intelligence_report",
+        "get_negotiation_intel",
     }),
     AgentRole.SELLER: frozenset({
         "list_property",
@@ -32,6 +34,7 @@ TOOL_PERMISSIONS: MappingProxyType[AgentRole, frozenset[str]] = MappingProxyType
         "accept_offer",
         "counter_offer",
         "get_intelligence_report",
+        "get_negotiation_intel",
     }),
     AgentRole.BROKER: frozenset({
         "mediate_negotiation",
@@ -41,6 +44,7 @@ TOOL_PERMISSIONS: MappingProxyType[AgentRole, frozenset[str]] = MappingProxyType
         "get_comps",
         "analyze_neighborhood",
         "get_intelligence_report",
+        "get_negotiation_intel",
     }),
     AgentRole.ASSISTANT: frozenset({
         "search_properties",

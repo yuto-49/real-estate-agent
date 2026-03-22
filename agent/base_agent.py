@@ -20,7 +20,7 @@ class BaseAgent(ABC):
 
     def __init__(self, client: anthropic.AsyncAnthropic, role: AgentRole | None = None):
         self.client = client
-        self.model = "claude-sonnet-4-20250514"
+        self.model = "claude-sonnet-4-6"
         self.max_tokens = 4096
         self.role = role
         self.tool_registry = ToolRegistry()

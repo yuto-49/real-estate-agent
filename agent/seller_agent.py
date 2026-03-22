@@ -94,4 +94,19 @@ class SellerAgent(BaseAgent):
                     "required": ["user_id"],
                 },
             },
+            {
+                "name": "get_negotiation_intel",
+                "description": "Get curated negotiation intelligence from the MiroFish analysis. Returns pricing anchors, market outlook, or comparable sales — distilled for negotiation decisions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "aspect": {
+                            "type": "string",
+                            "enum": ["pricing", "risk", "strategy", "market", "comps", "all"],
+                            "description": "Which aspect of the intelligence report to retrieve.",
+                        },
+                    },
+                    "required": ["aspect"],
+                },
+            },
         ]

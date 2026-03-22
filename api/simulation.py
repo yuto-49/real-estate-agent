@@ -104,6 +104,17 @@ async def start_simulation(
     if req.report_id:
         report_data = await _fetch_report_data(req.report_id)
 
+    # If we have report data, let it influence the config
+    if report_data:
+        overrides = NegotiationSimulator.derive_config_from_report(report_data, req.asking_price)
+        # Only apply overrides for fields the user didn't explicitly set
+        # (strategy and initial_offer are the main ones derived from report)
+        if "strategy" in overrides and req.strategy == "balanced":
+            config["strategy"] = overrides["strategy"]
+        if "initial_offer" in overrides:
+            # Use report-derived offer if user's offer matches default percentage
+            config["initial_offer"] = overrides["initial_offer"]
+
     simulator = NegotiationSimulator(config=config, report_data=report_data)
 
     background_tasks.add_task(_run_simulation, simulator)
@@ -112,6 +123,70 @@ async def start_simulation(
         "id": simulator.sim_id,
         "status": "pending",
         "message": "Simulation started. Poll /status/{id} for progress.",
+    }
+
+
+@router.post("/start-from-report", status_code=202)
+async def start_simulation_from_report(
+    report_id: str,
+    property_id: str,
+    asking_price: float,
+    seller_minimum: float,
+    buyer_user_id: str,
+    seller_user_id: str = "",
+    max_rounds: int = 15,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    """Start a simulation fully seeded by a MiroFish intelligence report.
+
+    The report's decision_anchors, strategy_comparison, market_outlook, and
+    risk_assessment are used to automatically derive:
+    - Initial offer price
+    - Buyer maximum budget
+    - Negotiation strategy (aggressive/balanced/conservative)
+    - Scenario constraints (urgency, risk tolerance)
+
+    This implements the MiroFish seed-doc → negotiation bridge.
+    """
+    report_data = await _fetch_report_data(report_id)
+    if not report_data:
+        raise HTTPException(status_code=404, detail="Report not found or not completed")
+
+    # Derive full config from report
+    overrides = NegotiationSimulator.derive_config_from_report(report_data, asking_price)
+
+    config = {
+        "property_id": property_id,
+        "buyer_user_id": buyer_user_id,
+        "seller_user_id": seller_user_id,
+        "asking_price": asking_price,
+        "seller_minimum": seller_minimum,
+        "buyer_maximum": overrides.get("buyer_maximum", asking_price * 1.05),
+        "initial_offer": overrides.get("initial_offer", asking_price * 0.93),
+        "strategy": overrides.get("strategy", "balanced"),
+        "max_rounds": min(overrides.get("max_rounds", max_rounds), max_rounds),
+    }
+
+    scenario_constraints = overrides.get("scenario_constraints")
+
+    simulator = NegotiationSimulator(
+        config=config,
+        report_data=report_data,
+        scenario_constraints=scenario_constraints,
+    )
+
+    background_tasks.add_task(_run_simulation, simulator)
+
+    return {
+        "id": simulator.sim_id,
+        "status": "pending",
+        "derived_config": {
+            "strategy": config["strategy"],
+            "initial_offer": config["initial_offer"],
+            "buyer_maximum": config["buyer_maximum"],
+            "max_rounds": config["max_rounds"],
+        },
+        "message": "Report-seeded simulation started. Poll /status/{id} for progress.",
     }
 
 
