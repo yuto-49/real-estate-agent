@@ -24,7 +24,7 @@ A full-stack real estate workflow app that combines a FastAPI backend, React fro
 - **Typical flow:** UI action -> API endpoint -> service/orchestrator -> DB/Redis/external intelligence -> status/results returned to UI.
 
 ## How to Run (Minimal)
-1. `docker compose up -d db redis`
+1. `docker compose -f ~/docker-shared-services.yml up -d postgres redis && bash scripts/init-shared-db.sh`
 2. `pip install -e ".[dev]"`
 3. `cp .env.example .env`
 4. `alembic upgrade head && python scripts/seed_properties.py`

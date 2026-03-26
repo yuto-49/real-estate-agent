@@ -15,17 +15,20 @@ Full-stack real estate transaction platform with AI agents (Claude API) for buye
 
 ### 1. Start infrastructure
 
+This project uses a shared Docker services stack (`~/docker-shared-services.yml`) so multiple projects reuse the same Postgres and Redis.
+
 ```bash
-cd real-estate-agent
+# Start shared Postgres and Redis (if not already running)
+docker compose -f ~/docker-shared-services.yml up -d postgres redis
 
-# Start PostgreSQL and Redis in Docker
-docker compose up -d db redis
+# Create the 'realestate' database (first time only)
+bash scripts/init-shared-db.sh
 
-# Verify they're healthy
-docker compose ps
+# Verify containers are running
+docker ps --filter name=dev-postgres --filter name=dev-redis
 ```
 
-Expected output: both `db` and `redis` show `healthy` status.
+Expected output: `dev-postgres` and `dev-redis` containers are running.
 
 ### 2. Install Python dependencies
 
@@ -63,7 +66,7 @@ Key settings in `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/realestate` | PostgreSQL connection |
+| `DATABASE_URL` | `postgresql+asyncpg://dev:dev@localhost:5432/realestate` | PostgreSQL connection |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection |
 | `ANTHROPIC_API_KEY` | (empty) | Required for agent conversations |
 | `TOMTOM_API_KEY` | (empty) | Geocoding & neighborhood analysis (free: 2,500 req/day) |
@@ -240,8 +243,9 @@ docker compose -f docker-compose.dev.yml up
 # Production (replicated, resource-limited)
 docker compose -f docker-compose.prod.yml up -d
 
-# Just infrastructure (run app locally)
-docker compose up -d db redis
+# Just infrastructure (run app locally via shared services)
+docker compose -f ~/docker-shared-services.yml up -d postgres redis
+bash scripts/init-shared-db.sh
 
 # View logs
 docker compose logs -f app

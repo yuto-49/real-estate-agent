@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     attom_api_key: str = ""
 
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/realestate"
+    database_url: str = "postgresql+asyncpg://dev:dev@localhost:5432/realestate"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

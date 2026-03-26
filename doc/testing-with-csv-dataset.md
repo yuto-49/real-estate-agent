@@ -175,11 +175,11 @@ if __name__ == "__main__":
 ```bash
 cd real-estate-agent
 
-# 1. Start PostgreSQL and Redis
-docker compose up -d db redis
+# 1. Start shared PostgreSQL and Redis
+docker compose -f ~/docker-shared-services.yml up -d postgres redis
 
-# 2. Wait for healthy status
-docker compose ps
+# 2. Create realestate database (first time only)
+bash scripts/init-shared-db.sh
 
 # 3. Configure environment
 cp .env.example .env
@@ -190,7 +190,7 @@ Required `.env` values:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...          # required for agent conversations
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/realestate
+DATABASE_URL=postgresql+asyncpg://dev:dev@localhost:5432/realestate
 REDIS_URL=redis://localhost:6379/0
 MARKET_DATA_PROVIDER=mock             # keep mock — CSV provides the listings
 ENVIRONMENT=development
