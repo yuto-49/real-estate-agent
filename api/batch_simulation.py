@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 from services.persona_generator import generate_personas
 from services.batch_simulator import BatchSimulator, get_batch
 from services.scenario_variants import list_variants
+from services.logging import get_logger
 from api.simulation import _fetch_report_data, persist_simulation_result
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -84,30 +87,47 @@ async def start_batch(
     )
 
     async def _run_and_persist():
-        result = await batch.run_all()
-        # Persist each scenario outcome to DB
-        buyer_user_id = req.buyer_user_id
-        if buyer_user_id:
-            for outcome in result.get("outcomes", []):
-                await persist_simulation_result(
-                    user_id=buyer_user_id,
-                    property_id=req.property_id,
-                    config={
-                        "asking_price": req.asking_price,
-                        "initial_offer": req.initial_offer,
-                        "max_rounds": outcome.get("max_rounds", outcome.get("rounds_completed", 10)),
-                        "strategy": req.strategy,
-                    },
-                    result={
-                        "outcome": outcome.get("outcome", "unknown"),
-                        "final_price": outcome.get("final_price"),
-                        "current_round": outcome.get("rounds_completed", 0),
-                        "summary": {"final_spread": outcome.get("final_spread", 0)},
-                        "price_path": outcome.get("price_path", []),
-                    },
-                    batch_id=batch.batch_id,
-                    scenario_name=outcome.get("scenario"),
-                )
+        try:
+            result = await batch.run_all()
+            # Persist each scenario outcome to DB
+            buyer_user_id = req.buyer_user_id
+            if buyer_user_id:
+                for outcome in result.get("outcomes", []):
+                    try:
+                        await persist_simulation_result(
+                            user_id=buyer_user_id,
+                            property_id=req.property_id,
+                            config={
+                                "asking_price": req.asking_price,
+                                "initial_offer": req.initial_offer,
+                                "max_rounds": outcome.get("max_rounds", outcome.get("rounds_completed", 10)),
+                                "strategy": req.strategy,
+                            },
+                            result={
+                                "outcome": outcome.get("outcome", "unknown"),
+                                "final_price": outcome.get("final_price"),
+                                "current_round": outcome.get("rounds_completed", 0),
+                                "summary": {"final_spread": outcome.get("final_spread", 0)},
+                                "price_path": outcome.get("price_path", []),
+                                "transcript": outcome.get("transcript", []),
+                            },
+                            batch_id=batch.batch_id,
+                            scenario_name=outcome.get("scenario"),
+                        )
+                    except Exception as persist_err:
+                        logger.error(
+                            "batch.persist_outcome_failed",
+                            batch_id=batch.batch_id,
+                            scenario=outcome.get("scenario"),
+                            error=str(persist_err),
+                        )
+        except Exception as e:
+            logger.error(
+                "batch.run_failed",
+                batch_id=batch.batch_id,
+                error=str(e),
+                exc_info=True,
+            )
 
     background_tasks.add_task(_run_and_persist)
 

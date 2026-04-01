@@ -189,3 +189,75 @@ export interface BatchSimulationResult {
   }
   created_at: string
 }
+
+// ── Visualization & Replay Types ──
+
+export interface MapOverlay {
+  overlay_type: string
+  center_lat: number
+  center_lng: number
+  radius_meters: number
+  value: number
+  label: string
+  color: string | null
+  metadata: Record<string, unknown>
+}
+
+export interface PropertyVisualization {
+  property_id: string
+  address: string
+  latitude: number
+  longitude: number
+  asking_price: number
+  property_type: string | null
+  overlays: MapOverlay[]
+  comparable_properties: Property[]
+  simulation_ids: string[]
+}
+
+export interface ConversationEvent {
+  round_number: number
+  timestamp: string
+  role: 'system' | 'buyer' | 'seller' | 'broker'
+  event_type: string
+  content: string
+  numerical_state: {
+    buyer_offer?: number
+    seller_ask?: number
+    spread?: number
+    status?: string
+  }
+  tool_calls: Array<Record<string, unknown>>
+}
+
+export interface SimulationReplay {
+  simulation_id: string
+  batch_id: string | null
+  scenario_name: string | null
+  property_id: string
+  asking_price: number
+  initial_offer: number
+  max_rounds: number
+  events: ConversationEvent[]
+  final_outcome: {
+    status: string
+    final_price: number | null
+    rounds_completed: number
+    spread: number
+    buyer_final: number
+    seller_final: number
+  }
+  available_scenarios: string[]
+}
+
+export interface SimulationUIState {
+  selectedPropertyId: string | null
+  activeSimulationId: string | null
+  activeScenario: string | null
+  currentRoundIndex: number
+  isPopupOpen: boolean
+  isReplayPlaying: boolean
+  mapCenter: { lat: number; lng: number } | null
+  propertyVisualization: PropertyVisualization | null
+  simulationReplay: SimulationReplay | null
+}

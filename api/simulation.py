@@ -10,8 +10,11 @@ from api.schemas import (
     SimulationResultListResponse,
 )
 from services.negotiation_simulator import NegotiationSimulator, get_simulation, list_simulations
+from services.logging import get_logger
 from sqlalchemy import select
 from db.models import MiroFishReport, SimulationResult
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -56,7 +59,10 @@ async def persist_simulation_result(
         rounds_completed=result.get("current_round", 0),
         max_rounds=config.get("max_rounds", 10),
         strategy=config.get("strategy", "balanced"),
-        summary=result.get("summary", {}),
+        summary={
+            **result.get("summary", {}),
+            "transcript": result.get("transcript", []),
+        },
         price_path=result.get("price_path", []),
     )
 
@@ -69,15 +75,23 @@ async def persist_simulation_result(
 
 async def _run_simulation(simulator: NegotiationSimulator) -> None:
     """Background task to run the simulation and persist results."""
-    result = await simulator.run()
-    # Persist to DB if we have a buyer_user_id
-    buyer_user_id = simulator.config.get("buyer_user_id")
-    if buyer_user_id:
-        await persist_simulation_result(
-            user_id=buyer_user_id,
-            property_id=simulator.config.get("property_id", ""),
-            config=simulator.config,
-            result=result,
+    try:
+        result = await simulator.run()
+        # Persist to DB if we have a buyer_user_id
+        buyer_user_id = simulator.config.get("buyer_user_id")
+        if buyer_user_id:
+            await persist_simulation_result(
+                user_id=buyer_user_id,
+                property_id=simulator.config.get("property_id", ""),
+                config=simulator.config,
+                result=result,
+            )
+    except Exception as e:
+        logger.error(
+            "simulation.background_task_failed",
+            sim_id=simulator.sim_id,
+            error=str(e),
+            exc_info=True,
         )
 
 

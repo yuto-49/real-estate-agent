@@ -17,6 +17,9 @@ from api.webhooks import router as webhooks_router
 from api.agent import router as agent_router
 from api.simulation import router as simulation_router
 from api.batch_simulation import router as batch_simulation_router
+from api.social_simulation import router as social_sim_router
+from api.households import router as households_router
+from api.visualization import router as visualization_router
 from db.database import engine
 from middleware.correlation import CorrelationIdMiddleware
 from services.logging import setup_logging
@@ -71,6 +74,9 @@ app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(agent_router, prefix="/api/agent", tags=["agent"])
 app.include_router(simulation_router, prefix="/api/simulation", tags=["simulation"])
 app.include_router(batch_simulation_router, prefix="/api/simulation", tags=["batch-simulation"])
+app.include_router(social_sim_router, prefix="/api/social-sim", tags=["social-simulation"])
+app.include_router(households_router, prefix="/api/households", tags=["households"])
+app.include_router(visualization_router, prefix="/api/visualization", tags=["visualization"])
 
 
 @app.get("/health")

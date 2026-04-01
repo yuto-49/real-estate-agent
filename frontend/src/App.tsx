@@ -5,6 +5,7 @@ import AnalysisPage from './pages/AnalysisPage'
 import SimulationPage from './pages/SimulationPage'
 import NegotiationPage from './pages/NegotiationPage'
 import UserProfilePage from './pages/UserProfilePage'
+import SimulationVisualizePage from './pages/SimulationVisualizePage'
 import SystemDrawer from './components/SystemDrawer'
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/analysis/:id?" element={<AnalysisPage />} />
           <Route path="/simulation" element={<SimulationPage />} />
+          <Route path="/simulation/visualize/:propertyId" element={<SimulationVisualizePage />} />
           <Route path="/negotiate/:id?" element={<NegotiationPage />} />
           <Route path="/profile/:id?" element={<UserProfilePage />} />
         </Routes>

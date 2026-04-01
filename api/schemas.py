@@ -259,6 +259,162 @@ class SimulationResultListResponse(BaseModel):
 
 # ── Event schemas ──
 
+# ── Household schemas ──
+
+class HouseholdResponse(BaseModel):
+    id: str
+    name: str
+    zip_code: str
+    income_band: str
+    household_size: int = 2
+    num_children: int = 0
+    primary_language: str = "english"
+    age_bracket: str = "30-45"
+    housing_type: str = "renter"
+    has_housing_voucher: int = 0
+    monthly_housing_cost: float = 0
+    monthly_income: float = 0
+    eviction_risk: float = 0.0
+    housing_market_sentiment: float = 0.0
+    policy_support_score: float = 0.0
+    neighborhood_satisfaction: float = 0.5
+    influence_weight: float = 0.5
+    communication_style: str = "passive"
+    social_connections: int = 0
+    opinion_stability: float = 0.5
+    persona_data: dict = Field(default_factory=dict)
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class HouseholdListResponse(BaseModel):
+    households: list[HouseholdResponse]
+    count: int
+
+
+# ── Social Simulation schemas ──
+
+class SocialSimStartRequest(BaseModel):
+    user_id: str
+    zip_code: str | None = None
+    income_band: str | None = None
+    max_rounds: int = 10
+    topics: list[str] = Field(
+        default_factory=lambda: ["market_prices", "eviction_policy", "voucher_program", "neighborhood_safety"]
+    )
+
+
+class SocialSimStatusResponse(BaseModel):
+    id: str
+    status: str
+    current_round: int = 0
+    total_rounds: int = 10
+    action_count: int = 0
+    created_at: datetime | None = None
+
+
+class SocialSimActionResponse(BaseModel):
+    id: str
+    round_num: int
+    household_id: str
+    action_type: str
+    topic: str
+    content: str | None = None
+    sentiment_value: float | None = None
+    influenced_by: list[str] = Field(default_factory=list)
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class SocialSimResultResponse(BaseModel):
+    id: str
+    status: str
+    total_rounds: int
+    current_round: int
+    narrative_output: dict = Field(default_factory=dict)
+    sentiment_delta: dict = Field(default_factory=dict)
+    report_id: str | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class SocialSimTimelineEntry(BaseModel):
+    round_num: int
+    topic: str
+    avg_sentiment: float
+    action_count: int
+    dominant_stance: str
+
+
+class SocialSimTimelineResponse(BaseModel):
+    run_id: str
+    timeline: list[SocialSimTimelineEntry]
+
+
+class SocialSimGenerateReportRequest(BaseModel):
+    property_id: str
+    household_id: str
+
+
+# ── Visualization & Replay schemas ──
+
+class MapOverlay(BaseModel):
+    overlay_type: str  # "sentiment_zone", "risk_zone", "comparable", "household_cluster"
+    center_lat: float
+    center_lng: float
+    radius_meters: float = 500
+    value: float = 0.0
+    label: str = ""
+    color: str | None = None
+    metadata: dict = Field(default_factory=dict)
+
+
+class PropertyVisualizationResponse(BaseModel):
+    property_id: str
+    address: str
+    latitude: float
+    longitude: float
+    asking_price: float
+    property_type: str | None = None
+    overlays: list[MapOverlay] = Field(default_factory=list)
+    comparable_properties: list[PropertyResponse] = Field(default_factory=list)
+    simulation_ids: list[str] = Field(default_factory=list)
+
+
+class ConversationEvent(BaseModel):
+    round_number: int
+    timestamp: str
+    role: str  # "system", "buyer", "seller", "broker"
+    event_type: str  # "message", "offer", "counter_offer", "acceptance", "rejection", "broker_intervention"
+    content: str
+    numerical_state: dict = Field(default_factory=dict)
+    tool_calls: list[dict] = Field(default_factory=list)
+
+
+class SimulationReplayResponse(BaseModel):
+    simulation_id: str
+    batch_id: str | None = None
+    scenario_name: str | None = None
+    property_id: str
+    asking_price: float
+    initial_offer: float
+    max_rounds: int
+    events: list[ConversationEvent] = Field(default_factory=list)
+    final_outcome: dict = Field(default_factory=dict)
+    available_scenarios: list[str] = Field(default_factory=list)
+
+
+class SimulationReplayListResponse(BaseModel):
+    replays: list[SimulationReplayResponse]
+    count: int
+
+
+# ── Event schemas ──
+
 class DomainEventResponse(BaseModel):
     id: str
     correlation_id: str | None = None

@@ -187,6 +187,16 @@ export const api = {
       price_path: Array<{ round: number; role: string; price: number }>; created_at: string;
     }>(`/simulation/results/${id}`),
   },
+  visualization: {
+    getProperty: (propertyId: string) =>
+      fetchJSON<import('./types').PropertyVisualization>(`/visualization/property/${propertyId}`),
+    getReplay: (simulationId: string) =>
+      fetchJSON<import('./types').SimulationReplay>(`/visualization/replay/${simulationId}`),
+    getBatchReplays: (batchId: string) =>
+      fetchJSON<{ replays: import('./types').SimulationReplay[]; count: number }>(`/visualization/replay/batch/${batchId}`),
+    getPropertyReplays: (propertyId: string, limit = 5) =>
+      fetchJSON<{ replays: import('./types').SimulationReplay[]; count: number }>(`/visualization/replay/by-property/${propertyId}?limit=${limit}`),
+  },
   system: {
     health: () => fetchRootJSON<{ status: string; version: string }>('/health'),
     metrics: () => fetchRootJSON<{

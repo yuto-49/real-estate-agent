@@ -203,6 +203,7 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
           if (finalPrice) html += `<br/>Final: $${finalPrice.toLocaleString()} (${discount > 0 ? discount + '% below' : Math.abs(discount) + '% above'} asking)`
           html += `<br/>Rounds: ${rounds}`
           if (runs > 0) html += `<br/>Simulation Runs: ${runs} (Deals: ${deals})`
+          html += `<br/><a href="/simulation/visualize/${props.id}" style="color:#3b82f6;font-size:12px;text-decoration:underline">View Replay</a>`
         } else {
           html += `<br/><em style="color:#999">No simulation run</em>`
         }

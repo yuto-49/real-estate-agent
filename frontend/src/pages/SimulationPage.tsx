@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../utils/api'
 import type { AgentPersona, ScenarioVariant, BatchSimulationStatus, BatchSimulationResult, Property } from '../utils/types'
 import PersonaBuilder from '../components/PersonaBuilder'
@@ -16,6 +17,7 @@ interface UserOption {
 }
 
 export default function SimulationPage() {
+  const navigate = useNavigate()
   // Step: 'configure' | 'running' | 'results'
   const [step, setStep] = useState<'configure' | 'running' | 'results'>('configure')
 
@@ -358,11 +360,22 @@ export default function SimulationPage() {
 
       {/* STEP 3: Results */}
       {step === 'results' && batchResult && (
-        <ResultsComparison
-          result={batchResult}
-          propertyId={propertyId}
-          askingPrice={askingPrice}
-        />
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+            <button
+              className="primary-btn"
+              onClick={() => navigate(`/simulation/visualize/${propertyId}?batch=${batchResult.batch_id}`)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              View Replay on Map
+            </button>
+          </div>
+          <ResultsComparison
+            result={batchResult}
+            propertyId={propertyId}
+            askingPrice={askingPrice}
+          />
+        </>
       )}
     </div>
   )
