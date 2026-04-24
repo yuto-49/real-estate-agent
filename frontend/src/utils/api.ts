@@ -1,3 +1,18 @@
+import type {
+  Negotiation,
+  NegotiationAcceptRequest,
+  NegotiationMutationResponse,
+  NegotiationOfferRequest,
+  NegotiationSession,
+  SocialSimAction,
+  SocialSimResult,
+  SocialSimStartRequest,
+  SocialSimStartResponse,
+  SocialSimStatus,
+  SocialSimTimelineResponse,
+  NegotiationTransitionRequest,
+} from './types'
+
 const BASE_URL = '/api'
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
@@ -34,12 +49,14 @@ export const api = {
   },
   negotiations: {
     start: (data: { property_id: string; buyer_id: string; seller_id: string }) =>
-      fetchJSON('/negotiations/', { method: 'POST', body: JSON.stringify(data) }),
-    get: (id: string) => fetchJSON(`/negotiations/${id}`),
-    offer: (id: string, data: { offer_price: number; from_role: string; message?: string }) =>
-      fetchJSON(`/negotiations/${id}/offer`, { method: 'POST', body: JSON.stringify(data) }),
-    accept: (id: string, data: { from_role: string; final_price: number }) =>
-      fetchJSON(`/negotiations/${id}/accept`, { method: 'POST', body: JSON.stringify(data) }),
+      fetchJSON<Negotiation>('/negotiations/', { method: 'POST', body: JSON.stringify(data) }),
+    get: (id: string) => fetchJSON<NegotiationSession>(`/negotiations/${id}`),
+    offer: (id: string, data: NegotiationOfferRequest) =>
+      fetchJSON<NegotiationMutationResponse>(`/negotiations/${id}/offer`, { method: 'POST', body: JSON.stringify(data) }),
+    accept: (id: string, data: NegotiationAcceptRequest) =>
+      fetchJSON<NegotiationMutationResponse>(`/negotiations/${id}/accept`, { method: 'POST', body: JSON.stringify(data) }),
+    transition: (id: string, data: NegotiationTransitionRequest) =>
+      fetchJSON<NegotiationMutationResponse>(`/negotiations/${id}/transition`, { method: 'POST', body: JSON.stringify(data) }),
   },
   reports: {
     generate: (data: {
@@ -117,6 +134,24 @@ export const api = {
   agent: {
     message: (data: { user_id: string; role: string; message: string; report_id?: string | null }) =>
       fetchJSON<{ response: string; tool_calls: Array<{ tool: string; input: unknown; output: unknown }>; error?: string | null }>('/agent/message', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  socialSim: {
+    start: (data: SocialSimStartRequest) =>
+      fetchJSON<SocialSimStartResponse>('/social-sim/start', { method: 'POST', body: JSON.stringify(data) }),
+    status: (runId: string) => fetchJSON<SocialSimStatus>(`/social-sim/${runId}/status`),
+    result: (runId: string) => fetchJSON<SocialSimResult>(`/social-sim/${runId}/result`),
+    actions: (runId: string, params?: { round_num?: number; topic?: string; limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.round_num != null) search.set('round_num', String(params.round_num))
+      if (params?.topic) search.set('topic', params.topic)
+      if (params?.limit != null) search.set('limit', String(params.limit))
+      if (params?.offset != null) search.set('offset', String(params.offset))
+      const query = search.toString()
+      return fetchJSON<SocialSimAction[]>(`/social-sim/${runId}/actions${query ? `?${query}` : ''}`)
+    },
+    timeline: (runId: string) => fetchJSON<SocialSimTimelineResponse>(`/social-sim/${runId}/timeline`),
+    generateReport: (runId: string, data: { property_id: string; household_id: string }) =>
+      fetchJSON<{ report_id: string; message: string }>(`/social-sim/${runId}/generate-report`, { method: 'POST', body: JSON.stringify(data) }),
   },
   simulation: {
     start: (data: {

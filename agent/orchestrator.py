@@ -17,7 +17,7 @@ from agent.buyer_agent import BuyerAgent
 from agent.seller_agent import SellerAgent
 from agent.broker_agent import BrokerAgent
 from agent.assistant_agent import AssistantAgent
-from agent.negotiation import NegotiationTimer
+from domain.decisions.negotiation import NegotiationTimer
 from db.models import Negotiation as NegotiationModel, NegotiationStatus, MiroFishReport
 from middleware.correlation import get_correlation_id
 from services.event_store import EventStore

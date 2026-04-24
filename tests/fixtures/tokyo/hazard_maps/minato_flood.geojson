@@ -1,0 +1,52 @@
+{
+  "type": "FeatureCollection",
+  "name": "minato_flood_hazard_sample",
+  "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+  "metadata": {
+    "source": "synthesized from 国土数値情報 洪水浸水想定区域 schema",
+    "dataset": "A31-20-13",
+    "reference_year": 2020
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "shichouson_code": "13103",
+        "shichouson_name": "港区",
+        "hazard_type": "flood",
+        "shinsui_rank": "0.5m-3m",
+        "scenario": "想定最大規模"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [139.7360, 35.6525],
+          [139.7405, 35.6525],
+          [139.7405, 35.6565],
+          [139.7360, 35.6565],
+          [139.7360, 35.6525]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "shichouson_code": "13103",
+        "shichouson_name": "港区",
+        "hazard_type": "tsunami",
+        "shinsui_rank": "0m-0.3m",
+        "scenario": "南海トラフ"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [139.7440, 35.6460],
+          [139.7495, 35.6460],
+          [139.7495, 35.6500],
+          [139.7440, 35.6500],
+          [139.7440, 35.6460]
+        ]]
+      }
+    }
+  ]
+}

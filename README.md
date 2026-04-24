@@ -276,10 +276,10 @@ real-estate-agent/
 | `GET` | `/api/reports/{id}` | Get completed report |
 | `POST` | `/api/webhooks/mirofish` | MiroFish completion callback |
 | `WS` | `/ws/negotiation/{id}` | Real-time negotiation updates |
-| `POST` | `/api/social-sim/start` | Start social behavior simulation |
+| `POST` | `/api/social-sim/start` | Start a social reaction run |
 | `GET` | `/api/social-sim/status/{id}` | Check simulation status |
 | `GET` | `/api/social-sim/result/{id}` | Get simulation result |
-| `POST` | `/api/social-sim/generate-report` | Generate MiroFish report from simulation |
+| `POST` | `/api/social-sim/generate-report` | Generate a MiroFish report projection from a run |
 
 ---
 
@@ -294,8 +294,11 @@ User/Frontend --> FastAPI API --> Orchestrator --> Claude Agents (buyer/seller/b
                       |
                Redis Pub/Sub --> WebSocket --> React Frontend
 
-Social Simulation:
-  Synthetic Households --> Social Graph --> Opinion Rounds --> Narrative Clusters --> MiroFish Report --> Negotiation
+Layered Market Knowledge System:
+  Spatial Market State --> Actor State --> Social Reactions --> Decisions --> Outcomes
+                                           |                                 |
+                                           +--> Report Projections ----------+
+                                           +--> Negotiation Sessions --------+
 ```
 
 ### Key Design Patterns
@@ -322,6 +325,7 @@ IDLE -> OFFER_PENDING -> COUNTER_PENDING -> ... -> ACCEPTED -> CONTRACT_PHASE ->
 - Deadlines: 48h offers, 72h contracts, 10d inspection, 30d closing
 
 See [architecture.md](architecture.md) for the full system design, workforce housing model, legal/compliance audit trail, and simulation engine details.
+See [doc/layered-market-knowledge-system.md](doc/layered-market-knowledge-system.md) for the updated layered architecture direction and [SOCIAL_SIMULATION_IMPLEMENTATION.md](SOCIAL_SIMULATION_IMPLEMENTATION.md) for the current roadmap.
 
 ---
 

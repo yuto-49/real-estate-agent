@@ -265,6 +265,7 @@ Round N:
   For each active household:
     1. Gather neighbor opinions (weighted by edge type + influence)
     2. Claude API generates stance update given social context
+
     3. Apply opinion drift formula:
        new = (stability × current) + ((1 - stability) × neighbor_avg) + LLM_delta
     4. Record action to DB

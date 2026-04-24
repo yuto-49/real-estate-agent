@@ -1,0 +1,96 @@
+{
+  "fixture_source": "synthetic",
+  "schema_version": "reins-baibai-bukken-v1",
+  "listings": [
+    {
+      "bukken_bangou": "SYN-13104-0001",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "mansion",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "新宿区",
+        "chome": "西新宿六丁目",
+        "banchi_go": "8-1",
+        "building_name": "新宿センタービューレジデンス"
+      },
+      "latitude": 35.6923,
+      "longitude": 139.6923,
+      "baibai_kakaku_yen": 118000000,
+      "menseki_m2": 55.2,
+      "madori": "1LDK",
+      "kaisuu": "30/45",
+      "chikunen_seireki": 2016,
+      "kouzou": "RC",
+      "youto_chiiki": "商業地域",
+      "kanrihi_yen": 28500,
+      "shuuzenzumitatekin_yen": 14600,
+      "rinshii_eki": [
+        {"sen": "都営大江戸線", "eki": "西新宿五丁目", "toho_bun": 4},
+        {"sen": "JR山手線", "eki": "新宿", "toho_bun": 12}
+      ],
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-005",
+      "touroku_date": "2026-04-01"
+    },
+    {
+      "bukken_bangou": "SYN-13104-0002",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "mansion",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "新宿区",
+        "chome": "神楽坂四丁目",
+        "banchi_go": "2-11",
+        "building_name": "神楽坂レジデンス"
+      },
+      "latitude": 35.7009,
+      "longitude": 139.7400,
+      "baibai_kakaku_yen": 68000000,
+      "menseki_m2": 42.1,
+      "madori": "1LDK",
+      "kaisuu": "3/6",
+      "chikunen_seireki": 1979,
+      "kouzou": "RC",
+      "youto_chiiki": "近隣商業地域",
+      "kanrihi_yen": 14000,
+      "shuuzenzumitatekin_yen": 6500,
+      "rinshii_eki": [
+        {"sen": "東京メトロ東西線", "eki": "神楽坂", "toho_bun": 5}
+      ],
+      "kyuutaishin_flag": true,
+      "taishin_shindan": "実施済・補強工事未実施",
+      "torihiki_tokki": "旧耐震・リフォーム済",
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-005",
+      "touroku_date": "2026-01-22"
+    },
+    {
+      "bukken_bangou": "SYN-13104-0003",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "shuueki",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "新宿区",
+        "chome": "高田馬場三丁目",
+        "banchi_go": "14-22"
+      },
+      "latitude": 35.7148,
+      "longitude": 139.7038,
+      "baibai_kakaku_yen": 185000000,
+      "tochi_menseki_m2": 148.0,
+      "tatemono_menseki_m2": 420.5,
+      "chikunen_seireki": 2008,
+      "kouzou": "RC",
+      "kensetsu_kaisuu": 5,
+      "youto_chiiki": "商業地域",
+      "unyou_riyaku_rimawari_pct": 6.2,
+      "annual_gross_rent_yen": 13580000,
+      "rinshii_eki": [
+        {"sen": "JR山手線", "eki": "高田馬場", "toho_bun": 7}
+      ],
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-006",
+      "touroku_date": "2026-03-12"
+    }
+  ]
+}

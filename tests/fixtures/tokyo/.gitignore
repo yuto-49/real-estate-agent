@@ -1,0 +1,3 @@
+juuyou_docs/*.pdf
+juuyou_docs/*.PDF
+!juuyou_docs/.gitkeep

@@ -85,6 +85,7 @@ async def negotiation_ws(websocket: WebSocket, negotiation_id: str):
                 msg_text = message.get("text", message.get("message", ""))
                 user_id = message.get("user_id", "")
                 role = message.get("role", "buyer")
+                report_id = message.get("report_id")
 
                 if not msg_text:
                     await websocket.send_json({
@@ -113,15 +114,15 @@ async def negotiation_ws(websocket: WebSocket, negotiation_id: str):
                         user_id=user_id,
                         role=role,
                         message=msg_text,
+                        report_id=report_id,
                     )
 
                 # Send agent response
                 agent_event = AgentResponseEvent(
                     agent_type=role,
                     response=result.get("response", ""),
-                    tool_calls=[tc["tool"] for tc in result.get("tool_calls", [])],
+                    tool_calls=result.get("tool_calls", []),
                 )
-                await websocket.send_json(agent_event.model_dump(mode="json"))
 
                 # Also broadcast to all connections on this negotiation
                 await manager.send_event(negotiation_id, agent_event)

@@ -1,0 +1,112 @@
+{
+  "fixture_source": "synthetic",
+  "schema_version": "reins-baibai-bukken-v1",
+  "note": "Hand-authored records matching the REINS 売買物件 field layout. Do NOT replace with live REINS data.",
+  "listings": [
+    {
+      "bukken_bangou": "SYN-13103-0001",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "mansion",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "港区",
+        "chome": "六本木六丁目",
+        "banchi_go": "10-1",
+        "building_name": "六本木ヒルズレジデンスB棟"
+      },
+      "latitude": 35.6604,
+      "longitude": 139.7292,
+      "baibai_kakaku_yen": 198000000,
+      "tsubo_tanka_yen": 6500000,
+      "menseki_m2": 84.55,
+      "menseki_tsubo": 25.57,
+      "madori": "2LDK",
+      "kaisuu": "24/54",
+      "muki": "南東",
+      "balcony_m2": 12.4,
+      "chikunen_gengou": "平成15年",
+      "chikunen_seireki": 2003,
+      "kouzou": "SRC",
+      "kensetsu_kaisuu": 54,
+      "youto_chiiki": "商業地域",
+      "kenpei_ritsu": 80,
+      "youseki_ritsu": 600,
+      "kanrihi_yen": 38000,
+      "shuuzenzumitatekin_yen": 21500,
+      "rinshii_eki": [
+        {"sen": "東京メトロ日比谷線", "eki": "六本木", "toho_bun": 4},
+        {"sen": "東京メトロ南北線", "eki": "六本木一丁目", "toho_bun": 9}
+      ],
+      "sekou_gaisha": "大成建設",
+      "kanri_keitai": "全部委託・日勤",
+      "parking": "機械式あり(月額48000円)",
+      "torihiki_tokki": "即入居可・室内リノベ済",
+      "hikiwatashi": "相談",
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-001",
+      "touroku_date": "2026-03-18",
+      "teishutsu_date": "2026-03-15"
+    },
+    {
+      "bukken_bangou": "SYN-13103-0002",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "issenkodate",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "港区",
+        "chome": "白金台三丁目",
+        "banchi_go": "18-12"
+      },
+      "latitude": 35.6368,
+      "longitude": 139.7253,
+      "baibai_kakaku_yen": 285000000,
+      "tochi_menseki_m2": 142.3,
+      "tatemono_menseki_m2": 168.7,
+      "madori": "4LDK",
+      "chikunen_seireki": 1978,
+      "kouzou": "木造",
+      "kensetsu_kaisuu": 2,
+      "youto_chiiki": "第一種中高層住居専用地域",
+      "kenpei_ritsu": 60,
+      "youseki_ritsu": 200,
+      "rinshii_eki": [
+        {"sen": "東京メトロ南北線", "eki": "白金台", "toho_bun": 6}
+      ],
+      "kyuutaishin_flag": true,
+      "taishin_shindan": "未実施",
+      "torihiki_tokki": "旧耐震・要耐震診断",
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-001",
+      "touroku_date": "2026-02-01"
+    },
+    {
+      "bukken_bangou": "SYN-13103-0003",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "mansion",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "港区",
+        "chome": "麻布十番二丁目",
+        "banchi_go": "4-3",
+        "building_name": "麻布テラスレジデンス"
+      },
+      "latitude": 35.6557,
+      "longitude": 139.7365,
+      "baibai_kakaku_yen": 128000000,
+      "menseki_m2": 62.1,
+      "madori": "1LDK",
+      "kaisuu": "8/15",
+      "chikunen_seireki": 2018,
+      "kouzou": "RC",
+      "youto_chiiki": "近隣商業地域",
+      "kanrihi_yen": 21000,
+      "shuuzenzumitatekin_yen": 9800,
+      "rinshii_eki": [
+        {"sen": "東京メトロ南北線", "eki": "麻布十番", "toho_bun": 3}
+      ],
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-002",
+      "touroku_date": "2026-04-02"
+    }
+  ]
+}

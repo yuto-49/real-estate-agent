@@ -49,6 +49,7 @@ async def social_sim_status(run_id: str) -> SocialSimStatusResponse:
             current_round=mem.get("current_round", 0),
             total_rounds=mem.get("total_rounds", 10),
             action_count=mem.get("action_count", 0),
+            error_message=mem.get("error_message", mem.get("error")),
         )
 
     # Fall back to DB
@@ -75,6 +76,7 @@ async def social_sim_status(run_id: str) -> SocialSimStatusResponse:
         total_rounds=run.total_rounds,
         action_count=action_count,
         created_at=run.created_at,
+        error_message=run.error_message,
     )
 
 

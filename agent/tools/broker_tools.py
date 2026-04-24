@@ -26,17 +26,33 @@ async def mediate_negotiation(
     # Get all offers for this negotiation's property
     offers_result = await db.execute(
         select(Offer)
-        .where(Offer.property_id == neg.property_id)
+        .where(Offer.negotiation_id == negotiation_id)
         .order_by(Offer.created_at.desc())
     )
     offers = list(offers_result.scalars().all())
 
+    if not offers:
+        legacy_result = await db.execute(
+            select(Offer)
+            .where(
+                Offer.negotiation_id.is_(None),
+                Offer.property_id == neg.property_id,
+                Offer.buyer_id == neg.buyer_id,
+            )
+            .order_by(Offer.created_at.desc())
+        )
+        offers = list(legacy_result.scalars().all())
+
     latest_buyer_price = None
     latest_seller_price = None
     for offer in offers:
-        if offer.buyer_id == neg.buyer_id and latest_buyer_price is None:
+        if offer.actor_role == "buyer" and latest_buyer_price is None:
             latest_buyer_price = offer.offer_price
-        elif latest_seller_price is None:
+        elif offer.actor_role == "seller" and latest_seller_price is None:
+            latest_seller_price = offer.offer_price
+        elif offer.actor_role is None and offer.buyer_id == neg.buyer_id and latest_buyer_price is None:
+            latest_buyer_price = offer.offer_price
+        elif offer.actor_role is None and latest_seller_price is None:
             latest_seller_price = offer.offer_price
 
     spread = None

@@ -1,0 +1,84 @@
+{
+  "fixture_source": "hand-authored address normalization pairs for round-trip tests",
+  "schema_version": "address-normalize-v1",
+  "pairs": [
+    {
+      "raw": "東京都港区六本木6-10-1",
+      "normalized": {
+        "todoufuken": "東京都",
+        "shikuchouson": "港区",
+        "chome": "六本木六丁目",
+        "banchi": "10",
+        "go": "1",
+        "building": null,
+        "todoufuken_code": "13",
+        "shichouson_code": "13103"
+      }
+    },
+    {
+      "raw": "港区六本木六丁目10番1号",
+      "normalized": {
+        "todoufuken": "東京都",
+        "shikuchouson": "港区",
+        "chome": "六本木六丁目",
+        "banchi": "10",
+        "go": "1",
+        "building": null,
+        "todoufuken_code": "13",
+        "shichouson_code": "13103"
+      }
+    },
+    {
+      "raw": "東京都世田谷区成城6丁目5-20",
+      "normalized": {
+        "todoufuken": "東京都",
+        "shikuchouson": "世田谷区",
+        "chome": "成城六丁目",
+        "banchi": "5",
+        "go": "20",
+        "building": null,
+        "todoufuken_code": "13",
+        "shichouson_code": "13112"
+      }
+    },
+    {
+      "raw": "新宿区神楽坂4-2-11 神楽坂レジデンス301",
+      "normalized": {
+        "todoufuken": "東京都",
+        "shikuchouson": "新宿区",
+        "chome": "神楽坂四丁目",
+        "banchi": "2",
+        "go": "11",
+        "building": "神楽坂レジデンス301",
+        "todoufuken_code": "13",
+        "shichouson_code": "13104"
+      }
+    },
+    {
+      "raw": "東京都港区麻布十番2丁目4番3号",
+      "normalized": {
+        "todoufuken": "東京都",
+        "shikuchouson": "港区",
+        "chome": "麻布十番二丁目",
+        "banchi": "4",
+        "go": "3",
+        "building": null,
+        "todoufuken_code": "13",
+        "shichouson_code": "13103"
+      }
+    },
+    {
+      "raw": "世田谷区上野毛四丁目8-3",
+      "normalized": {
+        "todoufuken": "東京都",
+        "shikuchouson": "世田谷区",
+        "chome": "上野毛四丁目",
+        "banchi": "8",
+        "go": "3",
+        "building": null,
+        "todoufuken_code": "13",
+        "shichouson_code": "13112"
+      }
+    }
+  ]
+}

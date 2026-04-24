@@ -1,0 +1,59 @@
+{
+  "fixture_source": "synthesized from e-Stat 国勢調査 小地域 公開データ schema",
+  "schema_version": "estat-kokusei-chome-v1",
+  "reference_year": 2020,
+  "records": [
+    {
+      "kcode": "13103006006",
+      "todoufuken": "東京都",
+      "shikuchouson": "港区",
+      "chome": "六本木六丁目",
+      "souchouju_jinkou": 4210,
+      "setai_suu": 2385,
+      "age_0_14": 412,
+      "age_15_64": 3195,
+      "age_65_plus": 603,
+      "foreign_resident_ratio": 0.182,
+      "median_household_income_yen": 9800000
+    },
+    {
+      "kcode": "13103007003",
+      "todoufuken": "東京都",
+      "shikuchouson": "港区",
+      "chome": "白金台三丁目",
+      "souchouju_jinkou": 3120,
+      "setai_suu": 1460,
+      "age_0_14": 402,
+      "age_15_64": 2128,
+      "age_65_plus": 590,
+      "foreign_resident_ratio": 0.054,
+      "median_household_income_yen": 11200000
+    },
+    {
+      "kcode": "13112031006",
+      "todoufuken": "東京都",
+      "shikuchouson": "世田谷区",
+      "chome": "成城六丁目",
+      "souchouju_jinkou": 5830,
+      "setai_suu": 2340,
+      "age_0_14": 720,
+      "age_15_64": 3850,
+      "age_65_plus": 1260,
+      "foreign_resident_ratio": 0.028,
+      "median_household_income_yen": 9600000
+    },
+    {
+      "kcode": "13104013006",
+      "todoufuken": "東京都",
+      "shikuchouson": "新宿区",
+      "chome": "西新宿六丁目",
+      "souchouju_jinkou": 7890,
+      "setai_suu": 4620,
+      "age_0_14": 510,
+      "age_15_64": 6320,
+      "age_65_plus": 1060,
+      "foreign_resident_ratio": 0.149,
+      "median_household_income_yen": 6800000
+    }
+  ]
+}

@@ -11,7 +11,6 @@ the MiroFish report bridge for negotiation intelligence.
 import asyncio
 import json
 import uuid
-from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -26,34 +25,18 @@ from db.models import (
     SocialSimulationAction,
     SocialSimulationRun,
 )
+from domain.reactions.social_dynamics import (
+    SOCIAL_REACTION_TOPICS,
+    TOPIC_DESCRIPTIONS,
+    build_initial_opinions,
+    validate_topics,
+)
+from domain.reactions.runtime import SocialReactionRuntime
 from services.logging import get_logger
 
 logger = get_logger(__name__)
 
-TOPICS = [
-    "market_prices",
-    "eviction_policy",
-    "voucher_program",
-    "neighborhood_safety",
-]
-
-TOPIC_DESCRIPTIONS = {
-    "market_prices": (
-        "local housing prices, affordability, and market trends"
-    ),
-    "eviction_policy": (
-        "tenant protections, eviction moratoriums, "
-        "and landlord-tenant relations"
-    ),
-    "voucher_program": (
-        "Section 8 / housing choice vouchers "
-        "and subsidized housing programs"
-    ),
-    "neighborhood_safety": (
-        "crime, community investment, policing, "
-        "and neighborhood quality"
-    ),
-}
+TOPICS = list(SOCIAL_REACTION_TOPICS)
 
 # In-memory store for running simulations
 _social_sims: dict[str, dict[str, Any]] = {}
@@ -78,39 +61,24 @@ class SocialSimulator:
     ):
         self.run_id = run_id
         self.trigger_user_id = trigger_user_id
-        self.households: dict[str, HouseholdProfile] = {
-            cast(str, h.id): h for h in households
-        }
         self.edges = edges
-        self.topics = topics or TOPICS
+        self.topics = validate_topics(topics)
         self.max_rounds = max_rounds
         self.active_fraction = active_fraction
 
-        # Build adjacency: household_id → [(neighbor_id, weight, type)]
-        self.neighbors: defaultdict[str, list[tuple[str, float, str]]] = (
-            defaultdict(list)
-        )
-        for edge in edges:
-            src = cast(str, edge.source_id)
-            tgt = cast(str, edge.target_id)
-            wt = cast(float, edge.edge_weight)
-            etype = cast(str, edge.edge_type)
-            self.neighbors[src].append((tgt, wt, etype))
-            self.neighbors[tgt].append((src, wt, etype))
-
         # Track opinion state per household per topic
-        self.opinions: dict[str, dict[str, float]] = {}
-        for h in households:
-            hid = cast(str, h.id)
-            sentiment = cast(float, h.housing_market_sentiment)
-            policy = cast(float, h.policy_support_score)
-            satisfaction = cast(float, h.neighborhood_satisfaction)
-            self.opinions[hid] = {
-                "market_prices": sentiment,
-                "eviction_policy": policy,
-                "voucher_program": policy * 0.8,
-                "neighborhood_safety": satisfaction * 2 - 1,
-            }
+        initial_opinions: dict[str, dict[str, float]] = {}
+        for household in households:
+            household_id = cast(str, household.id)
+            initial_opinions[household_id] = build_initial_opinions(household)
+        self.runtime = SocialReactionRuntime(
+            households=households,
+            edges=edges,
+            opinions=initial_opinions,
+        )
+        self.households: dict[str, HouseholdProfile] = self.runtime.households
+        self.neighbors = self.runtime.neighbors
+        self.opinions = self.runtime.opinions
 
         # Track round-by-round deltas for convergence detection
         self.round_deltas: list[float] = []
@@ -254,37 +222,7 @@ class SocialSimulator:
 
     def _select_active_households(self) -> list[str]:
         """Select households to be active this round."""
-        import random
-
-        all_ids = list(self.households.keys())
-        n_active = max(1, int(len(all_ids) * self.active_fraction))
-
-        # Weight by influence_weight, vocal households more likely
-        weights: list[float] = []
-        for hid in all_ids:
-            h = self.households[hid]
-            w = cast(float, h.influence_weight)
-            style = h.communication_style
-            if style and style.value == "vocal":
-                w *= 1.5
-            elif style and style.value == "passive":
-                w *= 0.5
-            weights.append(w)
-
-        # Normalize
-        total = sum(weights)
-        if total == 0:
-            return random.sample(all_ids, min(n_active, len(all_ids)))
-
-        weights = [w / total for w in weights]
-        selected: set[str] = set()
-        attempts = 0
-        while len(selected) < n_active and attempts < n_active * 3:
-            pick = random.choices(all_ids, weights=weights, k=1)[0]
-            selected.add(pick)
-            attempts += 1
-
-        return list(selected)
+        return self.runtime.select_active_households(self.active_fraction)
 
     async def _process_household_topic(
         self, household_id: str, topic: str, round_num: int,
@@ -344,28 +282,7 @@ class SocialSimulator:
         self, household_id: str, topic: str,
     ) -> list[dict[str, Any]]:
         """Gather weighted neighbor opinions for a specific topic."""
-        result: list[dict[str, Any]] = []
-        for neighbor_id, weight, edge_type in self.neighbors.get(
-            household_id, [],
-        ):
-            if neighbor_id not in self.opinions:
-                continue
-            neighbor_opinion = self.opinions[neighbor_id].get(topic, 0.0)
-            neighbor_h = self.households.get(neighbor_id)
-            if not neighbor_h:
-                continue
-            style = neighbor_h.communication_style
-            result.append({
-                "id": neighbor_id,
-                "opinion": neighbor_opinion,
-                "weight": weight,
-                "edge_type": edge_type,
-                "income_band": cast(str, neighbor_h.income_band),
-                "communication_style": (
-                    style.value if style else "passive"
-                ),
-            })
-        return result
+        return self.runtime.gather_neighbor_opinions(household_id, topic)
 
     async def _get_llm_opinion(
         self,
@@ -516,153 +433,30 @@ class SocialSimulator:
         neighbor_opinions: list[dict[str, Any]],
         llm_delta: float,
     ) -> float:
-        """Apply the opinion drift formula.
-
-        new = (stability * current)
-            + ((1 - stability) * weighted_neighbor_avg)
-            + (0.1 * llm_delta)
-        """
-        stability = cast(float, household.opinion_stability)
-
-        # Weighted neighbor average
-        if neighbor_opinions:
-            total_weight = sum(
-                n["weight"] for n in neighbor_opinions
-            )
-            if total_weight > 0:
-                peer_avg = (
-                    sum(
-                        n["opinion"] * n["weight"]
-                        for n in neighbor_opinions
-                    )
-                    / total_weight
-                )
-            else:
-                peer_avg = current
-        else:
-            peer_avg = current
-
-        new_opinion = (
-            stability * current
-            + (1 - stability) * peer_avg
-            + 0.1 * llm_delta
+        """Apply the opinion drift formula."""
+        return self.runtime.apply_opinion_drift(
+            household,
+            current=current,
+            neighbor_opinions=neighbor_opinions,
+            llm_delta=llm_delta,
         )
-
-        # Clamp to [-1, 1]
-        return round(max(-1.0, min(1.0, new_opinion)), 4)
 
     def _compute_round_delta(self) -> float:
         """Compute average opinion change across all households."""
-        if not self._previous_opinions:
-            return 1.0  # first round, max delta
-
-        total_delta = 0.0
-        count = 0
-        for hid, prev_topics in self._previous_opinions.items():
-            for topic, prev_val in prev_topics.items():
-                current_val = self.opinions.get(
-                    hid, {},
-                ).get(topic, prev_val)
-                total_delta += abs(current_val - prev_val)
-                count += 1
-
-        return total_delta / count if count > 0 else 0.0
+        return self.runtime.compute_round_delta(self._previous_opinions)
 
     def _compute_sentiment_delta(
         self, initial_opinions: dict[str, dict[str, float]],
     ) -> dict[str, dict[str, float]]:
         """Compute how opinions shifted from initial to final state."""
-        delta: dict[str, dict[str, float]] = {}
-        for topic in self.topics:
-            initial_values = [
-                initial_opinions[hid].get(topic, 0.0)
-                for hid in self.households
-            ]
-            final_values = [
-                self.opinions[hid].get(topic, 0.0)
-                for hid in self.households
-            ]
-
-            n = len(initial_values) if initial_values else 1
-            initial_avg = sum(initial_values) / n
-            final_avg = sum(final_values) / n
-
-            volatility = (
-                sum(
-                    abs(f - i)
-                    for f, i in zip(final_values, initial_values)
-                )
-                / n
-            )
-
-            delta[topic] = {
-                "initial_avg": round(initial_avg, 4),
-                "final_avg": round(final_avg, 4),
-                "shift": round(final_avg - initial_avg, 4),
-                "volatility": round(volatility, 4),
-            }
-        return delta
+        return self.runtime.compute_sentiment_delta(
+            initial_opinions=initial_opinions,
+            topics=self.topics,
+        )
 
     def _detect_narratives(self) -> dict[str, dict[str, Any]]:
         """Cluster households by opinion similarity per topic."""
-        narratives: dict[str, dict[str, Any]] = {}
-
-        for topic in self.topics:
-            supportive: list[dict[str, Any]] = []
-            opposed: list[dict[str, Any]] = []
-            neutral: list[dict[str, Any]] = []
-
-            for hid, ops in self.opinions.items():
-                val = ops.get(topic, 0.0)
-                h = self.households[hid]
-                entry: dict[str, Any] = {
-                    "id": hid,
-                    "opinion": val,
-                    "income_band": cast(str, h.income_band),
-                    "housing_type": cast(str, h.housing_type),
-                    "influence": cast(float, h.influence_weight),
-                }
-                if val > 0.2:
-                    supportive.append(entry)
-                elif val < -0.2:
-                    opposed.append(entry)
-                else:
-                    neutral.append(entry)
-
-            all_opinions = [
-                self.opinions[hid].get(topic, 0.0)
-                for hid in self.households
-            ]
-            n = len(all_opinions) if all_opinions else 1
-            avg_opinion = sum(all_opinions) / n
-
-            consensus = 1.0 - (
-                sum(abs(o - avg_opinion) for o in all_opinions) / n
-            )
-
-            if len(supportive) > len(opposed):
-                dominant = "supportive"
-            elif len(opposed) > len(supportive):
-                dominant = "opposed"
-            else:
-                dominant = "divided"
-
-            narratives[topic] = {
-                "avg_opinion": round(avg_opinion, 4),
-                "consensus_strength": round(consensus, 4),
-                "supportive_count": len(supportive),
-                "opposed_count": len(opposed),
-                "neutral_count": len(neutral),
-                "dominant_stance": dominant,
-                "income_breakdown": self._income_breakdown(
-                    supportive, opposed, neutral,
-                ),
-                "housing_type_breakdown": self._housing_type_breakdown(
-                    supportive, opposed, neutral,
-                ),
-            }
-
-        return narratives
+        return self.runtime.detect_narratives(self.topics)
 
     def _income_breakdown(
         self,
@@ -671,20 +465,12 @@ class SocialSimulator:
         neutral: list[dict[str, Any]],
     ) -> dict[str, dict[str, int]]:
         """Show which income bands lean which direction."""
-        breakdown: dict[str, dict[str, int]] = {}
-        for group, label in [
-            (supportive, "supportive"),
-            (opposed, "opposed"),
-            (neutral, "neutral"),
-        ]:
-            for entry in group:
-                band = entry["income_band"]
-                breakdown.setdefault(
-                    band,
-                    {"supportive": 0, "opposed": 0, "neutral": 0},
-                )
-                breakdown[band][label] += 1
-        return breakdown
+        return self.runtime._stance_breakdown(
+            supportive,
+            opposed,
+            neutral,
+            field_name="income_band",
+        )
 
     def _housing_type_breakdown(
         self,
@@ -693,20 +479,12 @@ class SocialSimulator:
         neutral: list[dict[str, Any]],
     ) -> dict[str, dict[str, int]]:
         """Show which housing types lean which direction."""
-        breakdown: dict[str, dict[str, int]] = {}
-        for group, label in [
-            (supportive, "supportive"),
-            (opposed, "opposed"),
-            (neutral, "neutral"),
-        ]:
-            for entry in group:
-                ht = entry["housing_type"]
-                breakdown.setdefault(
-                    ht,
-                    {"supportive": 0, "opposed": 0, "neutral": 0},
-                )
-                breakdown[ht][label] += 1
-        return breakdown
+        return self.runtime._stance_breakdown(
+            supportive,
+            opposed,
+            neutral,
+            field_name="housing_type",
+        )
 
 
 async def start_social_simulation(
@@ -733,7 +511,7 @@ async def start_social_simulation(
             trigger_user_id=trigger_user_id,
             household_filter=household_filter,
             total_rounds=max_rounds,
-            topics=topics or TOPICS,
+            topics=validate_topics(topics),
             status="preparing",
         )
         db.add(run)
@@ -784,7 +562,7 @@ async def start_social_simulation(
         trigger_user_id=trigger_user_id,
         households=households,
         edges=edges,
-        topics=topics,
+        topics=validate_topics(topics),
         max_rounds=max_rounds,
     )
 

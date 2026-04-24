@@ -87,6 +87,156 @@ export interface Negotiation {
   deadline_at?: string
 }
 
+export type NegotiationRole = 'buyer' | 'seller' | 'broker'
+export type NegotiationTransitionAction =
+  | 'generate_contract'
+  | 'schedule_inspection'
+  | 'clear'
+  | 'funds_transferred'
+  | 'reject'
+  | 'withdraw'
+
+export interface NegotiationAnalysis {
+  status?: string | null
+  round?: number | null
+  spread_percent?: number | null
+  offer_history: number[]
+  zopa_detected?: boolean | null
+  suggested_price?: number | null
+  recommendation?: string | null
+  broker_mediation_recommended?: boolean | null
+  [key: string]: unknown
+}
+
+export interface NegotiationOfferHistoryEntry {
+  id: string
+  property_id: string
+  buyer_id?: string | null
+  offer_price: number
+  actor_role?: string | null
+  actor_user_id?: string | null
+  status?: string | null
+  parent_offer_id?: string | null
+  correlation_id?: string | null
+  message?: string | null
+  created_at?: string | null
+}
+
+export interface NegotiationEventReplayEntry {
+  event_type: string
+  payload: Record<string, unknown>
+  sequence: number
+  actor_type?: string | null
+  actor_id?: string | null
+  created_at?: string | null
+}
+
+export interface NegotiationSession extends Negotiation {
+  offer_history: NegotiationOfferHistoryEntry[]
+  current_analysis: NegotiationAnalysis
+  events: NegotiationEventReplayEntry[]
+}
+
+export interface NegotiationOfferRequest {
+  offer_price: number
+  from_role: 'buyer' | 'seller'
+  message?: string
+  correlation_id?: string | null
+}
+
+export interface NegotiationAcceptRequest {
+  from_role: 'buyer' | 'seller'
+  final_price: number
+  correlation_id?: string | null
+}
+
+export interface NegotiationTransitionRequest {
+  action: NegotiationTransitionAction
+  from_role?: NegotiationRole
+  message?: string
+  correlation_id?: string | null
+}
+
+export interface NegotiationMutationResponse {
+  negotiation_id: string
+  action: string
+  old_status?: string | null
+  new_status: string
+  round_count: number
+  offer_price?: number | null
+  final_price?: number | null
+  deadline_at?: string | null
+  analysis?: NegotiationAnalysis | null
+}
+
+export type SocialSimTopic =
+  | 'market_prices'
+  | 'eviction_policy'
+  | 'voucher_program'
+  | 'neighborhood_safety'
+
+export interface SocialSimStartRequest {
+  user_id: string
+  zip_code?: string
+  income_band?: string
+  max_rounds?: number
+  topics?: SocialSimTopic[]
+}
+
+export interface SocialSimStartResponse {
+  run_id: string
+  status: string
+  message: string
+}
+
+export interface SocialSimStatus {
+  id: string
+  status: string
+  current_round: number
+  total_rounds: number
+  action_count: number
+  created_at?: string | null
+  error_message?: string | null
+}
+
+export interface SocialSimAction {
+  id: string
+  round_num: number
+  household_id: string
+  action_type: string
+  topic: string
+  content?: string | null
+  sentiment_value?: number | null
+  influenced_by: string[]
+  created_at?: string | null
+}
+
+export interface SocialSimTimelineEntry {
+  round_num: number
+  topic: string
+  avg_sentiment: number
+  action_count: number
+  dominant_stance: string
+}
+
+export interface SocialSimTimelineResponse {
+  run_id: string
+  timeline: SocialSimTimelineEntry[]
+}
+
+export interface SocialSimResult {
+  id: string
+  status: string
+  total_rounds: number
+  current_round: number
+  narrative_output: Record<string, unknown>
+  sentiment_delta: Record<string, unknown>
+  report_id?: string | null
+  created_at?: string | null
+  completed_at?: string | null
+  error_message?: string | null
+}
+
 export interface UserProfile {
   id: string
   name: string

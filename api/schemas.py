@@ -1,6 +1,7 @@
 """Pydantic request/response schemas for all API endpoints."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -115,19 +116,27 @@ class PropertyListResponse(BaseModel):
 class OfferCreate(BaseModel):
     property_id: str
     buyer_id: str
+    negotiation_id: str | None = None
+    actor_role: Literal["buyer", "seller", "broker"] | None = "buyer"
+    actor_user_id: str | None = None
     offer_price: float
     contingencies: list[str] = Field(default_factory=list)
     parent_offer_id: str | None = None
+    message: str | None = Field(default=None, max_length=500)
 
 
 class OfferResponse(BaseModel):
     id: str
+    negotiation_id: str | None = None
     property_id: str
-    buyer_id: str
+    buyer_id: str | None = None
+    actor_role: str | None = None
+    actor_user_id: str | None = None
     offer_price: float
     contingencies: list = Field(default_factory=list)
     status: str
     parent_offer_id: str | None = None
+    message: str | None = None
     correlation_id: str | None = None
     created_at: datetime | None = None
 
@@ -156,6 +165,102 @@ class NegotiationResponse(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class NegotiationOfferRequest(BaseModel):
+    offer_price: float = Field(gt=0)
+    from_role: Literal["buyer", "seller"]
+    message: str = Field(default="", max_length=500)
+    correlation_id: str | None = None
+
+
+class NegotiationAcceptRequest(BaseModel):
+    from_role: Literal["buyer", "seller"]
+    final_price: float = Field(gt=0)
+    correlation_id: str | None = None
+
+
+class NegotiationTransitionRequest(BaseModel):
+    action: Literal[
+        "generate_contract",
+        "schedule_inspection",
+        "clear",
+        "funds_transferred",
+        "reject",
+        "withdraw",
+    ]
+    from_role: Literal["buyer", "seller", "broker"] = "broker"
+    message: str = Field(default="", max_length=500)
+    correlation_id: str | None = None
+
+
+class NegotiationAnalysisResponse(BaseModel):
+    status: str | None = None
+    round: int | None = None
+    spread_percent: float | None = None
+    offer_history: list[float] = Field(default_factory=list)
+    zopa_detected: bool | None = None
+    suggested_price: float | None = None
+    recommendation: str | None = None
+    broker_mediation_recommended: bool | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class NegotiationOfferHistoryResponse(BaseModel):
+    id: str
+    property_id: str
+    buyer_id: str | None = None
+    offer_price: float
+    actor_role: str | None = None
+    actor_user_id: str | None = None
+    status: str | None = None
+    parent_offer_id: str | None = None
+    correlation_id: str | None = None
+    message: str | None = None
+    created_at: datetime | None = None
+
+
+class NegotiationEventResponse(BaseModel):
+    event_type: str
+    payload: dict = Field(default_factory=dict)
+    sequence: int
+    actor_type: str | None = None
+    actor_id: str | None = None
+    created_at: datetime | None = None
+
+
+class NegotiationSessionResponse(BaseModel):
+    id: str
+    property_id: str
+    buyer_id: str
+    seller_id: str
+    status: str
+    round_count: int
+    final_price: float | None = None
+    deadline_at: datetime | None = None
+    offer_history: list[NegotiationOfferHistoryResponse] = Field(default_factory=list)
+    current_analysis: NegotiationAnalysisResponse = Field(
+        default_factory=NegotiationAnalysisResponse
+    )
+    events: list[NegotiationEventResponse] = Field(default_factory=list)
+
+
+class NegotiationMutationResponse(BaseModel):
+    negotiation_id: str
+    action: str
+    old_status: str | None = None
+    new_status: str
+    round_count: int
+    offer_price: float | None = None
+    final_price: float | None = None
+    deadline_at: datetime | None = None
+    analysis: NegotiationAnalysisResponse | None = None
+
+
+class NegotiationEventsResponse(BaseModel):
+    negotiation_id: str
+    events: list[NegotiationEventResponse] = Field(default_factory=list)
 
 
 # ── Report schemas ──
@@ -312,6 +417,7 @@ class SocialSimStatusResponse(BaseModel):
     total_rounds: int = 10
     action_count: int = 0
     created_at: datetime | None = None
+    error_message: str | None = None
 
 
 class SocialSimActionResponse(BaseModel):
@@ -338,6 +444,7 @@ class SocialSimResultResponse(BaseModel):
     report_id: str | None = None
     created_at: datetime | None = None
     completed_at: datetime | None = None
+    error_message: str | None = None
 
     model_config = {"from_attributes": True}
 

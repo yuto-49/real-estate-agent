@@ -1,0 +1,78 @@
+{
+  "type": "FeatureCollection",
+  "name": "tokyo23_youto_chiiki_sample",
+  "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+  "metadata": {
+    "source": "synthesized from 国土数値情報 用途地域 schema (A29)",
+    "reference_year": 2023
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "shichouson_code": "13103",
+        "shichouson_name": "港区",
+        "chome": "六本木六丁目",
+        "youto_chiiki": "商業地域",
+        "kenpei_ritsu": 80,
+        "youseki_ritsu": 600,
+        "bouka_chiiki": "防火地域"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [139.7280, 35.6595],
+          [139.7310, 35.6595],
+          [139.7310, 35.6618],
+          [139.7280, 35.6618],
+          [139.7280, 35.6595]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "shichouson_code": "13112",
+        "shichouson_name": "世田谷区",
+        "chome": "成城六丁目",
+        "youto_chiiki": "第一種低層住居専用地域",
+        "kenpei_ritsu": 40,
+        "youseki_ritsu": 80,
+        "koudo_chiku": "第一種高度地区",
+        "bouka_chiiki": "準防火地域"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [139.5980, 35.6455],
+          [139.6020, 35.6455],
+          [139.6020, 35.6485],
+          [139.5980, 35.6485],
+          [139.5980, 35.6455]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "shichouson_code": "13104",
+        "shichouson_name": "新宿区",
+        "chome": "神楽坂四丁目",
+        "youto_chiiki": "近隣商業地域",
+        "kenpei_ritsu": 80,
+        "youseki_ritsu": 400,
+        "bouka_chiiki": "防火地域"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [139.7390, 35.7000],
+          [139.7415, 35.7000],
+          [139.7415, 35.7020],
+          [139.7390, 35.7020],
+          [139.7390, 35.7000]
+        ]]
+      }
+    }
+  ]
+}

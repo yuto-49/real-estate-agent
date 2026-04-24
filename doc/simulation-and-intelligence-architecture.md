@@ -2,6 +2,13 @@
 
 This document describes the intelligence report pipeline (MiroFish analysis) and the negotiation simulation engine, including how they integrate.
 
+Status note:
+this document now sits under a broader layered market knowledge system. The
+new top-level architecture direction lives in
+[doc/layered-market-knowledge-system.md](layered-market-knowledge-system.md).
+In that model, MiroFish reports and negotiation simulations are downstream
+projections over shared market, actor, reaction, decision, and outcome state.
+
 ---
 
 ## 1. Intelligence Report Structure (MiroFish)
@@ -174,6 +181,10 @@ Completed simulations are persisted to `simulation_results` table:
 ---
 
 ## 3. Intelligence Report → Simulation Bridge
+
+This bridge still exists, but it should now be understood as a projection path,
+not the primary system boundary. Over time, report generation should read from
+layered state snapshots rather than from isolated pipelines.
 
 ### 3.1 `derive_config_from_report(report_data, asking_price)`
 

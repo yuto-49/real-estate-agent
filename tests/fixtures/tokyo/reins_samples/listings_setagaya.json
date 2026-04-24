@@ -1,0 +1,91 @@
+{
+  "fixture_source": "synthetic",
+  "schema_version": "reins-baibai-bukken-v1",
+  "listings": [
+    {
+      "bukken_bangou": "SYN-13112-0001",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "issenkodate",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "世田谷区",
+        "chome": "成城六丁目",
+        "banchi_go": "5-20"
+      },
+      "latitude": 35.6470,
+      "longitude": 139.6001,
+      "baibai_kakaku_yen": 158000000,
+      "tochi_menseki_m2": 198.4,
+      "tatemono_menseki_m2": 142.0,
+      "madori": "4LDK+S",
+      "chikunen_seireki": 2012,
+      "kouzou": "木造",
+      "kensetsu_kaisuu": 2,
+      "youto_chiiki": "第一種低層住居専用地域",
+      "kenpei_ritsu": 40,
+      "youseki_ritsu": 80,
+      "rinshii_eki": [
+        {"sen": "小田急小田原線", "eki": "成城学園前", "toho_bun": 12}
+      ],
+      "parking": "敷地内2台",
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-003",
+      "touroku_date": "2026-03-30"
+    },
+    {
+      "bukken_bangou": "SYN-13112-0002",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "mansion",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "世田谷区",
+        "chome": "三軒茶屋二丁目",
+        "banchi_go": "11-14",
+        "building_name": "三軒茶屋パークコート"
+      },
+      "latitude": 35.6430,
+      "longitude": 139.6700,
+      "baibai_kakaku_yen": 78000000,
+      "menseki_m2": 58.3,
+      "madori": "2LDK",
+      "kaisuu": "5/9",
+      "chikunen_seireki": 2005,
+      "kouzou": "RC",
+      "youto_chiiki": "近隣商業地域",
+      "kanrihi_yen": 16500,
+      "shuuzenzumitatekin_yen": 11200,
+      "rinshii_eki": [
+        {"sen": "東急田園都市線", "eki": "三軒茶屋", "toho_bun": 7}
+      ],
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-003",
+      "touroku_date": "2026-03-05"
+    },
+    {
+      "bukken_bangou": "SYN-13112-0003",
+      "torihiki_taiyou": "baibai",
+      "bukken_shubetsu": "tochi",
+      "shozaichi": {
+        "todoufuken": "東京都",
+        "shikuchouson": "世田谷区",
+        "chome": "上野毛四丁目",
+        "banchi_go": "8-3"
+      },
+      "latitude": 35.6127,
+      "longitude": 139.6316,
+      "baibai_kakaku_yen": 92000000,
+      "tochi_menseki_m2": 132.6,
+      "youto_chiiki": "第一種低層住居専用地域",
+      "kenpei_ritsu": 50,
+      "youseki_ritsu": 100,
+      "setsudou": "幅員6m公道・南側",
+      "rinshii_eki": [
+        {"sen": "東急大井町線", "eki": "上野毛", "toho_bun": 9}
+      ],
+      "torihiki_tokki": "更地引渡・建築条件なし",
+      "media_permissions": {"chirashi": true, "internet": true, "redistribution": false},
+      "source_company_id": "SYN-AGENT-004",
+      "touroku_date": "2026-04-10"
+    }
+  ]
+}

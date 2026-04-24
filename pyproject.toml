@@ -26,6 +26,7 @@ dependencies = [
     "structlog>=24.0",
     "geohash2>=1.1",
     "tenacity>=8.0",
+    "PyJWT[crypto]>=2.9.0",
 ]
 
 [project.optional-dependencies]
@@ -49,3 +50,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "unit: fast unit tests with no external I/O",
+    "integration: tests that require a real Postgres (pytest-postgresql)",
+]

@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import (
-    Column, String, Float, Integer, Text, DateTime, ForeignKey, Enum, Index
+    Column, String, Float, Integer, Numeric, Text, DateTime, ForeignKey, Enum, Index
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -56,6 +56,7 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id = Column(String, primary_key=True, default=gen_uuid)
+    supabase_user_id = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     role = Column(String, default="buyer")  # buyer, seller, both
@@ -93,17 +94,43 @@ class Property(Base):
     status = Column(Enum(PropertyStatus), default=PropertyStatus.ACTIVE)
     listed_at = Column(DateTime, default=datetime.utcnow)
 
+    # --- JP additive columns (Phase 1 of Tokyo release) -------------------
+    # All nullable — US records created before the migration keep working.
+    address_jp = Column(JSONB, nullable=True)
+    nearest_stations = Column(JSONB, nullable=True, default=list)
+    built_year = Column(Integer, nullable=True)
+    structure = Column(String(32), nullable=True)
+    youto_chiiki = Column(String(64), nullable=True)
+    kenpei_ritsu = Column(Integer, nullable=True)
+    youseki_ritsu = Column(Integer, nullable=True)
+    menseki_m2 = Column(Float, nullable=True)
+    baibai_kakaku_yen = Column(Numeric(15, 0), nullable=True)
+    kanrihi_yen = Column(Integer, nullable=True)
+    shuuzenzumitatekin_yen = Column(Integer, nullable=True)
+    takken_bukken_bangou = Column(String(64), nullable=True, unique=False, index=True)
+    hazard_flags = Column(JSONB, nullable=True, default=dict)
+    currency = Column(String(3), nullable=True, default="JPY")
+    jurisdiction = Column(String(16), nullable=True, default="us", index=True)
+
 
 class Offer(Base):
     __tablename__ = "offers"
+    __table_args__ = (
+        Index("ix_offers_actor_user_id", "actor_user_id"),
+        Index("ix_offers_parent_offer_id", "parent_offer_id"),
+    )
 
     id = Column(String, primary_key=True, default=gen_uuid)
+    negotiation_id = Column(String, ForeignKey("negotiations.id"), nullable=True, index=True)
     property_id = Column(String, ForeignKey("properties.id"), nullable=False)
-    buyer_id = Column(String, ForeignKey("user_profiles.id"), nullable=False)
+    buyer_id = Column(String, ForeignKey("user_profiles.id"), nullable=True)
+    actor_role = Column(String, nullable=True)  # buyer, seller, broker
+    actor_user_id = Column(String, ForeignKey("user_profiles.id"), nullable=True)
     offer_price = Column(Float, nullable=False)
     contingencies = Column(JSONB, default=list)
     status = Column(String, default="pending")  # pending, accepted, rejected, countered
     parent_offer_id = Column(String, ForeignKey("offers.id"), nullable=True)
+    message = Column(Text, nullable=True)
     correlation_id = Column(String, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -269,6 +296,8 @@ class SocialSimulationRun(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     trigger_user_id = Column(String, ForeignKey("user_profiles.id"), nullable=False)
     household_filter = Column(JSONB, default=dict)   # which households were included
+    household_ids = Column(JSONB, default=list)
+    household_count = Column(Integer, default=0)
     total_rounds = Column(Integer, default=10)
     current_round = Column(Integer, default=0)
     status = Column(String, default="preparing")     # preparing, running, completed, failed

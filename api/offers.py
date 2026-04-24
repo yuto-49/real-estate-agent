@@ -34,11 +34,15 @@ async def create_offer(data: OfferCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=422, detail=guardrail.reason)
 
     offer = Offer(
+        negotiation_id=data.negotiation_id,
         property_id=data.property_id,
         buyer_id=data.buyer_id,
+        actor_role=data.actor_role,
+        actor_user_id=data.actor_user_id or data.buyer_id,
         offer_price=data.offer_price,
         contingencies=data.contingencies,
         parent_offer_id=data.parent_offer_id,
+        message=data.message,
         correlation_id=get_correlation_id() or None,
     )
     db.add(offer)
@@ -59,16 +63,25 @@ async def get_offer(offer_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/", response_model=list[OfferResponse])
 async def list_offers(
+    negotiation_id: str | None = None,
     property_id: str | None = None,
     buyer_id: str | None = None,
+    actor_role: str | None = None,
+    actor_user_id: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """List offers with optional filters."""
     query = select(Offer)
+    if negotiation_id:
+        query = query.where(Offer.negotiation_id == negotiation_id)
     if property_id:
         query = query.where(Offer.property_id == property_id)
     if buyer_id:
         query = query.where(Offer.buyer_id == buyer_id)
+    if actor_role:
+        query = query.where(Offer.actor_role == actor_role)
+    if actor_user_id:
+        query = query.where(Offer.actor_user_id == actor_user_id)
     query = query.order_by(Offer.created_at.desc())
     result = await db.execute(query)
     offers = list(result.scalars().all())

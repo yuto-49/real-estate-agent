@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WSEvent } from '../utils/types'
 
 interface UseWebSocketOptions {
-  negotiationId: string
+  negotiationId?: string
   onEvent?: (event: WSEvent) => void
   reconnectInterval?: number
   maxRetries?: number
@@ -25,10 +25,20 @@ export function useWebSocket({
   const [lastEvent, setLastEvent] = useState<WSEvent | null>(null)
   const [events, setEvents] = useState<WSEvent[]>([])
   const wsRef = useRef<WebSocket | null>(null)
+  const onEventRef = useRef<typeof onEvent>(onEvent)
   const retriesRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
+  useEffect(() => {
+    onEventRef.current = onEvent
+  }, [onEvent])
+
   const connect = useCallback(() => {
+    if (!negotiationId) {
+      setIsConnected(false)
+      return
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}/ws/negotiation/${negotiationId}`
 
@@ -45,7 +55,7 @@ export function useWebSocket({
         const data = JSON.parse(event.data) as WSEvent
         setLastEvent(data)
         setEvents((prev) => [...prev, data])
-        onEvent?.(data)
+        onEventRef.current?.(data)
       } catch {
         // ignore parse errors
       }
@@ -62,15 +72,22 @@ export function useWebSocket({
     ws.onerror = () => {
       ws.close()
     }
-  }, [negotiationId, onEvent, reconnectInterval, maxRetries])
+  }, [negotiationId, reconnectInterval, maxRetries])
 
   useEffect(() => {
+    if (!negotiationId) {
+      setEvents([])
+      setLastEvent(null)
+      setIsConnected(false)
+      return () => {}
+    }
+
     connect()
     return () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       wsRef.current?.close()
     }
-  }, [connect])
+  }, [connect, negotiationId])
 
   const sendMessage = useCallback((data: unknown) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
