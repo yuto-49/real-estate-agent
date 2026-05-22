@@ -866,3 +866,74 @@ GET /api/simulation/result/{id} → outcome, final_price, full transcript
 | `max_deal_value_auto` | 2,000,000 | Auto-approval ceiling |
 | `min_offer_percent` | 0.50 | Minimum offer as % of asking |
 | `max_counter_rounds` | 10 | Max counter-offer rounds |
+
+---
+
+## Investor Portfolio Workflow
+
+The **Portfolio** page (`/portfolio`, behind auth) is the individual-investor
+surface. A top-nav mode toggle switches the platform between *institutional*
+and *individual* framing (localStorage-backed, manual). The page is a six-tab
+workspace — **Overview is the default landing tab**; see
+`doc/investor-workflows.md` for the full user-facing walkthrough and
+`doc/strategy-runtime-plan.md` for the Strategy tab's build record.
+
+```
+User → top-nav mode toggle → /portfolio (PortfolioPage)
+  │
+  ├── Overview tab (default)
+  │     GET    /api/portfolio/{id}/summary         consolidated read-only report:
+  │                                                aggregates + per-holding analysis +
+  │                                                attention list + market coverage
+  │     └── server-side fan-out across every holding (underwrite + decision)
+  │
+  ├── Holdings tab
+  │     POST   /api/portfolio                     create portfolio
+  │     POST   /api/portfolio/{id}/holdings        add holding (manual / listing / CSV)
+  │     POST   /api/listing/parse                  Zillow URL → address + zip prefill
+  │     GET    /api/portfolio/{id}/aggregate       blended cap rate, DSCR, equity, mix
+  │     DELETE /api/portfolio/{id}/holdings/{hid}
+  │     └── CSV import auto-detects Stessa / REI Hub exports; rows are editable
+  │         (override) before commit
+  │
+  ├── Underwrite tab
+  │     POST   /api/underwrite                     cap rate, cash-on-cash, DSCR, IRR
+  │
+  ├── Stress Test tab
+  │     POST   /api/underwrite/stress-test         Monte Carlo over 5 sliders →
+  │                                                p10/p50/p90 + tornado
+  │
+  ├── Decisions tab
+  │     GET    /api/decisions/holding/{hid}        DecisionRuntime → HOLD / RAISE_RENT
+  │                                                / REFI / SELL / IMPROVE + candidates
+  │
+  └── Strategy tab
+        POST   /api/strategy/extract               free text → StrategyProfile (LLM-
+                                                   pluggable; heuristic fallback)
+        POST   /api/strategy/run                   background job: analysis + simulation
+        GET    /api/strategy/{run_id}/status       poll
+        GET    /api/strategy/{run_id}/result       UnifiedReport: survives + agreements
+                                                   + divergences + per-holding flips
+```
+
+**Backend pieces:** `api/portfolio.py`, `api/underwrite.py`, `api/decisions.py`,
+`api/strategy.py`, `intelligence/{underwriting,tax_basic,stress_test}.py`,
+`services/{tenant_pool,holding_decision,portfolio_summary,strategy_profile,
+strategy_runner,unified_report}.py`, and the four signal providers (`hud_fmr`,
+`fred`, `fema_nfhl`, `census_acs`).
+
+The decision API is a thin I/O wrapper over the pure-Python `DecisionRuntime`
+— it builds a `MarketContextSnapshot` for the holding, derives a lenient
+reaction vector, runs the list/hold + lease + churn policies, and maps their
+outputs plus a refinance heuristic onto the five investor actions. The same
+logic is reused by `services/portfolio_summary.py` (the Overview tab) and
+`services/strategy_runner.py` (the Strategy tab's analysis stage), so all
+three surfaces agree per-holding.
+
+The Strategy tab's simulation stage is pure-Python and deterministic — it
+projects each holding's NOI and value forward by the profile's hold period,
+re-runs a small rule engine to pick the projected action, and feeds both
+today's `PortfolioSummaryReport` and the `SimulationReport` into
+`services.unified_report.reconcile_unified_report` to produce the
+`UnifiedReport`. No LLM call inside the run — the extract endpoint is the
+only LLM-eligible seam.

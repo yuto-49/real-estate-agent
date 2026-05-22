@@ -252,7 +252,8 @@ class MockMiroFishClient:
                 amort_summary[f"year_{entry['year']}_equity_pct"] = entry["equity_pct"]
                 amort_summary[f"year_{entry['year']}_balance"] = entry["remaining_balance"]
 
-        monthly_rent = int(property_value * self._rng.uniform(0.005, 0.008))
+        # Monthly gross rent as fraction of value (~0.7–1.2%/mo): broader than the old 0.5–0.8% band so mock runs can reflect plausible investor underwriting (near the informal "1% rule").
+        monthly_rent = int(property_value * self._rng.uniform(0.007, 0.012))
         monthly_taxes = round(property_value * self._rng.uniform(0.008, 0.025) / 12, 2)
         monthly_insurance = round(self._rng.uniform(100, 250), 2)
         monthly_hoa = round(self._rng.uniform(0, 400), 2)
@@ -345,10 +346,18 @@ class MockMiroFishClient:
 
             cash_flow_projections = scenarios
 
-            # Rent vs Buy
+            # Rent vs Buy — align with financial_analysis: same gross rent assumption (no second RNG),
+            # and monthly_cost_to_own includes maintenance so it matches cash_flow total_expenses.
             closing_costs = property_value * 0.03
-            monthly_own_cost = monthly_mortgage + monthly_taxes + monthly_insurance + monthly_hoa
-            comparable_rent = int(monthly_rent * self._rng.uniform(0.90, 1.15))
+            monthly_maintenance = float(cash_flow["maintenance"])
+            monthly_own_cost = (
+                monthly_mortgage
+                + monthly_taxes
+                + monthly_insurance
+                + monthly_hoa
+                + monthly_maintenance
+            )
+            comparable_rent = monthly_rent
             be_months = InvestmentMetrics.break_even_months(
                 monthly_cost_to_own=monthly_own_cost,
                 monthly_rent=comparable_rent,

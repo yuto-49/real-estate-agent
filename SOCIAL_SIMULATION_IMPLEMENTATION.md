@@ -146,20 +146,30 @@ These outcomes should drive dashboards and reports.
 
 ## 4. Current Repo Mapping
 
-Short-term mapping from existing code:
+Status as of 2026-05-07 — Phases A–G complete, layered runtime live under `domain/`:
 
-- `db/models.py`
-  Holds the beginning of the actor and decision state.
-- `services/social_simulator.py`
-  Should evolve into part of the reaction engine, not remain a standalone loop.
-- `agent/negotiation_engine.py`
-  Should become one decision runtime over shared upstream state.
-- `services/social_report_bridge.py`
-  Should become part of a broader report projection layer.
-- `api/social_simulation.py`
-  Should expose reaction-run, replay, and projection endpoints.
-- `api/negotiations.py`
-  Should expose a decision-session view backed by shared knowledge state.
+- `domain/events.py` — canonical event taxonomy (Phase A) ✅
+- `domain/market/` — `MarketContextSnapshot` model (Phase B) ✅
+- `services/market_state.py` — async snapshot builder over `MarketSignal` rows ✅
+- `db/models.py::MarketSignal` — single new table; migration `e1f8a9c4d572` ✅
+- `domain/actors/` — `ActorSignalState`, `CohortSignalState`, `ActorType` (Phase C) ✅
+- `domain/reactions/` — `ReactionEngine`, narrative clustering, convergence (Phase D) ✅
+- `domain/decisions/` — `DecisionRuntime` + 5 built-in policies (Phase E) ✅
+- `domain/outcomes/` — outcome builders + `build_outcome_snapshot()` (Phase F) ✅
+- `domain/reports/` — underwriting / negotiation / policy briefs + replay (Phase G) ✅
+
+Untouched legacy components — additive, not replaced:
+
+- `services/social_simulator.py` — original opinion-round loop still drives
+  `/api/social-sim/*`. Long-term: delegate state-folding to `ReactionEngine`,
+  but no migration scheduled.
+- `agent/negotiation_engine.py` — live negotiation orchestration. The new
+  `NegotiationPolicy` in `domain/decisions/policies.py` wraps
+  `domain.decisions.negotiation` helpers without coupling to this engine.
+- `services/social_report_bridge.py` — still produces MiroFish-compatible
+  payloads. New report builders in `domain/reports/` are additive.
+- `api/social_simulation.py`, `api/negotiations.py` — unchanged. Future work:
+  expose reaction-replay and decision-runtime read-models behind these routes.
 
 ---
 
@@ -179,7 +189,12 @@ This is intentionally stacked. No single framework should own the full system.
 
 ## 6. Revised Execution Plan
 
-### Phase A: Canonical Taxonomy
+> **Status:** Phases A–G complete as of 2026-05-07. 458 tests passing,
+> 96 net-new across the seven phases, no regressions, single new DB table
+> (`market_signals`). All deliverables landed under `domain/` as pure-Python
+> projections. See section 10 for what's now buildable on top.
+
+### Phase A: Canonical Taxonomy ✅ Complete
 
 Define the domain vocabulary and event taxonomy:
 
@@ -196,7 +211,7 @@ This should drive:
 - report generation
 - replay tooling
 
-### Phase B: Market-State Foundation
+### Phase B: Market-State Foundation ✅ Complete
 
 Build the real spatial market layer:
 
@@ -204,14 +219,14 @@ Build the real spatial market layer:
 - market shock inputs
 - zoning, transit, school, hazard, and comp signals
 
-### Phase C: Actor And Cohort Memory
+### Phase C: Actor And Cohort Memory ✅ Complete
 
 Expand household modeling into reusable actor state:
 
 - buyer, seller, renter, investor, broker, city, and business cohorts
 - structured pressure, trust, and narrative-susceptibility variables
 
-### Phase D: Reaction Runtime
+### Phase D: Reaction Runtime ✅ Complete
 
 Transform the current social-sim engine into a reaction engine:
 
@@ -220,7 +235,7 @@ Transform the current social-sim engine into a reaction engine:
 - narrative extraction
 - convergence and divergence tracking
 
-### Phase E: Decision Runtime
+### Phase E: Decision Runtime ✅ Complete
 
 Move transaction logic onto the shared state:
 
@@ -229,7 +244,7 @@ Move transaction logic onto the shared state:
 - leasing and churn behavior
 - development and policy resistance
 
-### Phase F: Outcome Projections
+### Phase F: Outcome Projections ✅ Complete
 
 Store and expose:
 
@@ -239,7 +254,7 @@ Store and expose:
 - time-on-market
 - neighborhood-level sentiment
 
-### Phase G: Reports And Replay
+### Phase G: Reports And Replay ✅ Complete
 
 Generate MiroFish-style artifacts as projections from the layered runtime:
 
@@ -265,6 +280,34 @@ The next concrete engineering steps should be:
    explicit in code.
 
 ---
+
+## 7.5 Frontend Surface — Persona Risk Workspace
+
+The `/negotiate` route in the React app has been repositioned. It is no
+longer "agent chat for negotiation"; it is the **persona risk workspace**
+where users run social simulations to project how different households will
+move under a trigger event.
+
+Concrete shape (current code in `frontend/src/pages/NegotiationPage.tsx`):
+
+- **Inputs:** trigger user, zip code, income band (low / moderate / middle /
+  upper), max rounds, topic selection (price, displacement, gentrification,
+  transit, school, eviction risk, ...).
+- **Live output during the run:** status counter, current round, action
+  count, per-round household actions (round_num, topic, action_type,
+  sentiment_value, narrative), topic timeline (dominant stance + average
+  sentiment per round).
+- **Terminal output:** narrative_output and sentiment_delta JSON, ready to
+  feed `services/social_report_bridge.py` for a MiroFish-style report.
+
+The legacy negotiation session machinery (Session Setup, Session State,
+Typed Actions, Offer History, Event Replay, Live WebSocket Feed) is still
+embedded in the same page for downstream consumers, but the social-sim
+panel is the primary workspace.
+
+**Implication:** further UI work on persona-risk visualization (cohort
+heatmaps, comparative scenario runs, sensitivity sliders) should land on
+this route, not a new one.
 
 ## 8. What Stays Valid From The Current Build
 
@@ -299,3 +342,77 @@ Execution consequences:
 
 This keeps the next milestone focused on model quality, event taxonomy, and
 replayable behavior instead of early distributed-systems overhead.
+
+---
+
+## 10. Lean Choices Held (Phases A–G)
+
+The implementation deliberately favored additive primitives over rewrites.
+Every cross-cutting choice below applied to all seven phases unless noted:
+
+**Cross-cutting:**
+- All new code lives under `domain/`. Existing `services/`, `agent/`, `api/`,
+  and `db/` modules are untouched (one exception: `db/models.py` gained
+  `MarketSignal` for Phase B).
+- Single new DB table (`market_signals`, migration `e1f8a9c4d572`). No
+  schema changes for Phases C–G.
+- All builders and runtimes are pure-Python with frozen `slots=True`
+  dataclasses — deterministic, side-effect free, no async.
+- **Lenient validation**: missing or unknown inputs log a warning and yield
+  a sensible default (`None`, neutral score, empty tuple). `ValueError` is
+  reserved for real state-machine transitions (`domain.decisions.negotiation`).
+- Tests use the existing in-memory SQLite + fakeredis convention. No
+  external services required.
+
+**Per-phase:**
+| Phase | Specific lean choices |
+|---|---|
+| A — Event taxonomy | Lenient registry (1b), strings not enums (2a), central catalog (3a), no migration of existing emit sites (4a), no Pydantic payload schemas (5a) |
+| B — Market state | New table only — no refactor of `properties` or `neighborhoods`. Property-level signals win, neighborhood signals only gap-fill. Idempotent migration. No caching layer. |
+| C — Actor / cohort | Reused 8-pressure `ActorSignalState` shape. Defensive read of `actor_type` / `role` / `housing_type`. No persistence — projections derive from existing `UserProfile`/household models. |
+| D — Reaction runtime | In-memory `dict[str, ReactionVector]`. `services/social_simulator.py` left running. Mean per-variable variance vs. configurable threshold (no scipy). |
+| E — Decision runtime | `agent/negotiation_engine.py` untouched — `NegotiationPolicy` wraps `domain.decisions.negotiation`. Stateless across calls. Explicit policy registration, no auto-discovery. Per-policy exception isolation. |
+| F — Outcome projections | Existing `MarketOutcomeSnapshot` shape filled in, not changed. `project_negotiation_session` left alone. No persistence. Naive datetimes auto-coerced to UTC. |
+| G — Reports / replay | `MiroFishReportData` and `MiroFishReport` DB model untouched. Replay is in-memory — no event-store dependency. Neutral defaults instead of raises. |
+
+---
+
+## 11. What's Now Buildable On The Spec
+
+With the layered runtime in place, the next milestones become small and
+mechanical — most of the new work is wiring, persistence, and UI on top of
+existing pure functions. Roughly in priority order:
+
+1. **Wire `DecisionRuntime` into the orchestrator.** Build a
+   `DecisionContext` per request from `services/market_state.build_snapshot`
+   plus the live reaction state, run `default_policies()`, surface
+   recommendations alongside existing tool calls. No new domain code needed.
+2. **Persist outcome snapshots.** New `outcome_snapshots` table writing
+   `MarketOutcomeSnapshot` per listing/closed deal. Read-only API at
+   `GET /api/listings/{id}/outcome` returning the latest projection.
+3. **Reports API.** `POST /api/reports/underwriting`,
+   `/api/reports/negotiation-briefing/{negotiation_id}`,
+   `/api/reports/policy-risk` — each one builds a context, calls the
+   matching `domain.reports.builders.*`, returns the frozen artifact as JSON.
+4. **WebSocket replay streaming.** Stream `ReplayFrame`s as the reaction
+   engine processes events, keyed off `correlation_id`. `replay_reactions`
+   is already pure — only the transport is missing.
+5. **Backfill `MarketSignal` from existing data sources.** Zoning, permit
+   rate, transit score, school score, hazard flags. One-shot scripts under
+   `scripts/`; no domain changes.
+6. **Connect the legacy social simulator to `ReactionEngine`.** Delegate
+   per-round state folding to `engine.apply_batch()`, keep the LLM-driven
+   opinion generation. Convergence detection moves to `engine.convergence()`.
+7. **Persist `DecisionRecommendation` history per negotiation.** New
+   `decision_log` table. Lets us audit which policy fired when.
+8. **Frontend dashboards.** Render `MarketOutcomeSnapshot` per listing,
+   decision-runtime recommendations on the negotiation page, replay
+   timelines from `ReplayNarrative.frames`.
+9. **Cohort views.** Run `cohort_signals()` over user/household snapshots,
+   expose cohort heatmaps in the UI.
+10. **Scenario playground.** Pre-built `ReactionEvent` streams (rent shock,
+    transit announcement, eviction wave) → `replay_reactions()` → render
+    via existing replay UI. Pure read-only feature.
+
+None of these require new core algorithms — the projections already exist
+and are tested. Each item is essentially a persistence + transport task.

@@ -493,7 +493,7 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
       )}
 
       {mode === 'simulation' && !simLoading && simCount > 0 && unlinkedSimCount > 0 && (
-        <div className="map-overlay-message" style={{ top: '4.5rem', bottom: 'auto', background: 'rgba(255, 244, 229, 0.92)', color: '#9a3412' }}>
+        <div className="map-overlay-message map-overlay-message--warning">
           {unlinkedSimCount} simulation result set(s) are not linked to current map properties. Use a real property from the selector when starting simulations.
         </div>
       )}
@@ -502,13 +502,13 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
       {mode === 'simulation' && !simLoading && simCount > 0 && (
         <div className="map-legend">
           <div className="map-legend-title">Simulation Results (linked: {linkedSimCount}, runs: {totalSimRuns})</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#22c55e' }} />Deals Reached ({dealCount})</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#f59e0b' }} />Max Rounds (Stalemate)</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#ef4444' }} />Rejected</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#f97316' }} />Broker Stopped</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#94a3b8' }} />Not Simulated</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--success" />Deals Reached ({dealCount})</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--warning" />Max Rounds (Stalemate)</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--danger" />Rejected</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--accent" />Broker Stopped</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--muted" />Not Simulated</div>
           <div className="map-legend-divider" />
-          <div className="map-legend-item" style={{ fontSize: '0.72rem', color: '#888' }}>Heatmap glow = negotiation discount</div>
+          <div className="map-legend-item map-legend-item--note">Heatmap glow = negotiation discount</div>
         </div>
       )}
 
@@ -521,13 +521,13 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
       {mode === 'buyer-ability' && selectedUser?.budget_max && (
         <div className="map-legend">
           <div className="map-legend-title">Budget: ${selectedUser.budget_max.toLocaleString()}</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#22c55e' }} />Within Budget</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#eab308' }} />Stretch (up to +15%)</div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#ef4444' }} />Over Budget</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--success" />Within Budget</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--budget" />Stretch (up to +15%)</div>
+          <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--danger" />Over Budget</div>
         </div>
       )}
 
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={containerRef} className="dashboard-map-canvas" />
     </div>
   )
 }

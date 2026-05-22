@@ -1,5 +1,12 @@
 """Reaction-layer primitives and social-dynamics helpers."""
 
+from domain.reactions.engine import (
+    ConvergenceReport,
+    NarrativeCluster,
+    ReactionEngine,
+    extract_narratives,
+    vector_distance,
+)
 from domain.reactions.models import REACTION_VARIABLES, ReactionEvent, ReactionVector
 from domain.reactions.runtime import SocialReactionRuntime
 from domain.reactions.social_dynamics import (
@@ -13,7 +20,10 @@ from domain.reactions.social_dynamics import (
 
 __all__ = [
     "ALLOWED_REACTION_TOPICS",
+    "ConvergenceReport",
+    "NarrativeCluster",
     "REACTION_VARIABLES",
+    "ReactionEngine",
     "ReactionEvent",
     "ReactionVector",
     "SocialReactionRuntime",
@@ -21,5 +31,7 @@ __all__ = [
     "TOPIC_DESCRIPTIONS",
     "build_initial_opinions",
     "communication_style_multiplier",
+    "extract_narratives",
     "validate_topics",
+    "vector_distance",
 ]

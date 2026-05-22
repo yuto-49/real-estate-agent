@@ -81,60 +81,37 @@ export default function PropertySimulationMap({
 
   if (loading) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-        <span style={{ color: '#94a3b8' }}>Loading map...</span>
+      <div className="property-replay-map__state property-replay-map__state--loading">
+        <span>Loading map...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fef2f2' }}>
-        <span style={{ color: '#ef4444' }}>{error}</span>
+      <div className="property-replay-map__state property-replay-map__state--error">
+        <span>{error}</span>
       </div>
     )
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+    <div className="property-replay-map">
+      <div ref={mapContainer} className="property-replay-map__canvas" />
 
       {/* Property Info Overlay */}
       {visualization && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            padding: '12px 16px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            maxWidth: '280px',
-            fontSize: '13px',
-            zIndex: 10,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: '4px' }}>{visualization.address}</div>
-          <div style={{ color: '#64748b' }}>
+        <div className="property-replay-map__card property-replay-map__card--property">
+          <div className="property-replay-map__title">{visualization.address}</div>
+          <div className="property-replay-map__meta">
             ${visualization.asking_price.toLocaleString('en-US')}
             {visualization.property_type && ` - ${visualization.property_type.toUpperCase()}`}
           </div>
           {visualization.simulation_ids.length > 0 && (
             <button
+              type="button"
+              className="primary-btn property-replay-map__cta"
               onClick={handlePropertyClick}
-              style={{
-                marginTop: '8px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#fff',
-                backgroundColor: '#3b82f6',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                width: '100%',
-              }}
             >
               View Simulation Replay ({visualization.simulation_ids.length})
             </button>
@@ -144,33 +121,15 @@ export default function PropertySimulationMap({
 
       {/* Legend */}
       {visualization && visualization.overlays.length > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '12px',
-            left: '12px',
-            backgroundColor: '#fff',
-            borderRadius: '8px',
-            padding: '10px 14px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            fontSize: '11px',
-            zIndex: 10,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: '6px', color: '#475569' }}>Map Layers</div>
+        <div className="property-replay-map__card property-replay-map__card--legend">
+          <div className="property-replay-map__legend-title">Map Layers</div>
           {getUniqueLegendEntries(visualization.overlays).map((entry, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+            <div key={i} className="property-replay-map__legend-item">
               <span
-                style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  backgroundColor: entry.color,
-                  display: 'inline-block',
-                  flexShrink: 0,
-                }}
+                className="property-replay-map__legend-dot"
+                style={{ backgroundColor: entry.color }}
               />
-              <span style={{ color: '#64748b' }}>{entry.label}</span>
+              <span>{entry.label}</span>
             </div>
           ))}
         </div>

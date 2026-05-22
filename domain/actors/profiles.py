@@ -2,8 +2,27 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+import logging
+from dataclasses import dataclass, fields
+from enum import Enum
+from typing import Any, Iterable
+
+logger = logging.getLogger(__name__)
+
+
+class ActorType(str, Enum):
+    """Phase C cohort taxonomy. Use ``infer_actor_type`` rather than hard-coding."""
+
+    BUYER = "buyer"
+    SELLER = "seller"
+    RENTER = "renter"
+    LANDLORD = "landlord"
+    BROKER = "broker"
+    INVESTOR = "investor"
+    CITY = "city"
+    BUSINESS = "business"
+    HOUSEHOLD = "household"
+    UNKNOWN = "unknown"
 
 
 def _clamp_unit(value: float) -> float:
@@ -91,4 +110,145 @@ def household_signal_snapshot(household: Any) -> HouseholdSignalSnapshot:
         investor_optimism=investor_optimism,
         willingness_to_transact=willingness_to_transact,
         resistance_to_development=resistance_to_development,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase C: actor & cohort memory
+# ---------------------------------------------------------------------------
+
+
+_ROLE_TO_ACTOR_TYPE: dict[str, ActorType] = {
+    "buyer": ActorType.BUYER,
+    "seller": ActorType.SELLER,
+    "renter": ActorType.RENTER,
+    "tenant": ActorType.RENTER,
+    "landlord": ActorType.LANDLORD,
+    "owner": ActorType.LANDLORD,
+    "broker": ActorType.BROKER,
+    "agent": ActorType.BROKER,
+    "investor": ActorType.INVESTOR,
+    "city": ActorType.CITY,
+    "official": ActorType.CITY,
+    "business": ActorType.BUSINESS,
+    "household": ActorType.HOUSEHOLD,
+    "both": ActorType.BUYER,  # legacy: "both" buyer+seller users default to buyer signals
+}
+
+
+def infer_actor_type(entity: Any) -> ActorType:
+    """Map a UserProfile / HouseholdProfile / dict to an :class:`ActorType`.
+
+    Reads ``actor_type`` / ``role`` / ``housing_type`` in that order. Unknown
+    roles fall back to ``ActorType.UNKNOWN`` with a warning — Phase C stays
+    lenient (no raise) so emerging actor kinds don't block adoption.
+    """
+    raw = (
+        getattr(entity, "actor_type", None)
+        or (entity.get("actor_type") if isinstance(entity, dict) else None)
+        or getattr(entity, "role", None)
+        or (entity.get("role") if isinstance(entity, dict) else None)
+        or getattr(entity, "housing_type", None)
+        or (entity.get("housing_type") if isinstance(entity, dict) else None)
+    )
+    if raw is None:
+        return ActorType.UNKNOWN
+
+    key = str(raw).strip().lower()
+    actor_type = _ROLE_TO_ACTOR_TYPE.get(key)
+    if actor_type is None:
+        logger.warning("Unknown actor role %r — defaulting to ActorType.UNKNOWN", raw)
+        return ActorType.UNKNOWN
+    return actor_type
+
+
+def user_profile_signals(user_profile: Any) -> ActorSignalState:
+    """Project a ``UserProfile``-like entity into :class:`ActorSignalState`.
+
+    Uses ``budget_min``/``budget_max``, ``risk_tolerance``, ``timeline_days``,
+    and ``role`` to derive the same eight pressures the household projection
+    produces. All inputs are read defensively via ``getattr`` so the helper
+    works with ORM rows, plain dicts, and Pydantic models.
+    """
+
+    def _read(attr: str, default: Any = None) -> Any:
+        if isinstance(user_profile, dict):
+            return user_profile.get(attr, default)
+        return getattr(user_profile, attr, default)
+
+    budget_min = float(_read("budget_min", 0.0) or 0.0)
+    budget_max = float(_read("budget_max", 0.0) or 0.0)
+    timeline_days = int(_read("timeline_days", 90) or 90)
+    risk_tolerance_raw = str(_read("risk_tolerance", "moderate") or "moderate").lower()
+
+    # Tighter budget spread + shorter timeline → higher affordability pressure.
+    spread = max(budget_max - budget_min, 0.0)
+    affordability_pressure = (
+        _clamp_unit(1.0 - (spread / budget_max)) if budget_max > 0 else 0.5
+    )
+    if timeline_days <= 30:
+        affordability_pressure = _clamp_unit(affordability_pressure + 0.2)
+
+    risk_to_optimism = {
+        "conservative": 0.2,
+        "moderate": 0.5,
+        "aggressive": 0.8,
+    }
+    investor_optimism = risk_to_optimism.get(risk_tolerance_raw, 0.5)
+
+    actor_type = infer_actor_type(user_profile)
+    if actor_type is ActorType.SELLER:
+        willingness_to_transact = _clamp_unit(0.6 + (1.0 - affordability_pressure) * 0.3)
+    elif actor_type is ActorType.BUYER:
+        willingness_to_transact = _clamp_unit(0.5 + investor_optimism * 0.4)
+    else:
+        willingness_to_transact = 0.5
+
+    return ActorSignalState(
+        affordability_pressure=affordability_pressure,
+        trust_in_trajectory=_clamp_signed(investor_optimism * 2.0 - 1.0),
+        perceived_safety=0.5,
+        social_proof=0.5,
+        displacement_concern=affordability_pressure * 0.5,
+        investor_optimism=investor_optimism,
+        willingness_to_transact=willingness_to_transact,
+        resistance_to_development=_clamp_unit(1.0 - investor_optimism),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CohortSignalState(ActorSignalState):
+    """Cohort-aggregated actor signals — Phase C cohort memory primitive."""
+
+    cohort_size: int = 0
+    cohort_label: str = ""
+    actor_type: ActorType = ActorType.UNKNOWN
+
+
+def cohort_signals(
+    snapshots: Iterable[ActorSignalState],
+    *,
+    actor_type: ActorType = ActorType.UNKNOWN,
+    label: str = "",
+) -> CohortSignalState:
+    """Average a list of actor snapshots into a single :class:`CohortSignalState`.
+
+    Empty input returns a zeroed cohort (size 0). Mixing :class:`ActorSignalState`
+    with :class:`HouseholdSignalSnapshot` is fine — only the eight base
+    pressure fields participate in the average.
+    """
+    snapshots_list = list(snapshots)
+    if not snapshots_list:
+        return CohortSignalState(cohort_size=0, cohort_label=label, actor_type=actor_type)
+
+    averages: dict[str, float] = {}
+    for field_def in fields(ActorSignalState):
+        values = [float(getattr(snapshot, field_def.name)) for snapshot in snapshots_list]
+        averages[field_def.name] = sum(values) / len(values)
+
+    return CohortSignalState(
+        **averages,
+        cohort_size=len(snapshots_list),
+        cohort_label=label,
+        actor_type=actor_type,
     )

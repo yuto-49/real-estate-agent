@@ -13,8 +13,9 @@ This platform simulates and executes real estate transactions with a focus on **
 │                              CLIENT LAYER                                    │
 │   React 18 + TypeScript + Vite                                               │
 │   ┌──────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────┐ ┌──────────┐ │
-│   │Dashboard │ │ Negotiation  │ │  Simulation  │ │ Analysis │ │  Profile │ │
-│   │  + Map   │ │    Chat      │ │   Runner     │ │ Reports  │ │  Editor  │ │
+│   │Dashboard │ │ Persona Risk │ │  Simulation  │ │ Analysis │ │  Profile │ │
+│   │  + Map   │ │  Workspace   │ │   Runner     │ │ Reports  │ │  Editor  │ │
+│   │          │ │  (/negotiate)│ │              │ │          │ │          │ │
 │   └────┬─────┘ └──────┬───────┘ └──────┬───────┘ └────┬─────┘ └────┬─────┘ │
 │        │               │ WebSocket      │              │            │        │
 └────────┼───────────────┼────────────────┼──────────────┼────────────┼────────┘
@@ -26,7 +27,7 @@ This platform simulates and executes real estate transactions with a focus on **
 │   Routers:                                                                   │
 │   /api/properties  /api/offers  /api/users  /api/negotiations                │
 │   /api/reports     /api/simulation  /api/simulation/batch                    │
-│   /api/agent       /api/webhooks    /api/social-sim (planned)                │
+│   /api/agent       /api/webhooks    /api/social-sim                          │
 │   /ws/negotiation/{id}  /health  /metrics                                    │
 └────────┬───────────────┬────────────────┬──────────────┬────────────────────-┘
          │               │                │              │
@@ -48,7 +49,7 @@ This platform simulates and executes real estate transactions with a focus on **
 │ │  Agent    │  │ │ Domain     │ │              │ │ Financial Models      │
 │ └───────────┘  │ │ Events     │ │ Social       │ │ (Monte Carlo, DCF,    │
 │                │ │            │ │ Simulator    │ │  tax, rent-vs-buy)    │
-│ Tool ACL       │ │            │ │ (planned)    │ │          │            │
+│ Tool ACL       │ │            │ │ + Bridge     │ │          │            │
 │ Tool Registry  │ │            │ │              │ │          ▼            │
 │ Prompts v2.0   │ │            │ │              │ │ Report Parser         │
 └────────────────┘ └────────────┘ └──────────────┘ └───────────────────────┘
@@ -69,8 +70,7 @@ This platform simulates and executes real estate transactions with a focus on **
 │  │  mirofish_seeds         │    │  Session cache                        │    │
 │  │  simulation_results     │    │                                       │    │
 │  │  domain_events          │    │                                       │    │
-│  │                         │    │                                       │    │
-│  │  (planned)              │    │                                       │    │
+│  │  market_signals         │    │                                       │    │
 │  │  household_profiles     │    │                                       │    │
 │  │  household_social_edges │    │                                       │    │
 │  │  social_simulation_runs │    │                                       │    │
@@ -116,8 +116,8 @@ The agent system uses `UserProfile.budget_min/budget_max` in conjunction with AM
 **Multi-Stakeholder Negotiation:**
 The broker agent mediates not just between buyer and seller but also represents regulatory constraints — ensuring that negotiated prices comply with affordability covenants and that closing timelines accommodate compliance review periods.
 
-**Social Simulation for Community Impact:**
-The social simulation engine (planned) models how housing decisions affect neighborhood-level opinion dynamics — critical for workforce housing projects that require community support or face NIMBY opposition. Simulating household-level sentiment around topics like `voucher_program`, `neighborhood_safety`, and `eviction_policy` produces intelligence that informs:
+**Social Simulation for Community Impact — Persona Risk Engine:**
+The social simulation engine (`services/social_simulator.py`, exposed at `/api/social-sim/*` and surfaced in the `/negotiate` Persona Risk Workspace) models how housing decisions affect neighborhood-level opinion dynamics — critical for workforce housing projects that require community support or face NIMBY opposition. Simulating household-level sentiment around topics like `voucher_program`, `neighborhood_safety`, and `eviction_policy` produces intelligence that informs:
 - Site selection (which neighborhoods have favorable sentiment?)
 - Community engagement strategy (which household clusters are vocal?)
 - Political feasibility (will the policy support score hold through public comment?)
@@ -254,9 +254,19 @@ Generates synthetic buyer/seller profiles with:
 - Experience level → patience and concession patterns
 - Life stage → urgency and flexibility parameters
 
-### 5.4 Social Behavior Simulator (Planned)
+### 5.4 Social Behavior Simulator — Persona Risk Engine
 
-**Location:** `services/social_simulator.py` (to be implemented)
+**Location:** `services/social_simulator.py` (shipped). API exposed at
+`/api/social-sim/*`. Frontend surface: `/negotiate` route → Social
+Interaction Simulation panel (now the primary workspace on that route, not
+a side feature).
+
+This is the **persona risk assessment engine** of the platform: given a
+trigger user, zip, income band, and topic set, it projects how different
+synthetic households shift stance and sentiment round-by-round, surfacing
+which personas move first, which converge, and which dig in. Output feeds
+`services/social_report_bridge.py` → MiroFish report → downstream
+decision/negotiation logic.
 
 Models opinion dynamics across a synthetic household network:
 
@@ -285,7 +295,44 @@ Round N:
 - `voucher_program` — acceptance of housing choice vouchers in neighborhood
 - `neighborhood_safety` — perceived safety and willingness to invest
 
-### 5.5 Intelligence Pipeline
+### 5.5 Investor Portfolio & Decision Engine
+
+**Location:** `api/portfolio.py`, `api/underwrite.py`, `api/decisions.py`,
+`intelligence/{underwriting,tax_basic,stress_test}.py`,
+`services/tenant_pool.py`. Frontend surface: `/portfolio` route →
+`PortfolioPage` (4 tabs). API exposed at `/api/portfolio/*`,
+`/api/underwrite`, `/api/underwrite/stress-test`, `/api/listing/parse`,
+`/api/decisions/holding/{id}`.
+
+The **individual-investor surface** of the platform. It lets a retail
+investor track holdings, underwrite a deal (cap rate / cash-on-cash / DSCR /
+IRR), run a Monte Carlo stress test over five sliders, and get a
+policy-driven recommendation per holding.
+
+```
+PortfolioHolding + HoldingFinancials
+         │
+         ▼
+   services/market_state.build_snapshot → MarketContextSnapshot
+         │
+         ▼
+   api/decisions.py: derive lenient ReactionVector
+         │
+         ▼
+   DecisionRuntime [ListHoldPolicy + LeasePolicy + ChurnPolicy]
+         │  + refinance financial heuristic
+         ▼
+   Investor action: HOLD / RAISE_RENT / REFI / SELL / IMPROVE
+         │
+         ▼
+   HoldingDecisionResponse (top recommendation + scored candidates)
+```
+
+The decision API is the first **live consumer** of the pure-Python
+`DecisionRuntime` — the runtime stays I/O-free; the API module owns loading
+the holding, building the snapshot, and the policy→investor-action mapping.
+
+### 5.6 Intelligence Pipeline
 
 **Location:** `intelligence/`
 
@@ -351,7 +398,7 @@ UserProfile + Market Data + Active Listings
 5. USER reviews results → selects strategy → starts real negotiation
 ```
 
-### 6.3 Social Simulation → Report → Negotiation (Planned)
+### 6.3 Social Simulation → Persona Risk Report → Negotiation
 
 ```
 1. GENERATE synthetic households for target zip codes

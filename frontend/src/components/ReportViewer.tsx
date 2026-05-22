@@ -15,6 +15,7 @@ interface ReportStatus {
   current_step: string
   step_key?: string
   created_at?: string
+  error_message?: string | null
 }
 
 const WORKFLOW_STEPS = [
@@ -105,7 +106,10 @@ export default function ReportViewer({ reportId, onComplete }: Props) {
         onComplete?.()
       } else if (data.status === 'failed') {
         stopPolling()
-        setError('Report generation failed.')
+        const detail = data.error_message?.trim()
+          ? data.error_message
+          : 'Report generation failed.'
+        setError(detail)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to check status')

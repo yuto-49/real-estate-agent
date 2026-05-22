@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../utils/api'
 import type { AgentPersona } from '../utils/types'
+import SimulationPersonaCard from './SimulationPersonaCard'
 
 interface Props {
   buyerProfile: Record<string, unknown> | null
@@ -11,45 +12,24 @@ interface Props {
 
 function PersonaCard({ persona }: { persona: AgentPersona }) {
   return (
-    <div className="persona-card">
-      <div className="persona-card-header">
-        <span className={`persona-role ${persona.role}`}>{persona.role.toUpperCase()}</span>
-        <span className="persona-name">{persona.name}</span>
-      </div>
-      <div className="persona-traits">
-        <div className="persona-trait">
-          <span className="persona-trait-label">MBTI</span>
-          <span className="persona-trait-value">{persona.personality_type}</span>
-        </div>
-        <div className="persona-trait">
-          <span className="persona-trait-label">Style</span>
-          <span className="persona-trait-value">{persona.negotiation_style}</span>
-        </div>
-        <div className="persona-trait">
-          <span className="persona-trait-label">Risk</span>
-          <span className="persona-trait-value">{persona.risk_tolerance}</span>
-        </div>
-        <div className="persona-trait">
-          <span className="persona-trait-label">Experience</span>
-          <span className="persona-trait-value">{persona.experience_level}</span>
-        </div>
-      </div>
-      <p className="persona-background">{persona.background}</p>
-      <div className="persona-lists">
-        <div>
-          <span className="persona-list-label">Motivations</span>
-          <ul>{persona.motivations.map((m, i) => <li key={i}>{m}</li>)}</ul>
-        </div>
-        <div>
-          <span className="persona-list-label">Pressure Points</span>
-          <ul>{persona.pressure_points.map((p, i) => <li key={i}>{p}</li>)}</ul>
-        </div>
-        <div>
-          <span className="persona-list-label">Strengths</span>
-          <ul>{persona.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
-        </div>
-      </div>
-    </div>
+    <SimulationPersonaCard
+      badge={persona.role.toUpperCase()}
+      badgeTone={persona.role === 'buyer' ? 'buyer' : 'seller'}
+      name={persona.name}
+      subtitle={`${persona.personality_type} • ${persona.negotiation_style}`}
+      traits={[
+        { label: 'MBTI', value: persona.personality_type },
+        { label: 'Style', value: persona.negotiation_style },
+        { label: 'Risk', value: persona.risk_tolerance },
+        { label: 'Experience', value: persona.experience_level },
+      ]}
+      summary={<p>{persona.background}</p>}
+      lists={[
+        { label: 'Motivations', items: persona.motivations },
+        { label: 'Pressure Points', items: persona.pressure_points },
+        { label: 'Strengths', items: persona.strengths },
+      ]}
+    />
   )
 }
 
@@ -84,6 +64,7 @@ export default function PersonaBuilder({ buyerProfile, propertyContext, personas
           className="secondary-btn"
           onClick={() => void handleGenerate()}
           disabled={loading}
+          type="button"
         >
           {loading ? 'Generating...' : personas.buyer ? 'Regenerate' : 'Generate Personas'}
         </button>
@@ -96,7 +77,7 @@ export default function PersonaBuilder({ buyerProfile, propertyContext, personas
         </div>
       )}
       {!personas.buyer && !loading && (
-        <p style={{ color: '#888', fontSize: '0.85rem' }}>
+        <p className="persona-builder-copy">
           Click "Generate Personas" to create buyer and seller profiles for the simulation.
         </p>
       )}

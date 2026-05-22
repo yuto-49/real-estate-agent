@@ -1,12 +1,23 @@
 """Property CRUD API endpoints."""
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.schemas import PropertyCreate, PropertyUpdate, PropertyResponse, PropertyListResponse
+from api.schemas import (
+    PropertyCreate,
+    PropertyListResponse,
+    PropertyRecommendation,
+    PropertyRecommendationsResponse,
+    PropertyResponse,
+    PropertyUpdate,
+)
 from db.database import get_db
-from db.models import Property, PropertyStatus
+from db.models import InvestorProfile, Property, PropertyStatus
+from services.market_state import build_snapshot
+from services.property_recommender import rank_properties
 
 router = APIRouter()
 
@@ -53,6 +64,65 @@ async def list_properties(
     )
 
 
+@router.get("/recommend", response_model=PropertyRecommendationsResponse)
+async def recommend_properties(
+    user_id: str,
+    top_n: int = 10,
+    db: AsyncSession = Depends(get_db),
+) -> PropertyRecommendationsResponse:
+    """Rank active listings for the investor's profile.
+
+    Pre-filter on budget + geography, then score via the deterministic
+    ``services.property_recommender`` ranker. The user must have an
+    ``InvestorProfile`` row (created by the onboarding wizard's "no portfolio"
+    branch).
+    """
+    profile = (
+        await db.execute(
+            select(InvestorProfile).where(InvestorProfile.user_id == user_id)
+        )
+    ).scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="profile_not_found")
+
+    candidates = (
+        await db.execute(
+            select(Property).where(Property.status == PropertyStatus.ACTIVE)
+        )
+    ).scalars().all()
+
+    snapshots = {}
+    for prop in candidates:
+        try:
+            snapshots[prop.id] = await build_snapshot(db, prop.id)
+        except Exception:
+            # Snapshot is optional — the ranker tolerates missing snapshots.
+            pass
+
+    scored = rank_properties(
+        profile, list(candidates), snapshots=snapshots, top_n=max(1, min(top_n, 50))
+    )
+
+    return PropertyRecommendationsResponse(
+        recommendations=[
+            PropertyRecommendation(
+                property_id=s.property_id,
+                address=s.property.address,
+                asking_price=s.property.asking_price,
+                property_type=s.property.property_type,
+                bedrooms=s.property.bedrooms,
+                bathrooms=s.property.bathrooms,
+                sqft=s.property.sqft,
+                score=s.score,
+                rationale=s.rationale,
+            )
+            for s in scored
+        ],
+        profile_id=profile.id,
+        candidates_considered=len(candidates),
+    )
+
+
 @router.get("/{property_id}", response_model=PropertyResponse)
 async def get_property(property_id: str, db: AsyncSession = Depends(get_db)):
     """Get property details."""
@@ -61,6 +131,22 @@ async def get_property(property_id: str, db: AsyncSession = Depends(get_db)):
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     return PropertyResponse.model_validate(prop)
+
+
+@router.get("/{property_id}/market-context")
+async def get_market_context(property_id: str, db: AsyncSession = Depends(get_db)):
+    """Return the latest layered MarketContextSnapshot for a property.
+
+    Wraps :func:`services.market_state.build_snapshot` — fields derive from the
+    most recent ``market_signals`` rows for the property and its neighborhood,
+    with property-level signals winning over neighborhood-level on overlap.
+    Missing signals stay ``null`` (lenient), so callers can render partial
+    context without coordinating writes.
+    """
+    snapshot = await build_snapshot(db, property_id=property_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return asdict(snapshot)
 
 
 @router.post("/", response_model=PropertyResponse, status_code=201)

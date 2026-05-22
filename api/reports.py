@@ -268,6 +268,7 @@ async def report_status(report_id: str, db: AsyncSession = Depends(get_db)):
         current_step=config.get("current_step", ""),
         step_key=config.get("step_key", ""),
         created_at=report.created_at,
+        error_message=config.get("error"),
     )
 
 
@@ -289,6 +290,7 @@ async def list_user_reports(user_id: str, db: AsyncSession = Depends(get_db)):
             current_step=(r.simulation_config or {}).get("current_step", ""),
             step_key=(r.simulation_config or {}).get("step_key", ""),
             created_at=r.created_at,
+            error_message=(r.simulation_config or {}).get("error"),
         )
         for r in reports
     ]

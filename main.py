@@ -16,15 +16,23 @@ from api.ws import router as ws_router
 from api.webhooks import router as webhooks_router
 from api.agent import router as agent_router
 from api.simulation import router as simulation_router
+from api.market_simulation import router as market_simulation_router
 from api.batch_simulation import router as batch_simulation_router
 from api.social_simulation import router as social_sim_router
 from api.households import router as households_router
 from api.visualization import router as visualization_router
+from api.portfolio import router as portfolio_router
+from api.underwrite import underwrite_router, listing_router
+from api.decisions import router as decisions_router
+from api.strategy import router as strategy_router
+from api.onboarding import router as onboarding_router
+from api.investor_profile import router as investor_profile_router
 from db.database import engine
 from middleware.correlation import CorrelationIdMiddleware
 from services.logging import setup_logging
 from services.maps import MapsService
 from services.redis import close_redis
+from services.runtime_schema import ensure_market_simulation_schema
 from config import settings
 
 # Shared Maps service instance (closed on shutdown)
@@ -39,6 +47,7 @@ async def lifespan(app: FastAPI):
     from db.models import Base as DBBase
     async with engine.begin() as conn:
         await conn.run_sync(DBBase.metadata.create_all)
+    await ensure_market_simulation_schema(engine)
     yield
     await maps_service.close()
     await engine.dispose()
@@ -73,10 +82,18 @@ app.include_router(ws_router, prefix="/ws", tags=["websocket"])
 app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(agent_router, prefix="/api/agent", tags=["agent"])
 app.include_router(simulation_router, prefix="/api/simulation", tags=["simulation"])
+app.include_router(market_simulation_router, prefix="/api/simulation/market", tags=["market-simulation"])
 app.include_router(batch_simulation_router, prefix="/api/simulation", tags=["batch-simulation"])
 app.include_router(social_sim_router, prefix="/api/social-sim", tags=["social-simulation"])
 app.include_router(households_router, prefix="/api/households", tags=["households"])
 app.include_router(visualization_router, prefix="/api/visualization", tags=["visualization"])
+app.include_router(portfolio_router, prefix="/api/portfolio", tags=["portfolio"])
+app.include_router(underwrite_router, prefix="/api/underwrite", tags=["underwrite"])
+app.include_router(listing_router, prefix="/api/listing", tags=["listing"])
+app.include_router(decisions_router, prefix="/api/decisions", tags=["decisions"])
+app.include_router(strategy_router, prefix="/api/strategy", tags=["strategy"])
+app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
+app.include_router(investor_profile_router, prefix="/api/investor-profile", tags=["investor-profile"])
 
 
 @app.get("/health")

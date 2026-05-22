@@ -183,7 +183,7 @@ export default function DashboardPage() {
                 <button className="primary-btn" onClick={() => navigate('/analysis')}>
                   Generate Report
                 </button>
-                <button className="primary-btn" style={{ background: '#3a3a6e' }} onClick={() => navigate('/simulation')}>
+                <button className="primary-btn primary-btn--quiet" onClick={() => navigate('/simulation')}>
                   Run Simulation
                 </button>
               </div>
@@ -219,8 +219,8 @@ export default function DashboardPage() {
 
             {/* Profile link */}
             {selectedUser && (
-              <div style={{ marginBottom: '0.75rem' }}>
-                <Link to={`/profile/${selectedUser.id}`} className="secondary-btn" style={{ display: 'inline-block', textAlign: 'center', width: '100%' }}>
+              <div className="dashboard-link-stack">
+                <Link to={`/profile/${selectedUser.id}`} className="secondary-btn dashboard-link-btn">
                   View Full Profile
                 </Link>
               </div>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
             <div className="dashboard-recent">
               <h3>Recent Reports</h3>
               {reports.length === 0 ? (
-                <p style={{ color: '#888', fontSize: '0.85rem' }}>No reports yet. <Link to="/analysis">Generate one</Link>.</p>
+                <p className="dashboard-muted-copy">No reports yet. <Link to="/analysis">Generate one</Link>.</p>
               ) : (
                 <table className="report-table">
                   <thead>
@@ -272,7 +272,7 @@ export default function DashboardPage() {
                 address: p.address,
                 price: String(p.asking_price ?? ''),
               })
-              navigate(`/negotiate?${params.toString()}`)
+              navigate(`/simulation?${params.toString()}`)
             }}
             simulationResults={
               selectedSimBatch === 'all'

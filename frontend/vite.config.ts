@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  envDir: '..',
   server: {
     port: 5173,
     proxy: {
@@ -14,5 +15,23 @@ export default defineConfig({
         ws: true,
       },
     },
+    warmup: {
+      clientFiles: [
+        './src/main.tsx',
+        './src/App.tsx',
+        './src/pages/DashboardPage.tsx',
+        './src/components/DashboardMap.tsx',
+      ],
+    },
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react-router-dom',
+      'maplibre-gl',
+      'supercluster',
+    ],
   },
 })

@@ -52,6 +52,38 @@ class PropertyStatus(str, enum.Enum):
     WITHDRAWN = "withdrawn"
 
 
+# ── Investor Portfolio enums (Phase P1) ───────────────────────────────
+
+
+class PortfolioMode(str, enum.Enum):
+    """Top-nav mode toggle — drives default landing route and nav surfacing."""
+
+    INSTITUTIONAL = "institutional"
+    INDIVIDUAL = "individual"
+
+
+class InvestmentStrategy(str, enum.Enum):
+    BUY_HOLD = "buy_hold"
+    BRRRR = "brrrr"
+    FIX_FLIP = "fix_flip"
+    MIXED = "mixed"
+
+
+class AssetClass(str, enum.Enum):
+    SFR = "sfr"
+    MF_2_4 = "mf_2_4"
+    MF_5_PLUS = "mf_5_plus"
+    CONDO = "condo"
+    TOWNHOUSE = "townhouse"
+
+
+class HoldingStatus(str, enum.Enum):
+    HELD = "held"
+    UNDER_REHAB = "under_rehab"
+    LISTED = "listed"
+    SOLD = "sold"
+
+
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
@@ -71,6 +103,15 @@ class UserProfile(Base):
     zip_code = Column(String)
     search_radius = Column(Integer, default=10)  # miles
     preferred_types = Column(JSONB, default=list)  # ["sfr", "condo", "multifamily"]
+    preferred_mode = Column(
+        Enum(
+            PortfolioMode,
+            native_enum=False,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        default=PortfolioMode.INSTITUTIONAL,
+        nullable=False,
+    )
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -346,4 +387,259 @@ class DomainEvent(Base):
     actor_type = Column(String, nullable=True)  # user, agent, system
     actor_id = Column(String, nullable=True)
     sequence = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MarketSignal(Base):
+    """Spatial-market signal store (Phase B).
+
+    Single table for transit/school/hazard/comp/zoning/rent/sentiment signals
+    keyed by ``(signal_type, subject_type, subject_id)``. Numeric scalars go in
+    ``value``; structured detail (per-hazard flags, comp metadata) lives in
+    ``payload``. The market-state snapshot builder reads the latest row per
+    ``signal_type`` for a given subject.
+    """
+
+    __tablename__ = "market_signals"
+    __table_args__ = (
+        Index("ix_market_signals_subject", "subject_type", "subject_id"),
+        Index("ix_market_signals_type_observed", "signal_type", "observed_at"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    signal_type = Column(String, nullable=False)
+    subject_type = Column(String, nullable=False)
+    subject_id = Column(String, nullable=False)
+    value = Column(Float, nullable=True)
+    payload = Column(JSONB, default=dict)
+    source = Column(String, nullable=True)
+    observed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MarketSimulationRun(Base):
+    """Persistent market-wide investor simulation run."""
+
+    __tablename__ = "market_simulation_runs"
+    __table_args__ = (
+        Index("ix_market_sim_runs_status_created", "status", "created_at"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    run_label = Column(String, nullable=True)
+    status = Column(String, default="pending")  # pending, running, completed, failed
+    property_scope = Column(JSONB, default=dict)
+    cohort_preset = Column(String, default="balanced")
+    investor_count = Column(Integer, default=0)
+    property_count = Column(Integer, default=0)
+    total_ticks = Column(Integer, default=10)
+    current_tick = Column(Integer, default=0)
+    summary = Column(JSONB, default=dict)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
+class MarketSimulationInvestor(Base):
+    """Synthetic investor snapshot persisted per market simulation run."""
+
+    __tablename__ = "market_simulation_investors"
+    __table_args__ = (
+        Index("ix_market_sim_investors_run", "run_id"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    run_id = Column(String, ForeignKey("market_simulation_runs.id"), nullable=False)
+    investor_name = Column(String, nullable=False)
+    archetype = Column(String, nullable=False)
+    budget = Column(Float, nullable=False)
+    cash_remaining = Column(Float, nullable=False)
+    hold_horizon_ticks = Column(Integer, default=6)
+    risk_appetite = Column(Float, default=0.5)
+    diversification_cap = Column(Integer, default=2)
+    preferred_property_types = Column(JSONB, default=list)
+    signal_weights = Column(JSONB, default=dict)
+    persona_profile = Column(JSONB, default=dict)
+    holdings = Column(JSONB, default=list)
+    metadata_json = Column(JSONB, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MarketSimulationPropertyState(Base):
+    """Aggregated per-property state for each simulation tick."""
+
+    __tablename__ = "market_simulation_property_states"
+    __table_args__ = (
+        Index("ix_market_sim_property_state_run_tick", "run_id", "tick_num"),
+        Index("ix_market_sim_property_state_property", "property_id", "tick_num"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    run_id = Column(String, ForeignKey("market_simulation_runs.id"), nullable=False)
+    property_id = Column(String, ForeignKey("properties.id"), nullable=False)
+    tick_num = Column(Integer, nullable=False)
+    status = Column(String, default="active")
+    attention_count = Column(Integer, default=0)
+    bid_count = Column(Integer, default=0)
+    top_bid = Column(Float, nullable=True)
+    bid_velocity = Column(Float, default=0.0)
+    local_competition = Column(Float, default=0.0)
+    recent_attention = Column(Float, default=0.0)
+    reservation_threshold = Column(Float, nullable=False)
+    winning_investor_id = Column(
+        String,
+        ForeignKey("market_simulation_investors.id"),
+        nullable=True,
+    )
+    signal_snapshot = Column(JSONB, default=dict)
+    targeted_investor_ids = Column(JSONB, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MarketSimulationDecision(Base):
+    """One investor decision per tick, with explanation payload."""
+
+    __tablename__ = "market_simulation_decisions"
+    __table_args__ = (
+        Index("ix_market_sim_decision_run_tick", "run_id", "tick_num"),
+        Index("ix_market_sim_decision_investor_tick", "investor_id", "tick_num"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    run_id = Column(String, ForeignKey("market_simulation_runs.id"), nullable=False)
+    tick_num = Column(Integer, nullable=False)
+    investor_id = Column(String, ForeignKey("market_simulation_investors.id"), nullable=False)
+    property_id = Column(String, ForeignKey("properties.id"), nullable=True)
+    chosen_action = Column(String, nullable=False)
+    bid_amount = Column(Float, nullable=True)
+    total_score = Column(Float, nullable=True)
+    score_breakdown = Column(JSONB, default=dict)
+    explanation_payload = Column(JSONB, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ── Investor Portfolio Models (Phase P1) ──────────────────────────────────
+
+
+class InvestorPortfolio(Base):
+    """Individual-investor portfolio aggregate."""
+
+    __tablename__ = "investor_portfolios"
+    __table_args__ = (Index("ix_investor_portfolios_user", "user_id"),)
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("user_profiles.id"), nullable=False)
+    name = Column(String, nullable=False)
+    investment_strategy = Column(
+        Enum(InvestmentStrategy), default=InvestmentStrategy.BUY_HOLD, nullable=False
+    )
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PortfolioHolding(Base):
+    """A single property within an investor's portfolio.
+
+    ``property_id`` is nullable so off-platform holdings (not in the listings
+    catalog) can still be tracked by free-text address.
+    """
+
+    __tablename__ = "portfolio_holdings"
+    __table_args__ = (
+        Index("ix_portfolio_holdings_portfolio", "portfolio_id"),
+        Index("ix_portfolio_holdings_property", "property_id"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    portfolio_id = Column(
+        String, ForeignKey("investor_portfolios.id"), nullable=False
+    )
+    property_id = Column(String, ForeignKey("properties.id"), nullable=True)
+    address = Column(String, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    zip_code = Column(String, nullable=True)
+    asset_class = Column(Enum(AssetClass), default=AssetClass.SFR, nullable=False)
+    status = Column(Enum(HoldingStatus), default=HoldingStatus.HELD, nullable=False)
+    acquisition_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class HoldingFinancials(Base):
+    """Mutable financial snapshot for a holding (current rent, debt, opex).
+
+    1:1 with PortfolioHolding (in practice). All money fields in USD; rates as
+    decimal fractions (0.065 == 6.5%).
+    """
+
+    __tablename__ = "holding_financials"
+    __table_args__ = (Index("ix_holding_financials_holding", "holding_id"),)
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    holding_id = Column(
+        String, ForeignKey("portfolio_holdings.id"), nullable=False
+    )
+    cost_basis = Column(Float, nullable=True)
+    current_value_estimate = Column(Float, nullable=True)
+    value_estimate_source = Column(String, nullable=True)  # acs, zillow, user, ...
+    loan_balance = Column(Float, nullable=True)
+    interest_rate = Column(Float, nullable=True)
+    loan_maturity = Column(DateTime, nullable=True)
+    monthly_piti = Column(Float, nullable=True)
+    monthly_rent = Column(Float, nullable=True)
+    vacancy_rate = Column(Float, nullable=True, default=0.05)
+    monthly_opex_estimate = Column(Float, nullable=True)
+    property_tax_annual = Column(Float, nullable=True)
+    insurance_annual = Column(Float, nullable=True)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class InvestorProfile(Base):
+    """Investor goals + constraints captured by the onboarding wizard.
+
+    One row per user. Drives the property recommendation ranker. Mutable —
+    later edits upsert in place by ``user_id``.
+    """
+
+    __tablename__ = "investor_profiles"
+    __table_args__ = (Index("ix_investor_profiles_user", "user_id", unique=True),)
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("user_profiles.id"), nullable=False)
+    budget = Column(Float, nullable=True)
+    strategy = Column(String, nullable=True)  # buy_and_hold | flip | lease
+    target_cap_rate = Column(Float, nullable=True)  # %, e.g. 7.5
+    target_coc = Column(Float, nullable=True)  # %, e.g. 8.0
+    geography = Column(JSONB, nullable=False, default=dict)  # {zip,city,state}
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class UnderwritingScenario(Base):
+    """Persisted underwriting + stress-test scenario.
+
+    ``holding_id`` is nullable so a pre-purchase analysis (no holding yet) can
+    still be saved. Inputs/outputs/hazard signals are JSONB blobs so the
+    schema doesn't need to migrate every time we add a new slider.
+    """
+
+    __tablename__ = "underwriting_scenarios"
+    __table_args__ = (
+        Index("ix_underwriting_scenarios_holding", "holding_id"),
+        Index("ix_underwriting_scenarios_created", "created_at"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    holding_id = Column(
+        String, ForeignKey("portfolio_holdings.id"), nullable=True
+    )
+    correlation_id = Column(String, nullable=True)
+    label = Column(String, nullable=True)
+    inputs = Column(JSONB, default=dict)
+    outputs = Column(JSONB, default=dict)
+    hazard_signals = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)

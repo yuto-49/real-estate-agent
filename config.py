@@ -1,5 +1,7 @@
 """Application configuration via pydantic-settings."""
 
+from typing import Literal
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +28,9 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_jwt_issuer: str = ""
     supabase_jwks_url: str = ""
+    supabase_jwt_audience: str = "authenticated"  # default for Supabase user JWTs
+    supabase_jwt_secret: str = ""  # only used for legacy HS256 projects (no JWKS)
+    supabase_service_role_key: str = ""  # admin API — used by scripts/create_dev_user.py only
     vite_supabase_url: str = Field(default="", validation_alias="VITE_SUPABASE_URL")
     vite_supabase_publishable_key: str = Field(
         default="",
@@ -41,10 +46,10 @@ class Settings(BaseSettings):
     )
     cors_allowed_origins: str = "http://localhost:5173"
 
-    # MiroFish
+    # MiroFish — intelligence report engine. See env: MIROFISH_MODE, MIROFISH_API_URL
     mirofish_api_url: str = "http://localhost:5001"
     mirofish_webhook_secret: str = ""
-    mirofish_mode: str = "mock"  # "mock" for local simulation, "live" for external service
+    mirofish_mode: Literal["mock", "live"] = "mock"
 
     # App
     environment: str = "development"
@@ -93,6 +98,16 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",  # shared .env may include VITE_* keys for the frontend only
     )
+
+    @field_validator("mirofish_mode", mode="before")
+    @classmethod
+    def _normalize_mirofish_mode(cls, value: object) -> str:
+        if value is None:
+            return "mock"
+        s = str(value).strip().lower()
+        if s in ("mock", "live"):
+            return s
+        raise ValueError("mirofish_mode must be 'mock' or 'live' (set env MIROFISH_MODE)")
 
     @field_validator("supabase_jwt_issuer", "supabase_jwks_url", mode="before")
     @classmethod

@@ -42,6 +42,15 @@ class EventBus:
             "payload": payload,
         })
 
+    async def publish_strategy_step(
+        self, run_id: str, event_type: str, payload: dict
+    ) -> int:
+        """Publish one strategy-run trace event."""
+        return await self.publish(
+            f"strategy:{run_id}",
+            {"type": event_type, "payload": payload},
+        )
+
     async def subscribe(
         self,
         channels: list[str],

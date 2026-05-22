@@ -15,7 +15,7 @@ export default function SimulationVisualizePage() {
   const [activeSimId, setActiveSimId] = useState<string | null>(simIdParam)
   const [activeBatchId, setActiveBatchId] = useState<string | null>(batchIdParam)
   const [visualization, setVisualization] = useState<PropertyVisualization | null>(null)
-  const [popupOpen, setPopupOpen] = useState(!!simIdParam || !!batchIdParam)
+  const [popupOpen, setPopupOpen] = useState(Boolean(simIdParam || batchIdParam))
 
   const handleSimulationSelect = useCallback((simId: string, batchId?: string) => {
     setActiveSimId(simId)
@@ -25,7 +25,6 @@ export default function SimulationVisualizePage() {
 
   const handleVisualizationLoaded = useCallback((viz: PropertyVisualization) => {
     setVisualization(viz)
-    // Auto-open popup if we have a simulation ID from URL or from the property
     if (!popupOpen && !simIdParam && viz.simulation_ids.length > 0) {
       setActiveSimId(viz.simulation_ids[0])
       setPopupOpen(true)
@@ -38,56 +37,48 @@ export default function SimulationVisualizePage() {
 
   if (!propertyId) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>No property selected</h2>
-        <button
-          onClick={() => navigate('/simulation')}
-          style={{ marginTop: '12px', padding: '8px 16px', cursor: 'pointer' }}
-        >
-          Go to Simulation
-        </button>
+      <div className="simulation-replay-empty">
+        <div className="simulation-replay-empty-card">
+          <h2>No property selected</h2>
+          <p>Choose a property from simulation results to load the replay map.</p>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => navigate('/simulation')}
+          >
+            Go to Simulation
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ width: '100vw', height: 'calc(100vh - 56px)', position: 'relative' }}>
-      {/* Full-screen map */}
-      <PropertySimulationMap
-        propertyId={propertyId}
-        onSimulationSelect={handleSimulationSelect}
-        onVisualizationLoaded={handleVisualizationLoaded}
-      />
-
-      {/* Back button */}
-      <button
-        onClick={() => navigate('/simulation')}
-        style={{
-          position: 'absolute',
-          top: '12px',
-          left: '60px',
-          padding: '8px 14px',
-          fontSize: '13px',
-          backgroundColor: '#fff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          zIndex: 10,
-        }}
-      >
-        Back to Simulation
-      </button>
-
-      {/* Simulation Popup */}
-      {popupOpen && activeSimId && (
-        <SimulationPopup
-          simulationId={activeSimId}
-          batchId={activeBatchId || undefined}
-          propertyVisualization={visualization}
-          onClose={handleClosePopup}
+    <div className="simulation-replay-page">
+      <div className="simulation-replay-stage">
+        <PropertySimulationMap
+          propertyId={propertyId}
+          onSimulationSelect={handleSimulationSelect}
+          onVisualizationLoaded={handleVisualizationLoaded}
         />
-      )}
+
+        <button
+          type="button"
+          className="simulation-replay-back secondary-btn"
+          onClick={() => navigate('/simulation')}
+        >
+          Back to Simulation
+        </button>
+
+        {popupOpen && activeSimId && (
+          <SimulationPopup
+            simulationId={activeSimId}
+            batchId={activeBatchId || undefined}
+            propertyVisualization={visualization}
+            onClose={handleClosePopup}
+          />
+        )}
+      </div>
     </div>
   )
 }
