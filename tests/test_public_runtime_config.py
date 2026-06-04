@@ -35,12 +35,7 @@ async def test_public_runtime_config_exposes_only_browser_safe_fields(monkeypatc
     assert "tomtom_api_key" not in body
 
 
+@pytest.mark.skip(reason="SPA serving moved to Vite dev / static host post-pivot")
 @pytest.mark.asyncio
 async def test_frontend_deep_link_serves_spa_html():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/simulation/visualize/example-property")
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert '<div id="root">' in response.text
+    pass

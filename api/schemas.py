@@ -1067,6 +1067,11 @@ class HoldingSummaryEntry(BaseModel):
     recommendation_score: float
     recommendation_rationale: str
     market_context_available: bool
+    # JP depreciation inputs (Phase 4) — null when the holding is off-platform
+    # or the linked Property/HoldingFinancials lacks the required fields.
+    construction_type: str | None = None
+    building_age_years: int | None = None
+    building_basis_yen: float | None = None
 
 
 class PortfolioAttentionItem(BaseModel):
@@ -1118,6 +1123,8 @@ class StrategyAssumptions(BaseModel):
     hold_period_years: int = Field(default=10, ge=1, le=50)
     exit_cap_rate: float = Field(default=0.07, gt=0.0, le=0.5)
     loan_rate_outlook: float | None = None
+    # JP investor marginal income-tax bracket — drives depreciation tax shield value.
+    marginal_tax_rate: float = Field(default=0.33, ge=0.0, le=1.0)
 
 
 class StrategyPolicyConfig(BaseModel):
@@ -1172,6 +1179,11 @@ class HoldingProjection(BaseModel):
     projected_cap_rate: float | None = None
     projected_monthly_cash_flow: float | None = None
     projected_recommendation: str
+    # Depreciation tax shield (Phase 4) — populated when construction info exists.
+    annual_tax_shield_yen: float | None = None
+    total_tax_shield_yen: float | None = None
+    shield_expires_year: int | None = None
+    shield_expired_in_horizon: bool = False
 
 
 class SimulationReport(BaseModel):
@@ -1244,3 +1256,43 @@ class StrategyRunRecord(BaseModel):
     started_at: datetime
     completed_at: datetime | None = None
     steps: list[StrategyRunStep] = []
+
+
+# ── Public runtime config ──────────────────────────────────────────────
+
+
+class PublicRuntimeConfigResponse(BaseModel):
+    """Browser-safe runtime settings (env, API base, Supabase, map style)."""
+
+    environment: str
+    api_base_url: str
+    ws_base_url: str
+    supabase_url: str = ""
+    supabase_publishable_key: str = ""
+    map_style_url: str = ""
+
+
+# ── Phase 3A — Persona analyst council ────────────────────────────────
+
+
+class AnalystVerdictSchema(BaseModel):
+    persona_key: str
+    persona_title_ja: str
+    payload: dict
+    error: str | None = None
+
+
+class ListingAnalysisResponse(BaseModel):
+    listing_id: str
+    overall_score: float
+    summary: str
+    verdicts: list[AnalystVerdictSchema]
+
+
+class ListingAnalysisRequest(BaseModel):
+    """Investor-side overrides for the depreciation strategist."""
+
+    building_basis_yen: float | None = None
+    building_age_years: int | None = None
+    marginal_tax_rate: float = Field(0.33, ge=0, le=1)
+

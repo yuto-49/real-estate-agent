@@ -1,4 +1,9 @@
-"""FastAPI entry point for the Real Estate Agentic System."""
+"""FastAPI entry point for the Real Estate Agentic System.
+
+Scope (post-pivot): Tokyo workforce-housing investor analytics. The buyer/
+seller negotiation chat, social-sentiment NIMBY simulator, and synthetic
+market tick engine have been removed — see migration ``f9a1b2c3d4e5``.
+"""
 
 from contextlib import asynccontextmanager
 
@@ -6,33 +11,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.properties import router as properties_router
-from api.offers import router as offers_router
 from api.search import router as search_router
-from api.deals import router as deals_router
-from api.reports import router as reports_router
 from api.users import router as users_router
-from api.negotiations import router as negotiations_router
-from api.ws import router as ws_router
-from api.webhooks import router as webhooks_router
-from api.agent import router as agent_router
-from api.simulation import router as simulation_router
-from api.market_simulation import router as market_simulation_router
-from api.batch_simulation import router as batch_simulation_router
-from api.social_simulation import router as social_sim_router
-from api.households import router as households_router
-from api.visualization import router as visualization_router
 from api.portfolio import router as portfolio_router
 from api.underwrite import underwrite_router, listing_router
 from api.decisions import router as decisions_router
 from api.strategy import router as strategy_router
 from api.onboarding import router as onboarding_router
 from api.investor_profile import router as investor_profile_router
+from api.public_config import router as public_config_router
+from api.listing_analysis import router as listing_analysis_router
 from db.database import engine
 from middleware.correlation import CorrelationIdMiddleware
 from services.logging import setup_logging
 from services.maps import MapsService
 from services.redis import close_redis
-from services.runtime_schema import ensure_market_simulation_schema
 from config import settings
 
 # Shared Maps service instance (closed on shutdown)
@@ -41,13 +34,8 @@ maps_service = MapsService()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown lifecycle."""
+    """Startup/shutdown lifecycle. Schema is owned by Alembic only."""
     setup_logging(settings.log_level)
-    # Auto-create any new tables (e.g. simulation_results)
-    from db.models import Base as DBBase
-    async with engine.begin() as conn:
-        await conn.run_sync(DBBase.metadata.create_all)
-    await ensure_market_simulation_schema(engine)
     yield
     await maps_service.close()
     await engine.dispose()
@@ -56,15 +44,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Real Estate Agentic System",
-    description="Full-stack real estate transaction platform with MiroFish intelligence",
-    version="0.1.0",
+    description="Tokyo workforce-housing investor analytics platform",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,21 +60,8 @@ app.add_middleware(
 
 # Mount routers
 app.include_router(properties_router, prefix="/api/properties", tags=["properties"])
-app.include_router(offers_router, prefix="/api/offers", tags=["offers"])
 app.include_router(search_router, prefix="/api/search", tags=["search"])
-app.include_router(deals_router, prefix="/api/deals", tags=["deals"])
-app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(users_router, prefix="/api/users", tags=["users"])
-app.include_router(negotiations_router, prefix="/api/negotiations", tags=["negotiations"])
-app.include_router(ws_router, prefix="/ws", tags=["websocket"])
-app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
-app.include_router(agent_router, prefix="/api/agent", tags=["agent"])
-app.include_router(simulation_router, prefix="/api/simulation", tags=["simulation"])
-app.include_router(market_simulation_router, prefix="/api/simulation/market", tags=["market-simulation"])
-app.include_router(batch_simulation_router, prefix="/api/simulation", tags=["batch-simulation"])
-app.include_router(social_sim_router, prefix="/api/social-sim", tags=["social-simulation"])
-app.include_router(households_router, prefix="/api/households", tags=["households"])
-app.include_router(visualization_router, prefix="/api/visualization", tags=["visualization"])
 app.include_router(portfolio_router, prefix="/api/portfolio", tags=["portfolio"])
 app.include_router(underwrite_router, prefix="/api/underwrite", tags=["underwrite"])
 app.include_router(listing_router, prefix="/api/listing", tags=["listing"])
@@ -94,11 +69,13 @@ app.include_router(decisions_router, prefix="/api/decisions", tags=["decisions"]
 app.include_router(strategy_router, prefix="/api/strategy", tags=["strategy"])
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(investor_profile_router, prefix="/api/investor-profile", tags=["investor-profile"])
+app.include_router(public_config_router, prefix="/api/config", tags=["public-config"])
+app.include_router(listing_analysis_router, prefix="/api/listings", tags=["listing-analysis"])
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0"}
 
 
 @app.get("/metrics")

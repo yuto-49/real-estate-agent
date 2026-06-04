@@ -23,11 +23,25 @@ from api.schemas import (
     PortfolioSummaryReport,
 )
 from db.models import (
+    AssetTier,
     HoldingFinancials,
     InvestorPortfolio,
     PortfolioHolding,
+    Property,
 )
 from services.holding_decision import HOLD, compute_holding_decision
+
+# Building / land split used to derive ``building_basis_yen`` from cost basis
+# when the linked Property doesn't carry an explicit split. Aparuto and
+# family-mansion (low-rise, higher land share) default to ~60-65% building;
+# one-room mansions (high-rise, mostly building) default to 85%.
+_BUILDING_RATIO_BY_TIER: dict[AssetTier | None, float] = {
+    AssetTier.ONE_ROOM: 0.85,
+    AssetTier.APARUTO: 0.60,
+    AssetTier.FAMILY_MANSION: 0.65,
+    None: 0.70,  # unknown tier — neutral default
+}
+
 
 # Non-HOLD actions surface in the "attention" list.
 _ATTENTION_ACTIONS: frozenset[str] = frozenset(
@@ -94,6 +108,46 @@ async def _load_financials(
     ).scalar_one_or_none()
 
 
+async def _load_property(
+    db: AsyncSession, property_id: str | None
+) -> Property | None:
+    if property_id is None:
+        return None
+    return (
+        await db.execute(select(Property).where(Property.id == property_id))
+    ).scalar_one_or_none()
+
+
+def _derive_depreciation_inputs(
+    prop: Property | None,
+    fin: HoldingFinancials | None,
+    *,
+    as_of_year: int,
+) -> tuple[str | None, int | None, float | None]:
+    """Return ``(construction_type, building_age_years, building_basis_yen)``.
+
+    Returns ``None`` for any field that can't be derived from the linked
+    Property + HoldingFinancials. The strategist downstream only computes a
+    shield when all three are present.
+    """
+    if prop is None:
+        return (None, None, None)
+
+    construction_value = prop.construction_type.value if prop.construction_type else None
+
+    age_years: int | None = None
+    if prop.built_year is not None:
+        age_years = max(0, as_of_year - int(prop.built_year))
+
+    building_basis: float | None = None
+    cost_basis = fin.cost_basis if fin is not None else None
+    if isinstance(cost_basis, (int, float)) and cost_basis > 0:
+        ratio = _BUILDING_RATIO_BY_TIER.get(prop.asset_tier, _BUILDING_RATIO_BY_TIER[None])
+        building_basis = float(cost_basis) * ratio
+
+    return (construction_value, age_years, building_basis)
+
+
 async def build_portfolio_summary(
     db: AsyncSession, portfolio_id: str
 ) -> PortfolioSummaryReport | None:
@@ -125,13 +179,19 @@ async def build_portfolio_summary(
     dscr_components: list[tuple[float, float]] = []  # (annual_noi, annual_ds)
     coverage_with_signals = 0
 
+    as_of_year = datetime.now(timezone.utc).year
     for h in holdings:
         fin = await _load_financials(db, h.id)
+        prop = await _load_property(db, h.property_id)
         metrics = _per_holding_metrics(fin)
         decision = await compute_holding_decision(db, h, fin)
 
         if decision.market_context_available:
             coverage_with_signals += 1
+
+        construction_type, building_age_years, building_basis_yen = (
+            _derive_depreciation_inputs(prop, fin, as_of_year=as_of_year)
+        )
 
         per_holding.append(
             HoldingSummaryEntry(
@@ -148,6 +208,9 @@ async def build_portfolio_summary(
                 recommendation_score=decision.score,
                 recommendation_rationale=decision.rationale,
                 market_context_available=decision.market_context_available,
+                construction_type=construction_type,
+                building_age_years=building_age_years,
+                building_basis_yen=building_basis_yen,
             )
         )
 

@@ -138,16 +138,10 @@ def test_every_reins_listing_maps_to_property_kwargs():
         assert kwargs["neighborhood_data"]["jp"]["reins_bukken_bangou"] == listing["bukken_bangou"]
 
 
+@pytest.mark.skip(reason="US guardrails removed in pivot (migration f9a1b2c3d4e5)")
 @pytest.mark.unit
 def test_us_required_disclosures_synthesized_for_legacy_guardrail():
-    """Until Phase 2 swaps in guardrails_jp, the legacy US disclosure keys
-    must be synthesized so validate_disclosures does not reject JP seeds."""
-    from agent.guardrails import REQUIRED_DISCLOSURES
-
-    for listing in _load_reins_files(REINS_DIR):
-        kwargs = _reins_to_property_kwargs(listing)
-        for key in REQUIRED_DISCLOSURES:
-            assert key in kwargs["disclosures"], (listing["bukken_bangou"], key)
+    pass
 
 
 @pytest.mark.unit

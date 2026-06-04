@@ -28,6 +28,8 @@ from api.schemas import (
     StrategyRunRecord,
     StrategyRunStep,
 )
+from db.models import ConstructionType
+from intelligence.depreciation_jp import project_depreciation
 from services.portfolio_summary import build_portfolio_summary
 
 
@@ -61,6 +63,48 @@ _lock = asyncio.Lock()
 def _market_outlook_modifier(outlook: str) -> float:
     """Per-year appreciation tilt driven by the user's market thesis."""
     return {"bullish": 0.02, "bearish": -0.015}.get(outlook, 0.0)
+
+
+def _project_depreciation_shield(
+    summary_row: dict[str, object],
+    profile: StrategyProfile,
+) -> tuple[float | None, float | None, int | None, bool]:
+    """Run the depreciation engine when construction info is present.
+
+    Returns ``(annual_shield_within_horizon, total_shield, expires_year,
+    expired_in_horizon)``. ``annual_shield_within_horizon`` is the average
+    yen-of-shield per year over the hold period (zero after expiry), so
+    callers can fold it directly into projected cash flow.
+    """
+    construction = summary_row.get("construction_type")
+    basis = summary_row.get("building_basis_yen")
+    age = summary_row.get("building_age_years")
+    if not isinstance(construction, str) or not isinstance(basis, (int, float)):
+        return (None, None, None, False)
+    if not isinstance(age, int) or basis <= 0:
+        return (None, None, None, False)
+    try:
+        ctype = ConstructionType(construction)
+    except ValueError:
+        return (None, None, None, False)
+
+    horizon = profile.assumptions.hold_period_years
+    schedule = project_depreciation(
+        construction=ctype,
+        building_basis_yen=float(basis),
+        building_age_years=age,
+        marginal_tax_rate=profile.assumptions.marginal_tax_rate,
+        horizon_years=horizon,
+    )
+    shield_in_horizon = sum(y.tax_shield_yen for y in schedule.years)
+    avg_annual_in_horizon = shield_in_horizon / horizon if horizon > 0 else 0.0
+    expired = schedule.shield_expires_year <= horizon
+    return (
+        avg_annual_in_horizon,
+        schedule.total_shield_yen,
+        schedule.shield_expires_year,
+        expired,
+    )
 
 
 def _project_holding(
@@ -110,6 +154,15 @@ def _project_holding(
     else:
         projected_cf = None
 
+    # Fold in the JP depreciation tax shield (Phase 4): annual shield ÷ 12
+    # added to monthly cash flow. When the shield expires inside the horizon,
+    # ``annual_shield_in_horizon`` already averages in the post-expiry zeros.
+    annual_shield_in_horizon, total_shield, expires_year, expired_in_horizon = (
+        _project_depreciation_shield(summary_row, profile)
+    )
+    if projected_cf is not None and annual_shield_in_horizon is not None:
+        projected_cf = projected_cf + annual_shield_in_horizon / 12.0
+
     today_noi = (
         today_cap * current_value
         if isinstance(today_cap, (int, float)) and isinstance(current_value, (int, float))
@@ -123,6 +176,7 @@ def _project_holding(
         projected_cf=projected_cf,
         exit_cap=exit_cap,
         profile=profile,
+        shield_expired_in_horizon=expired_in_horizon,
     )
 
     return HoldingProjection(
@@ -134,6 +188,10 @@ def _project_holding(
         projected_cap_rate=projected_cap,
         projected_monthly_cash_flow=projected_cf,
         projected_recommendation=projected_action,
+        annual_tax_shield_yen=annual_shield_in_horizon,
+        total_tax_shield_yen=total_shield,
+        shield_expires_year=expires_year,
+        shield_expired_in_horizon=expired_in_horizon,
     )
 
 
@@ -146,6 +204,7 @@ def _project_recommendation(
     projected_cf: float | None,
     exit_cap: float,
     profile: StrategyProfile,
+    shield_expired_in_horizon: bool = False,
 ) -> str:
     """Pick the recommended action for a holding under the projection.
 
@@ -160,6 +219,11 @@ def _project_recommendation(
         and projected_noi is not None
         and projected_noi < today_noi * 0.9
     ):
+        return _SELL
+    # 2b. Aparuto thesis check: shield expires before hold horizon ends AND
+    # cash flow is razor-thin (≤ 0.5× the pre-shield daily-equivalent) — the
+    # cash-flow story is largely shield-driven and won't survive expiry.
+    if shield_expired_in_horizon and (projected_cf is None or projected_cf < 50_000):
         return _SELL
     # 3. Refinance lever — explicit loan-rate outlook above the threshold.
     if (
