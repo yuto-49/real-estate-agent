@@ -49,7 +49,7 @@ async def test_underwrite_endpoint_returns_metrics(db_engine):
 
 
 @pytest.mark.asyncio
-async def test_listing_parse_endpoint_zillow(db_engine):
+async def test_listing_parse_endpoint_suumo(db_engine):
     from db.database import get_db
     from main import app
 
@@ -66,20 +66,20 @@ async def test_listing_parse_endpoint_zillow(db_engine):
         r = await ac.post(
             "/api/listing/parse",
             json={
-                "url": "https://www.zillow.com/homedetails/123-Main-St-Chicago-IL-60601/12345678_zpid/"
+                "url": "https://suumo.jp/ms/chuko/tokyo/sc_minatoku/nc_12345678/"
             },
         )
     app.dependency_overrides.clear()
 
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["zpid"] == "12345678"
-    assert body["zip_code"] == "60601"
-    assert body["state"] == "IL"
+    assert body["property_id"] == "12345678"
+    assert body["prefecture"] == "東京都"
+    assert body["source"] == "suumo"
 
 
 @pytest.mark.asyncio
-async def test_listing_parse_endpoint_rejects_non_zillow(db_engine):
+async def test_listing_parse_endpoint_rejects_unsupported(db_engine):
     from db.database import get_db
     from main import app
 
@@ -94,7 +94,7 @@ async def test_listing_parse_endpoint_rejects_non_zillow(db_engine):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         r = await ac.post(
             "/api/listing/parse",
-            json={"url": "https://www.redfin.com/IL/Chicago/123-Main-St"},
+            json={"url": "https://www.zillow.com/homedetails/123-Main-St-Chicago-IL-60601/12345678_zpid/"},
         )
     app.dependency_overrides.clear()
     assert r.status_code == 400

@@ -118,7 +118,7 @@ All config via `config.py` (pydantic-settings) reading from `.env`:
 | `DATABASE_URL` | `postgresql+asyncpg://dev:dev@localhost:5432/realestate` | |
 | `REDIS_URL` | `redis://localhost:6379/0` | |
 | `MIROFISH_MODE` | `mock` | `mock` or `live` |
-| `MARKET_DATA_PROVIDER` | `mock` | `mock` or `zillow` |
+| `MARKET_DATA_PROVIDER` | `mock` | `mock` |
 | `MAX_SIMULATION_ROUNDS` | `30` | Negotiation simulation cap |
 | `MAX_BATCH_SCENARIOS` | `6` | Batch simulation limit |
 | `MONTE_CARLO_SCENARIOS` | `300` | Financial model iterations |

@@ -342,11 +342,11 @@ export const api = {
     parse: (url: string) =>
       fetchJSON<{
         source: string
-        zpid: string
+        property_id: string
         url: string
         address_hint: string
-        state?: string | null
-        zip_code?: string | null
+        prefecture?: string | null
+        postal_code?: string | null
       }>('/listing/parse', { method: 'POST', body: JSON.stringify({ url }) }),
   },
   underwrite: {

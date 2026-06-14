@@ -15,8 +15,6 @@ class Settings(BaseSettings):
     # API keys
     anthropic_api_key: str = ""
     tomtom_api_key: str = ""
-    zillow_api_key: str = ""
-    attom_api_key: str = ""
 
     # Database
     database_url: str = "postgresql+asyncpg://dev:dev@localhost:5432/realestate"
@@ -58,7 +56,7 @@ class Settings(BaseSettings):
     min_offer_percent: float = 0.50
     max_counter_rounds: int = 10
 
-    # Market data provider: "mock" or "zillow"
+    # Market data provider: "mock"
     market_data_provider: str = "mock"
 
     # Monte Carlo simulation
@@ -71,7 +69,7 @@ class Settings(BaseSettings):
     # Jurisdiction / JP release ---------------------------------------------
     # "us" preserves the legacy code path. "jp_tokyo" activates
     # guardrails_jp, MoneyJPY formatting, and the JP provider stack.
-    jurisdiction: str = "us"
+    jurisdiction: str = "jp_tokyo"
     default_prefecture_code: str = "13"  # 東京都
 
     # Japan data providers (each: "mock" reads fixtures, "live" hits network)
