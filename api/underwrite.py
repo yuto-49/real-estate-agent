@@ -18,7 +18,7 @@ from intelligence.stress_test import (
     monte_carlo_stress_test,
 )
 from intelligence.underwriting import UnderwritingInputs, underwrite
-from services.listing_import import ListingParseError, parse_zillow_url
+from services.listing_import import ListingParseError, parse_listing_url
 
 underwrite_router = APIRouter()
 listing_router = APIRouter()
@@ -87,14 +87,14 @@ async def stress_test_endpoint(data: StressTestRequest) -> StressTestResponse:
 @listing_router.post("/parse", response_model=ListingParseResponse)
 async def listing_parse_endpoint(data: ListingParseRequest) -> ListingParseResponse:
     try:
-        parsed = parse_zillow_url(data.url)
+        parsed = parse_listing_url(data.url)
     except ListingParseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ListingParseResponse(
         source=parsed.source,
-        zpid=parsed.zpid,
+        property_id=parsed.property_id,
         url=parsed.url,
         address_hint=parsed.address_hint,
-        state=parsed.state,
-        zip_code=parsed.zip_code,
+        prefecture=parsed.prefecture,
+        postal_code=parsed.postal_code,
     )
