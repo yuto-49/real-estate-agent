@@ -11,95 +11,68 @@ available, what it costs, and which signal_type it can fill.
 
 ---
 
-## Recommended starting set (Chicago / US)
+## Active Providers (Japan)
 
-| Provider | Auth | Rate limit | Yields (signal_type) | Subject |
-|---|---|---|---|---|
-| **Chicago Crimes (SODA)** | none (recommended `$$app_token`) | 1k req/hr without token | `safety_score` | `neighborhood` (zip) |
-| **FEMA NFHL** | none | unmetered | `hazard.flood` | `property` (lat/lon) |
-| **HUD Fair Market Rent** | free token | unmetered | `median_rent` | `neighborhood` (zip / FIPS) |
-| **Census ACS 5-Year** | free key | 500 req/day | `median_sale_price`, `median_rent` | `neighborhood` (zip / tract) |
-| **GTFS-feed stop density** | none (CTA, MBTA, etc.) | unmetered | `transit_score` | `neighborhood` (zip) |
-| **NCES schools** | none | unmetered | `school_score` | `neighborhood` (district) |
-| **Zillow Research CSV** | none (downloads) | weekly cadence | `median_sale_price`, `median_rent`, `inventory_pressure` | `neighborhood` (zip / metro) |
-| **Redfin Data Center CSV** | none (downloads) | weekly cadence | `median_sale_price`, `inventory_pressure`, time-on-market | `neighborhood` (zip / metro) |
-| **FRED (Federal Reserve)** | free key | unmetered | macro signals (mortgage rate, HPI) | `jurisdiction` |
+| Provider | Auth | Signal Types | Subject |
+|---|---|---|---|
+| **REINFOLIB Transaction (XIT001)** | `REINFOLIB_API_KEY` | `median_sale_price`, `median_unit_price` | `neighborhood` (municipality code) |
+| **REINFOLIB Land Price (XPT002)** | `REINFOLIB_API_KEY` | `land_price_psm` | `neighborhood` (survey point) |
+| **REINFOLIB Appraisal (XCT001)** | `REINFOLIB_API_KEY` | `appraised_value_psm` | `neighborhood` (address) |
+| **REINFOLIB Hazard (XKT025/026/029)** | `REINFOLIB_API_KEY` | `hazard_liquefaction`, `hazard_flood`, `hazard_landslide` | `neighborhood` (mesh/tile) |
+| **e-Stat** | `ESTAT_APP_ID` | various | `neighborhood` |
 
 ---
 
 ## Detail
 
-### 1. Chicago Crimes — Open Data (Socrata SODA)
-- Endpoint: `https://data.cityofchicago.org/resource/ijzp-q8t2.json`
-- Filter: `?$where=date > '2024-01-01' AND community_area=...`
-- Auth: optional (`X-App-Token` header for higher quota)
-- Mapping:
-  `safety_score = clamp(10 - (incidents_per_1k_residents / 25 * 10), 0, 10)`
-- Subject: zip (need a community-area→zip lookup table; ship a small static map first).
-- Upside: free, real-time, well-known data shape.
-- Provider: `services/signal_providers/chicago_crime.py` (shipped).
+### 1. REINFOLIB Transaction — XIT001
 
-### 2. FEMA National Flood Hazard Layer
-- Endpoint: `https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28/query`
-- Auth: none.
-- Query: `?geometry={x},{y}&geometryType=esriGeometryPoint&inSR=4326&outFields=FLD_ZONE,SFHA_TF&returnGeometry=false&f=json`
-- Mapping: `hazard` payload `{flood_zone: "AE", in_sfha: true}` per property.
-- Subject: property (lat/lon).
-- Notes: ArcGIS FeatureServer; polygons cover most of the US. Empty result = zone "X" (low risk).
-- Provider: `services/signal_providers/fema_nfhl.py` (shipped).
+- Endpoint: `https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001`
+- Auth: `Ocp-Apim-Subscription-Key` header.
+- Parameters: `year`, `quarter`, `city` (5-digit municipality code), `priceClassification`.
+- Mapping: aggregates `TradePrice` → `median_sale_price`, `UnitPrice` → `median_unit_price`.
+- Subject: municipality (defaults to Tokyo 23 wards).
+- Provider: `services/signal_providers/reinfolib_transaction.py`.
 
-### 3. HUD Fair Market Rent (FMR)
-- Endpoint: `https://www.huduser.gov/hudapi/public/fmr/data/{zip|fips}`
-- Auth: free Bearer token (https://www.huduser.gov/portal/dataset/fmr-api.html).
-- Mapping: `median_rent` = 2-bedroom FMR.
-- Subject: zip.
-- Notes: Annual cadence, very stable. Best baseline if no live rent feed.
-- Provider: `services/signal_providers/hud_fmr.py` (shipped).
+### 2. REINFOLIB Land Price — XPT002
 
-### 4. Census ACS 5-Year
-- Endpoint: `https://api.census.gov/data/2022/acs/acs5?get=B25077_001E,B25064_001E&for=zip%20code%20tabulation%20area:60601&key=...`
-- Auth: free key (https://api.census.gov/data/key_signup.html).
-- Tables: `B25077_001E` (median home value), `B25064_001E` (median gross rent).
-- Mapping: `median_sale_price`, `median_rent`.
-- Subject: zip (ZCTA).
-- Notes: Annual cadence. The single best free national source.
-- Provider: `services/signal_providers/census_acs.py` (shipped).
+- Endpoint: `https://www.reinfolib.mlit.go.jp/ex-api/external/XPT002`
+- Auth: `Ocp-Apim-Subscription-Key` header.
+- Parameters: `z`, `x`, `y` (XYZ tile coordinates), `year`, `response_format=geojson`.
+- Mapping: `price` → `land_price_psm` (yen per m2).
+- Payload includes: zoning, FAR/BCR, station distance, YoY change rate, coordinates.
+- Subject: survey point ID.
+- Provider: `services/signal_providers/reinfolib_land_price.py`.
 
-### 5. GTFS / Transit stop density
-- Sources: CTA (Chicago), MBTA (Boston), every major US transit agency publishes GTFS.
-- Auth: none.
-- Pipeline: download `stops.txt`, geocode by zip, count stops per zip → normalize 0–100.
-- Mapping: `transit_score` (proxy).
-- Notes: Walk Score / Transit Score products use this exact derivation. No license issue.
+### 3. REINFOLIB Appraisal — XCT001
 
-### 6. NCES schools (public school district scores)
-- Endpoint: `https://nces.ed.gov/ccd/elsi/`
-- Auth: none.
-- Pipeline: aggregate school-level metrics (test scores, graduation) per district → join district → zip.
-- Mapping: `school_score`.
+- Endpoint: `https://www.reinfolib.mlit.go.jp/ex-api/external/XCT001`
+- Auth: `Ocp-Apim-Subscription-Key` header.
+- Parameters: `year`, `area` (prefecture codes), `division` (land-use: 00=residential, 05=commercial).
+- Mapping: `L01_006` → `appraised_value_psm`.
+- Payload includes: ~60 fields (zoning, road access, water/gas/sewer, station distance, coordinates).
+- Subject: address or lat/lng.
+- Provider: `services/signal_providers/reinfolib_appraisal.py`.
 
-### 7. Zillow Research bulk downloads
-- Index files: ZHVI (home values), ZORI (rent index), ZILDI (days-on-market).
-- URL format: `https://files.zillowstatic.com/research/public_csvs/zhvi/Zip_zhvi_bdrmcnt_3.csv`
-- Auth: none, public CSV.
-- Cadence: monthly.
-- Mapping: `median_sale_price`, `median_rent`, time-on-market proxy.
+### 4. REINFOLIB Hazard — XKT025 / XKT026 / XKT029
 
-### 8. Redfin Data Center
-- URL: `https://redfin-public-data.s3-us-west-2.amazonaws.com/redfin_market_tracker/zip_code_market_tracker.tsv000.gz`
-- Auth: none, public TSV.
-- Mapping: `median_sale_price`, `inventory_pressure` (`new_listings/inventory`), time-on-market.
+- Endpoints: tile-based GeoJSON (XYZ coordinates, zoom 11-15).
+- Auth: `Ocp-Apim-Subscription-Key` header.
+- XKT025 (liquefaction): 6-level tendency → 0-10 score per mesh code.
+- XKT026 (flood): inundation depth category → 0-10 score per tile.
+- XKT029 (landslide): warning zone presence → binary 0/8 per tile.
+- Default center: Tokyo (35.6762, 139.6503).
+- Provider: `services/signal_providers/reinfolib_hazard.py`.
 
-### 9. FRED (Federal Reserve Economic Data)
-- Endpoint: `https://api.stlouisfed.org/fred/series/observations?series_id=MORTGAGE30US&api_key=...`
-- Auth: free key.
-- Series of interest: `MORTGAGE30US`, `CSUSHPISA`, `MEDLISPRI`, `MEDDAYONMAR`.
-- Mapping: macro context — write at `subject_type=jurisdiction`, `subject_id=us|<state>`.
-- Provider: `services/signal_providers/fred.py` (shipped).
+### 5. e-Stat (Japanese Government Statistics)
+
+- Auth: `ESTAT_APP_ID`.
+- Various statistical tables from Japanese government surveys.
+- Provider: `services/signal_providers/estat.py`.
 
 ---
 
-## Integration shape
+## Integration Shape
 
 All providers implement `MarketSignalProvider`:
 
@@ -109,16 +82,16 @@ class MarketSignalProvider(Protocol):
     async def fetch(self, **kwargs) -> Sequence[ExternalSignal]: ...
 ```
 
-The CLI `scripts/fetch_external_signals.py --source chicago_crime` runs a
-provider and upserts via `services.signal_writer.upsert_signal` — same
-idempotent-per-day semantics as the backfill.
+The CLI `scripts/fetch_external_signals.py --source reinfolib_transaction`
+runs a provider and upserts via `services.signal_writer.upsert_signal` —
+same idempotent-per-day semantics as the backfill.
 
 Adding a new source = ~50 lines: a class with `.name` and `.fetch`, plus a
 test that mocks the HTTP response. No core changes required.
 
 ---
 
-## Operational notes
+## Operational Notes
 
 - **Caching:** providers should not cache internally. Cache lives in
   `market_signals` itself — re-running `fetch_external_signals.py` daily is
@@ -126,9 +99,8 @@ test that mocks the HTTP response. No core changes required.
 - **Failure mode:** providers raise on transport errors. The CLI catches
   per-provider so one failed source doesn't block the others.
 - **Test convention:** real providers must be unit-tested with `httpx`
-  mocked (`respx` or `monkeypatch`). Live calls go in
+  mocked (`httpx.MockTransport`). Live calls go in
   `tests/integration/` and are skipped by default.
-- **Subject ID conventions:** zip → `subject_type=neighborhood`,
-  `subject_id=<zip>`; jurisdiction → `subject_type=jurisdiction`,
-  `subject_id=us|jp|...`; property-specific → `subject_type=property`,
+- **Subject ID conventions:** municipality → `subject_type=neighborhood`,
+  `subject_id=<5-digit code>`; property-specific → `subject_type=property`,
   `subject_id=<property.id>`.

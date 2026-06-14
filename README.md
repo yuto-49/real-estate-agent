@@ -325,7 +325,7 @@ IDLE -> OFFER_PENDING -> COUNTER_PENDING -> ... -> ACCEPTED -> CONTRACT_PHASE ->
 - Deadlines: 48h offers, 72h contracts, 10d inspection, 30d closing
 
 See [architecture.md](architecture.md) for the full system design, workforce housing model, legal/compliance audit trail, and simulation engine details.
-See [doc/layered-market-knowledge-system.md](doc/layered-market-knowledge-system.md) for the updated layered architecture direction and [SOCIAL_SIMULATION_IMPLEMENTATION.md](SOCIAL_SIMULATION_IMPLEMENTATION.md) for the current roadmap.
+See [doc/SIMULATION_ENGINE.md](doc/SIMULATION_ENGINE.md) for the simulation engine architecture and API reference.
 
 ---
 

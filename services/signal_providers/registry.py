@@ -16,37 +16,39 @@ from collections.abc import Callable
 from typing import Final
 
 from services.signal_providers.base import MarketSignalProvider
-from services.signal_providers.chicago_crime import ChicagoCrimeProvider
-from services.signal_providers.census_acs import CensusAcsProvider
-from services.signal_providers.fema_nfhl import FemaNfhlProvider
-from services.signal_providers.fred import FredMortgageRateProvider
-from services.signal_providers.hud_fmr import HudFmrProvider
-from services.signal_providers.mock import MockSignalProvider
+from services.signal_providers.estat import EStatProvider
+from services.signal_providers.reinfolib_appraisal import ReinfolibAppraisalProvider
+from services.signal_providers.reinfolib_hazard import ReinfolibHazardProvider
+from services.signal_providers.reinfolib_land_price import ReinfolibLandPriceProvider
+from services.signal_providers.reinfolib_transaction import ReinfolibTransactionProvider
 
 
-def _hud_fmr_factory() -> MarketSignalProvider:
-    return HudFmrProvider(api_token=os.environ.get("HUD_FMR_API_TOKEN"))
+def _estat_factory() -> MarketSignalProvider:
+    return EStatProvider(app_id=os.environ.get("ESTAT_APP_ID"))
 
 
-def _fred_factory() -> MarketSignalProvider:
-    return FredMortgageRateProvider(api_key=os.environ.get("FRED_API_KEY"))
+def _reinfolib_transaction_factory() -> MarketSignalProvider:
+    return ReinfolibTransactionProvider(api_key=os.environ.get("REINFOLIB_API_KEY"))
 
 
-def _census_acs_factory() -> MarketSignalProvider:
-    return CensusAcsProvider(api_key=os.environ.get("CENSUS_API_KEY"))
+def _reinfolib_land_price_factory() -> MarketSignalProvider:
+    return ReinfolibLandPriceProvider(api_key=os.environ.get("REINFOLIB_API_KEY"))
 
 
-def _fema_nfhl_factory() -> MarketSignalProvider:
-    return FemaNfhlProvider()
+def _reinfolib_appraisal_factory() -> MarketSignalProvider:
+    return ReinfolibAppraisalProvider(api_key=os.environ.get("REINFOLIB_API_KEY"))
+
+
+def _reinfolib_hazard_factory() -> MarketSignalProvider:
+    return ReinfolibHazardProvider(api_key=os.environ.get("REINFOLIB_API_KEY"))
 
 
 _FACTORIES: Final[dict[str, Callable[[], MarketSignalProvider]]] = {
-    MockSignalProvider.name: MockSignalProvider,
-    ChicagoCrimeProvider.name: ChicagoCrimeProvider,
-    HudFmrProvider.name: _hud_fmr_factory,
-    FredMortgageRateProvider.name: _fred_factory,
-    CensusAcsProvider.name: _census_acs_factory,
-    FemaNfhlProvider.name: _fema_nfhl_factory,
+    EStatProvider.name: _estat_factory,
+    ReinfolibTransactionProvider.name: _reinfolib_transaction_factory,
+    ReinfolibLandPriceProvider.name: _reinfolib_land_price_factory,
+    ReinfolibAppraisalProvider.name: _reinfolib_appraisal_factory,
+    ReinfolibHazardProvider.name: _reinfolib_hazard_factory,
 }
 
 PROVIDERS: Final[tuple[str, ...]] = tuple(sorted(_FACTORIES))
