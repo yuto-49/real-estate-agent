@@ -75,7 +75,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
       setDraft((prev) => ({
         ...prev,
         address: parsed.address_hint || prev.address,
-        zip_code: parsed.zip_code ?? prev.zip_code,
+        zip_code: parsed.postal_code ?? prev.zip_code,
         property_id: prev.property_id,
       }))
       setError('')
@@ -118,7 +118,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
         <h3>Add a holding</h3>
         <div className="listing-import-row">
           <input
-            placeholder="Zillow listing URL (optional)"
+            placeholder="Suumo or REINFOLIB URL (optional)"
             value={listingUrl}
             onChange={(e) => setListingUrl(e.target.value)}
           />

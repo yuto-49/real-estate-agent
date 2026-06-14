@@ -1003,11 +1003,11 @@ class ListingParseRequest(BaseModel):
 
 class ListingParseResponse(BaseModel):
     source: str
-    zpid: str
+    property_id: str
     url: str
     address_hint: str
-    state: str | None = None
-    zip_code: str | None = None
+    prefecture: str | None = None
+    postal_code: str | None = None
 
 
 class PortfolioAggregateResponse(BaseModel):

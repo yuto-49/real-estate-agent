@@ -1,15 +1,10 @@
-"""Zillow listing URL → ParsedListing.
-
-MVP scope: parse the canonical Zillow ``homedetails`` URL format which embeds
-the address slug + zpid. We do NOT scrape the Zillow page itself — that would
-require an authenticated key or a paid API. Instead we extract everything the
-URL itself encodes and let the user fill in the rest.
+"""Listing URL → ParsedListing for Japanese real-estate portals.
 
 Supported URL shapes
 --------------------
-- ``https://www.zillow.com/homedetails/<address-slug>/<zpid>_zpid/``
-- ``https://zillow.com/homedetails/<address-slug>/<zpid>_zpid/``
-- ``https://www.zillow.com/b/<address-slug>/<zpid>_zpid/``
+- Suumo: ``https://suumo.jp/ms/chuko/tokyo/sc_minatoku/nc_12345678/``
+         ``https://suumo.jp/jj/bukken/shosai/JJ012FJ010/?ar=030&bs=011&nc=12345678``
+- REINFOLIB: ``https://www.reinfolib.mlit.go.jp/realEstate/detailAction?...``
 
 Anything else raises :class:`ListingParseError`.
 """
@@ -19,29 +14,96 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Final
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
-ZPID_PATTERN: Final[re.Pattern[str]] = re.compile(r"(\d+)_zpid", re.IGNORECASE)
-SLUG_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"/(?:homedetails|b)/([^/]+)/", re.IGNORECASE
+SUUMO_NC_PATH_PATTERN: Final[re.Pattern[str]] = re.compile(r"nc_(\d+)", re.IGNORECASE)
+SUUMO_NC_QUERY_PATTERN: Final[re.Pattern[str]] = re.compile(r"nc=(\d+)", re.IGNORECASE)
+SUUMO_AREA_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"/(?:ms|jj|chukoikkodate)/(?:chuko/)?([^/]+)/(?:sc_([^/]+))?", re.IGNORECASE
 )
-US_STATE_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"-([A-Z]{2})-(\d{5})$", re.IGNORECASE
+
+REINFOLIB_HOSTS: Final[frozenset[str]] = frozenset(
+    {"www.reinfolib.mlit.go.jp", "reinfolib.mlit.go.jp"}
 )
 
 
 class ListingParseError(ValueError):
-    """Raised when a URL is not a parseable Zillow listing URL."""
+    """Raised when a URL is not a parseable listing URL."""
 
 
 @dataclass(frozen=True, slots=True)
 class ParsedListing:
     source: str
-    zpid: str
+    property_id: str
     url: str
     address_hint: str
-    state: str | None
-    zip_code: str | None
+    prefecture: str | None
+    postal_code: str | None
+
+
+def _normalize_host(netloc: str) -> str:
+    host = netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+def _parse_suumo(url: str, parsed: object) -> ParsedListing:
+    path = parsed.path  # type: ignore[attr-defined]
+    query = parsed.query  # type: ignore[attr-defined]
+
+    nc_match = SUUMO_NC_PATH_PATTERN.search(path) or SUUMO_NC_QUERY_PATTERN.search(
+        query
+    )
+    if not nc_match:
+        raise ListingParseError("no_property_id_in_suumo_url")
+    property_id = nc_match.group(1)
+
+    area_match = SUUMO_AREA_PATTERN.search(path)
+    address_hint = ""
+    if area_match:
+        parts = [p for p in area_match.groups() if p]
+        address_hint = " ".join(p.replace("_", " ") for p in parts)
+
+    return ParsedListing(
+        source="suumo",
+        property_id=property_id,
+        url=url,
+        address_hint=address_hint,
+        prefecture="東京都",
+        postal_code=None,
+    )
+
+
+def _parse_reinfolib(url: str, parsed: object) -> ParsedListing:
+    query = parsed.query  # type: ignore[attr-defined]
+    path = parsed.path  # type: ignore[attr-defined]
+    qs = parse_qs(query)
+
+    property_id = ""
+    if "id" in qs:
+        property_id = qs["id"][0]
+    elif "code" in qs:
+        property_id = qs["code"][0]
+    else:
+        slug = path.rstrip("/").rsplit("/", 1)[-1]
+        if slug and slug != path.strip("/"):
+            property_id = slug
+
+    if not property_id:
+        raise ListingParseError("no_property_id_in_reinfolib_url")
+
+    area_code = qs.get("area", [None])[0]
+    address_hint = area_code or ""
+
+    return ParsedListing(
+        source="reinfolib",
+        property_id=property_id,
+        url=url,
+        address_hint=address_hint,
+        prefecture="東京都",
+        postal_code=None,
+    )
 
 
 def is_supported_listing_url(url: str) -> bool:
@@ -51,16 +113,14 @@ def is_supported_listing_url(url: str) -> bool:
         return False
     if not parsed.scheme or not parsed.netloc:
         return False
-    host = parsed.netloc.lower().lstrip("www.")
-    if host != "zillow.com":
-        return False
-    return bool(ZPID_PATTERN.search(parsed.path))
+    host = _normalize_host(parsed.netloc)
+    return host == "suumo.jp" or host in REINFOLIB_HOSTS
 
 
-def parse_zillow_url(url: str) -> ParsedListing:
-    """Parse a Zillow homedetails URL.
+def parse_listing_url(url: str) -> ParsedListing:
+    """Parse a Suumo or REINFOLIB listing URL.
 
-    Raises ``ListingParseError`` for unsupported hosts or missing zpid.
+    Raises ``ListingParseError`` for unsupported hosts or missing IDs.
     """
     try:
         parsed = urlparse(url)
@@ -70,42 +130,20 @@ def parse_zillow_url(url: str) -> ParsedListing:
     if not parsed.scheme or not parsed.netloc:
         raise ListingParseError("invalid url")
 
-    host = parsed.netloc.lower()
-    if host.startswith("www."):
-        host = host[4:]
-    if host != "zillow.com":
-        raise ListingParseError(f"unsupported_host: {parsed.netloc}")
+    host = _normalize_host(parsed.netloc)
 
-    zpid_match = ZPID_PATTERN.search(parsed.path)
-    if not zpid_match:
-        raise ListingParseError("no_zpid_in_url")
-    zpid = zpid_match.group(1)
+    if host == "suumo.jp":
+        return _parse_suumo(url, parsed)
 
-    slug_match = SLUG_PATTERN.search(parsed.path)
-    slug = slug_match.group(1) if slug_match else ""
-    # Slug looks like: "123-Main-St-Chicago-IL-60601"
-    address_hint = slug.replace("-", " ")
+    if host in REINFOLIB_HOSTS:
+        return _parse_reinfolib(url, parsed)
 
-    state = None
-    zip_code = None
-    state_zip = US_STATE_PATTERN.search(slug)
-    if state_zip:
-        state = state_zip.group(1).upper()
-        zip_code = state_zip.group(2)
-
-    return ParsedListing(
-        source="zillow",
-        zpid=zpid,
-        url=url,
-        address_hint=address_hint,
-        state=state,
-        zip_code=zip_code,
-    )
+    raise ListingParseError(f"unsupported_host: {parsed.netloc}")
 
 
 __all__ = [
     "ListingParseError",
     "ParsedListing",
     "is_supported_listing_url",
-    "parse_zillow_url",
+    "parse_listing_url",
 ]
