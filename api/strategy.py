@@ -26,6 +26,7 @@ from api.schemas import (
     StrategyRunStartResponse,
 )
 from db.database import get_db
+from middleware.correlation import get_correlation_id
 from services.pubsub import EventBus
 from services.redis import get_redis
 from services.strategy_profile import extract_strategy_profile
@@ -72,10 +73,19 @@ async def run_strategy(
 
     record = await start_strategy_run(payload.portfolio_id, profile)
 
+    # Capture the correlation id now — the contextvar set by the middleware
+    # does not propagate into the background task.
+    correlation_id = get_correlation_id() or None
+
     async def _execute() -> None:
         sink = await _build_event_sink()
         await execute_strategy_run(
-            db, record.run_id, payload.portfolio_id, profile, event_sink=sink
+            db,
+            record.run_id,
+            payload.portfolio_id,
+            profile,
+            event_sink=sink,
+            correlation_id=correlation_id,
         )
 
     background_tasks.add_task(_execute)

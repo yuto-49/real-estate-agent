@@ -103,3 +103,41 @@ async def test_execute_strategy_run_writes_failure_event_for_missing_portfolio(d
     types = {e.event_type for e in events}
     assert "strategy.run_started" in types
     assert "strategy.run_failed" in types
+
+
+@pytest.mark.asyncio
+async def test_run_strategy_endpoint_threads_correlation_id(monkeypatch, db_engine):
+    """The /run handler must forward the request correlation id into the
+    background ``execute_strategy_run`` call (captured at request time, since
+    the contextvar does not propagate into the background task)."""
+    from fastapi import BackgroundTasks
+
+    import api.strategy as strat
+    from api.schemas import StrategyRunRequest
+    from middleware.correlation import correlation_id_var
+
+    captured: dict[str, str | None] = {}
+
+    async def fake_execute(db, run_id, portfolio_id, profile, event_sink=None, correlation_id=None):
+        captured["correlation_id"] = correlation_id
+
+    async def fake_sink():
+        return None
+
+    monkeypatch.setattr(strat, "execute_strategy_run", fake_execute)
+    monkeypatch.setattr(strat, "_build_event_sink", fake_sink)
+
+    correlation_id_var.set("cid-wired")
+    background = BackgroundTasks()
+    factory = _factory(db_engine)
+    async with factory() as s:
+        resp = await strat.run_strategy(
+            StrategyRunRequest(portfolio_id="p-x", profile=StrategyProfile()),
+            background,
+            s,
+        )
+        assert resp.run_id
+        for task in background.tasks:
+            await task()
+
+    assert captured["correlation_id"] == "cid-wired"
