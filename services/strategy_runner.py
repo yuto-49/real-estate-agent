@@ -30,6 +30,7 @@ from api.schemas import (
 )
 from db.models import ConstructionType
 from intelligence.depreciation_jp import project_depreciation
+from services.event_store import EventStore
 from services.portfolio_summary import build_portfolio_summary
 
 
@@ -370,6 +371,7 @@ async def execute_strategy_run(
     portfolio_id: str,
     profile: StrategyProfile,
     event_sink: StrategyEventSink | None = None,
+    correlation_id: str | None = None,
 ) -> StrategyRunRecord:
     """Run analysis → simulation for one strategy run.
 
@@ -377,11 +379,15 @@ async def execute_strategy_run(
     Returns the final record so synchronous callers (and tests) can use it
     directly. When ``event_sink`` is provided, emits per-step events for live
     timelines; otherwise the trace is still persisted on the record.
+
+    Every run is also audited to ``domain_events`` (started + terminal) with
+    ``correlation_id`` — the durable, queryable record of the state change.
     """
     record = await get_strategy_run(run_id)
     if record is None:
         record = _make_pending(run_id, portfolio_id, profile)
     steps: list[StrategyRunStep] = list(record.steps)
+    store = EventStore(db)
 
     await _emit_step(
         run_id, steps, event_sink,
@@ -391,6 +397,15 @@ async def execute_strategy_run(
     )
     running = record.model_copy(update={"status": "running", "steps": steps})
     await _set(running)
+    await store.append(
+        event_type="strategy.run_started",
+        aggregate_type="strategy_run",
+        aggregate_id=run_id,
+        payload={"portfolio_id": portfolio_id},
+        actor_type="investor",
+        correlation_id=correlation_id,
+    )
+    await db.commit()
 
     try:
         analysis = await build_portfolio_summary(db, portfolio_id)
@@ -410,6 +425,15 @@ async def execute_strategy_run(
                 }
             )
             await _set(failed)
+            await store.append(
+                event_type="strategy.run_failed",
+                aggregate_type="strategy_run",
+                aggregate_id=run_id,
+                payload={"error": "portfolio_not_found"},
+                actor_type="investor",
+                correlation_id=correlation_id,
+            )
+            await db.commit()
             return failed
 
         await _emit_step(
@@ -458,6 +482,19 @@ async def execute_strategy_run(
             }
         )
         await _set(completed)
+        await store.append(
+            event_type="strategy.run_completed",
+            aggregate_type="strategy_run",
+            aggregate_id=run_id,
+            payload={
+                "survives": unified.survives,
+                "confidence": unified.confidence,
+                "holding_count": analysis.holding_count,
+            },
+            actor_type="investor",
+            correlation_id=correlation_id,
+        )
+        await db.commit()
         return completed
 
     except Exception as exc:  # noqa: BLE001 — surface as failure on the record
@@ -476,6 +513,22 @@ async def execute_strategy_run(
             }
         )
         await _set(failed)
+        # The exception may have left the session dirty — roll back before the
+        # audit write so the failure event still persists. (run_started was
+        # already committed.)
+        try:
+            await db.rollback()
+            await store.append(
+                event_type="strategy.run_failed",
+                aggregate_type="strategy_run",
+                aggregate_id=run_id,
+                payload={"error": str(exc) or exc.__class__.__name__},
+                actor_type="investor",
+                correlation_id=correlation_id,
+            )
+            await db.commit()
+        except Exception:  # noqa: BLE001 — never let auditing mask the failure
+            pass
         return failed
 
 
