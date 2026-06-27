@@ -1,3 +1,12 @@
+> ⚠️ **DEPRECATED / HISTORICAL (2026-06).** This roadmap describes the
+> negotiation chat and social-sentiment simulation that have since been
+> **removed** from the platform (Alembic migration `f9a1b2c3d4e5` dropped the
+> backing tables; the frontend surface and dead schemas were removed
+> afterward). It is retained for historical context only. The **layered domain
+> runtime** and **market-signal pipeline** it seeded survive and now power the
+> investor analytics surface — see `CLAUDE.md` and `architecture.md` for the
+> current system.
+
 # Social Simulation + Market Knowledge System Roadmap
 
 This file is the current implementation roadmap for negotiation and social

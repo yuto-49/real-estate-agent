@@ -1,10 +1,12 @@
 # Real Estate Agentic Platform
 
-Multi-agent real estate negotiation platform with social behavior simulation, intelligence pipeline, and workforce housing analysis.
+Tokyo workforce-housing **investor analytics** platform: portfolio underwriting, market-signal intelligence, and forward strategy simulation.
 
 **Stack:** FastAPI + React 18 + TypeScript + Claude API + PostgreSQL 16 + Redis 7
 
-**Domain focus:** Workforce housing -- affordable, accessible housing for essential workers and moderate-income households, with emphasis on regulatory compliance and community-driven intelligence.
+**Domain focus:** Workforce housing -- affordable, accessible housing for essential workers and moderate-income households, with emphasis on regulatory compliance and market-signal-driven intelligence.
+
+> **Scope note (post-pivot).** The buyer/seller negotiation chat, social-sentiment simulator, synthetic market-tick engine, and MiroFish report flow were **removed** (migration `f9a1b2c3d4e5`). `CLAUDE.md` and `architecture.md` are the current source of truth; some sections below have not been fully re-verified.
 
 ---
 
@@ -107,12 +109,11 @@ Edit `.env` and set your API keys. Key settings:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | _(empty)_ | Required for agent conversations |
+| `ANTHROPIC_API_KEY` | _(empty)_ | Claude — listing analysis + portfolio chat-import extraction |
 | `TOMTOM_API_KEY` | _(empty)_ | Maps, geocoding, neighborhood analysis |
 | `DATABASE_URL` | `postgresql+asyncpg://dev:dev@localhost:5432/realestate` | PostgreSQL connection |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection |
-| `MARKET_DATA_PROVIDER` | `mock` | `mock` for dev, `zillow` for real data |
-| `MIROFISH_MODE` | `mock` | `mock` or `live` |
+| `MARKET_DATA_PROVIDER` | `mock` | `mock` for dev, real provider otherwise |
 | `ENVIRONMENT` | `development` | `development` or `production` |
 
 See [Configuration](#configuration) for the full list.
@@ -182,7 +183,7 @@ pytest tests/ -v
 pytest tests/ --cov=. --cov-report=term-missing
 
 # Specific test file
-pytest tests/test_negotiation_engine.py -v
+pytest tests/test_strategy_events.py -v
 ```
 
 <img width="1461" height="799" alt="Screenshot 2026-04-01 at 2 38 41 PM" src="https://github.com/user-attachments/assets/9c91cc9d-660b-4241-bc27-921a97db3565" />
@@ -194,56 +195,48 @@ pytest tests/test_negotiation_engine.py -v
 
 ```
 real-estate-agent/
-  main.py                     # FastAPI entry point + lifespan
+  main.py                     # FastAPI entry point + lifespan, router mounts
   config.py                   # Pydantic settings (reads .env)
-  agent/                      # Multi-agent system
-    base_agent.py             #   Abstract agent with Claude API loop + ACL
-    buyer_agent.py            #   Buyer: search, offer, negotiate down
-    seller_agent.py           #   Seller: list, evaluate, negotiate up
-    broker_agent.py           #   Broker: mediate, contracts, inspections
-    orchestrator.py           #   Routes messages to agents, DB-backed context
-    negotiation.py            #   State machine + timeout rules
-    negotiation_engine.py     #   Multi-turn orchestration, ZOPA detection
-    tool_acl.py               #   Role-based tool permissions (frozen map)
-    guardrails.py             #   Hard-coded business rules
-    prompts.py                #   Versioned system prompts (v2.0.0)
-    tools/                    #   Tool handler implementations
-  api/                        # FastAPI routers
-    properties.py             #   CRUD: list, get, create, update
-    offers.py                 #   CRUD with guardrail validation
+  agent/                      # Claude-driven listing analysis
+    analyst_council.py        #   Multi-persona listing-analysis council
+    analyst_personas.py       #   Persona definitions for the council
+  api/                        # FastAPI routers (all mounted in main.py)
+    properties.py             #   CRUD + GET /{id}/market-context
+    search.py                 #   Property search
     users.py                  #   User profile CRUD
-    negotiations.py           #   Start, offer, accept, event replay
-    reports.py                #   Enqueue simulation, status, retrieval
-    households.py             #   Household profile management
-    social_simulation.py      #   Social simulation endpoints
+    portfolio.py              #   Portfolios, holdings, /summary, CSV/chat import
+    underwrite.py             #   Underwrite, stress-test, listing/parse
+    listing_analysis.py       #   Claude listing-analysis council endpoint
+    decisions.py              #   GET /holding/{id} — per-holding recommendation
+    strategy.py               #   extract / run / status / result / recent
+    onboarding.py             #   Onboarding state
+    investor_profile.py       #   Investor profile CRUD
+    public_config.py          #   Public (frontend) config
     schemas.py                #   All Pydantic request/response models
-    webhooks.py               #   MiroFish completion callback (HMAC)
-    ws.py                     #   WebSocket with ConnectionManager
   db/
     database.py               # Async SQLAlchemy engine + session
-    models.py                 # All SQLAlchemy models
-  services/                   # Business logic
-    event_store.py            #   Append-only event sourcing
-    negotiation_simulator.py  #   Core negotiation simulation engine
-    batch_simulator.py        #   Parallel scenario runner
-    persona_generator.py      #   Synthetic buyer/seller profiles
-    social_simulator.py       #   Social behavior simulation engine
-    social_report_bridge.py   #   Social output -> MiroFish report format
-    market_data_provider.py   #   Protocol + Mock + Zillow providers
-    maps.py                   #   TomTom Maps with geocache
-    redis.py                  #   Connection pool management
-    pubsub.py                 #   Redis pub/sub event bus
-  intelligence/               # MiroFish pipeline
-    seed_assembly.py          #   Compiles seed doc from live data
-    mirofish_client.py        #   HTTP client with retry + circuit breaker
-    report_parser.py          #   Transforms MiroFish JSON for display
-    financial_models.py       #   Monte Carlo, DCF, tax models
-  middleware/                 # Request middleware
-    correlation.py            #   X-Correlation-ID header
-    auth.py                   #   JWT auth (HMAC-signed)
-    rate_limit.py             #   Redis sliding-window rate limiter
-  frontend/                   # React 18 + TypeScript + Vite
-  scripts/                    # Database init, seed data, test helpers
+    models.py                 # 9 models + 10 enums (investor domain)
+  domain/                     # Pure-Python layered runtime (no I/O)
+    events / market / actors / reactions / decisions / outcomes / reports
+  services/                   # Business logic + I/O
+    portfolio_summary.py      #   build_portfolio_summary (/summary aggregator)
+    strategy_runner.py        #   execute_strategy_run + pure project_simulation
+    unified_report.py         #   reconcile_unified_report (analysis vs simulation)
+    strategy_profile.py       #   free-text -> StrategyProfile (heuristic, LLM-pluggable)
+    holding_decision.py       #   compute_holding_decision
+    market_state.py           #   build_snapshot -> MarketContextSnapshot
+    signal_writer.py          #   upsert_signal (idempotent per calendar day)
+    event_store.py            #   Append-only domain_events writer
+    portfolio_chat_extractor.py  # Claude chat -> holdings
+    signal_providers/         #   Pluggable external market-signal providers
+    maps.py / redis.py / pubsub.py / metrics.py / market_data*.py
+  intelligence/               # Investor analytics
+    underwriting.py           #   cap rate / CoC / DSCR / IRR
+    depreciation_jp.py        #   JP depreciation schedule
+    tax_basic.py / stress_test.py
+  middleware/                 # correlation.py, auth.py (Supabase JWT), rate_limit.py
+  frontend/                   # React 18 + TypeScript + Vite (Portfolio surface)
+  scripts/                    # DB init, seeds, market-signal CLIs, create_dev_user
   alembic/                    # Database migration versions
   tests/                      # pytest-asyncio test suite
 ```
@@ -258,74 +251,53 @@ real-estate-agent/
 | `GET` | `/metrics` | Application metrics |
 | `GET` | `/api/properties/` | List properties (filters: status, min/max price, type) |
 | `GET` | `/api/properties/{id}` | Get property details |
-| `POST` | `/api/properties/` | Create property listing |
-| `PATCH` | `/api/properties/{id}` | Update property |
-| `POST` | `/api/offers/` | Create offer (guardrail-validated) |
-| `GET` | `/api/offers/{id}` | Get offer |
-| `GET` | `/api/offers/` | List offers (filters: property_id, buyer_id) |
-| `POST` | `/api/users/` | Create user profile |
-| `GET` | `/api/users/{id}` | Get user profile |
-| `PATCH` | `/api/users/{id}` | Update user profile |
-| `POST` | `/api/negotiations/` | Start negotiation |
-| `GET` | `/api/negotiations/{id}` | Get negotiation state + events |
-| `POST` | `/api/negotiations/{id}/offer` | Submit offer/counter-offer |
-| `POST` | `/api/negotiations/{id}/accept` | Accept and finalize |
-| `GET` | `/api/negotiations/{id}/events` | Event replay |
-| `POST` | `/api/reports/generate` | Enqueue MiroFish simulation |
-| `GET` | `/api/reports/status/{id}` | Check report status |
-| `GET` | `/api/reports/{id}` | Get completed report |
-| `POST` | `/api/webhooks/mirofish` | MiroFish completion callback |
-| `WS` | `/ws/negotiation/{id}` | Real-time negotiation updates |
-| `POST` | `/api/social-sim/start` | Start a social reaction run |
-| `GET` | `/api/social-sim/status/{id}` | Check simulation status |
-| `GET` | `/api/social-sim/result/{id}` | Get simulation result |
-| `POST` | `/api/social-sim/generate-report` | Generate a MiroFish report projection from a run |
+| `GET` | `/api/properties/{id}/market-context` | `MarketContextSnapshot` for a property |
+| `GET` | `/api/search/` | Property search |
+| `POST` | `/api/users/` · `GET`/`PATCH` `/{id}` | User profile CRUD |
+| `GET` | `/api/portfolio/?user_id=` | List a user's portfolios |
+| `POST` | `/api/portfolio/` | Create portfolio |
+| `GET` | `/api/portfolio/{id}/summary` | `PortfolioSummaryReport` (per-holding analysis) |
+| `GET` | `/api/portfolio/{id}/holdings` · `POST`/`DELETE` | Holdings CRUD |
+| `POST` | `/api/portfolio/import/csv` · `/import/chat` | CSV / Claude chat import |
+| `POST` | `/api/underwrite/` | Underwrite a deal |
+| `POST` | `/api/underwrite/stress-test` | Monte Carlo stress test |
+| `POST` | `/api/listing/parse` | Parse a free-text listing |
+| `POST` | `/api/listings/analyze` | Claude listing-analysis council |
+| `GET` | `/api/decisions/holding/{id}` | Per-holding recommendation |
+| `POST` | `/api/strategy/extract` | Free text → reviewable `StrategyProfile` |
+| `POST` | `/api/strategy/run` | Start a strategy run (analysis → simulation → unified) |
+| `GET` | `/api/strategy/{id}/status` · `/result` | Poll / fetch a strategy run |
+| `GET` | `/api/onboarding/state` · `/api/investor-profile/*` · `/api/config` | Onboarding, investor profile, public config |
 
 ---
 
 ## Architecture
 
 ```
-User/Frontend --> FastAPI API --> Orchestrator --> Claude Agents (buyer/seller/broker/assistant)
-                      |                                |
-                PostgreSQL + Redis           Tool Execution (ACL-enforced)
-                      |                                |
-                Domain Events <------------- Guardrails + Business Rules
-                      |
-               Redis Pub/Sub --> WebSocket --> React Frontend
+React frontend --> FastAPI API (api/) --> services/  (portfolio_summary, strategy_runner,
+   (Portfolio          |                     holding_decision, market_state, signal_writer)
+    surface)           v                       |
+              PostgreSQL + Redis               v
+                       |          domain/ -- pure projections (no I/O):
+                       |          market -> actor -> reaction -> decision -> outcome -> report
+                       v
+              domain_events (event-sourced audit, correlation id)
+              Redis pub/sub (live strategy-run step events)
 
-Layered Market Knowledge System:
-  Spatial Market State --> Actor State --> Social Reactions --> Decisions --> Outcomes
-                                           |                                 |
-                                           +--> Report Projections ----------+
-                                           +--> Negotiation Sessions --------+
+Claude API: agent/analyst_council (listing analysis) + api/portfolio chat import.
 ```
 
 ### Key Design Patterns
 
-1. **Event Sourcing** -- Append-only `domain_events` table with correlation IDs for full audit trail and replay
-2. **Tool ACL** -- Frozen permission map enforced before and after Claude API calls
-3. **Guardrails** -- Hard-coded business rules (offers >= 50% asking, max auto-approved $2M)
-4. **Async-first** -- All DB, Redis, HTTP, and Claude API calls are async
-5. **Provider Pattern** -- Market data and maps use Protocol-based providers (mock + real)
-6. **Circuit Breaker** -- External service calls use tenacity retry + circuit breaker (3 retries, exponential backoff)
-7. **Correlation IDs** -- Every request traced end-to-end via UUID correlation IDs
+1. **Event Sourcing** -- Append-only `domain_events` table with correlation IDs (via `services/event_store.py`); strategy runs are audited this way
+2. **Async-first** -- All DB, Redis, HTTP, and Claude API calls are async
+3. **Provider Pattern** -- Market data, maps, and signal sources use Protocol-based providers (mock + real)
+4. **Resilient external calls** -- `tenacity` retry/backoff; inject `httpx.AsyncClient` so tests use `httpx.MockTransport`
+5. **Pure domain runtime** -- `domain/` is side-effect-free, deterministic, lenient (missing data → default, never raise)
+6. **Correlation IDs** -- Every request traced end-to-end; background tasks capture the id at request time
+7. **Reuse the strategy pipeline** -- `portfolio_summary` → `strategy_runner.project_simulation` → `unified_report.reconcile_unified_report`
 
-### Negotiation State Machine
-
-```
-IDLE -> OFFER_PENDING -> COUNTER_PENDING -> ... -> ACCEPTED -> CONTRACT_PHASE -> INSPECTION -> CLOSING -> CLOSED
-                                                             /
-                                          REJECTED / WITHDRAWN / ESCALATED
-```
-
-- Round 5+: ZOPA detection (spread <= 3% suggests midpoint)
-- Round 5+ with spread > 10%: auto-broker mediation
-- Round 10+: auto-escalation
-- Deadlines: 48h offers, 72h contracts, 10d inspection, 30d closing
-
-See [architecture.md](architecture.md) for the full system design, workforce housing model, legal/compliance audit trail, and simulation engine details.
-See [doc/layered-market-knowledge-system.md](doc/layered-market-knowledge-system.md) for the updated layered architecture direction and [SOCIAL_SIMULATION_IMPLEMENTATION.md](SOCIAL_SIMULATION_IMPLEMENTATION.md) for the current roadmap.
+See [architecture.md](architecture.md) and [CLAUDE.md](CLAUDE.md) for the current system design, the layered domain runtime, and the market-signal pipeline.
 
 ---
 
