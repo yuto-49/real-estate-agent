@@ -6,7 +6,7 @@ import type {
   StrategyRunRecord,
 } from '../../utils/types'
 
-interface StrategyTabProps {
+interface SimulationTabProps {
   portfolioId: string
 }
 
@@ -32,7 +32,7 @@ function formatMoney(value?: number | null): string {
   })
 }
 
-export default function StrategyTab({ portfolioId }: StrategyTabProps) {
+export default function SimulationTab({ portfolioId }: SimulationTabProps) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [text, setText] = useState('')
   const [profile, setProfile] = useState<StrategyProfile | null>(null)
@@ -363,6 +363,8 @@ export default function StrategyTab({ portfolioId }: StrategyTabProps) {
                 <th>Today</th>
                 <th>Projected</th>
                 <th>Projected value</th>
+                <th>Projected NOI</th>
+                <th>Projected cash flow</th>
                 <th>Projected cap</th>
                 <th>Note</th>
               </tr>
@@ -382,6 +384,8 @@ export default function StrategyTab({ portfolioId }: StrategyTabProps) {
                     <td>{r.today_action}</td>
                     <td>{r.projected_action}</td>
                     <td>{formatMoney(proj?.projected_value)}</td>
+                    <td data-testid={`recon-noi-${r.holding_id}`}>{formatMoney(proj?.projected_annual_noi)}</td>
+                    <td data-testid={`recon-cf-${r.holding_id}`}>{formatMoney(proj?.projected_monthly_cash_flow)}</td>
                     <td>{formatPercent(proj?.projected_cap_rate)}</td>
                     <td>{r.note ?? ''}</td>
                   </tr>

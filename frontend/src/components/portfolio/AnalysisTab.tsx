@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../utils/api'
 import type { PortfolioSummaryReport } from '../../utils/types'
 
-interface OverviewTabProps {
+interface AnalysisTabProps {
   portfolioId: string
 }
 
@@ -33,7 +33,7 @@ function formatRatio(value: number | null | undefined, digits = 2): string {
   return value.toFixed(digits)
 }
 
-export default function OverviewTab({ portfolioId }: OverviewTabProps) {
+export default function AnalysisTab({ portfolioId }: AnalysisTabProps) {
   const [report, setReport] = useState<PortfolioSummaryReport | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

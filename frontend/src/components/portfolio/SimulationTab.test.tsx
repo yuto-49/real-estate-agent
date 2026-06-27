@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import StrategyTab from './StrategyTab'
+import SimulationTab from './SimulationTab'
 import { api } from '../../utils/api'
 import type { StrategyProfile, StrategyRunRecord } from '../../utils/types'
 
@@ -83,7 +83,7 @@ function makeRecord(profile: StrategyProfile): StrategyRunRecord {
   }
 }
 
-describe('StrategyTab', () => {
+describe('SimulationTab', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
@@ -92,7 +92,7 @@ describe('StrategyTab', () => {
     const profile = makeProfile()
     vi.spyOn(api.strategy, 'extract').mockResolvedValueOnce({ profile })
 
-    render(<StrategyTab portfolioId="p1" />)
+    render(<SimulationTab portfolioId="p1" />)
 
     fireEvent.change(screen.getByTestId('strategy-text'), {
       target: { value: 'long-term buy and hold, protect tenants' },
@@ -115,7 +115,7 @@ describe('StrategyTab', () => {
     })
     vi.spyOn(api.strategy, 'status').mockResolvedValueOnce(record)
 
-    render(<StrategyTab portfolioId="p1" />)
+    render(<SimulationTab portfolioId="p1" />)
 
     fireEvent.change(screen.getByTestId('strategy-text'), {
       target: { value: 'long-term buy and hold' },
@@ -127,6 +127,9 @@ describe('StrategyTab', () => {
 
     await waitFor(() => screen.getByTestId('strategy-result'))
     expect(screen.getByTestId('recon-h1')).toBeInTheDocument()
+    // Per-holding forward projection columns (projected NOI + cash flow)
+    expect(screen.getByTestId('recon-noi-h1')).toHaveTextContent('$22,000')
+    expect(screen.getByTestId('recon-cf-h1')).toHaveTextContent('$120')
     expect(screen.getByTestId('strategy-result')).toHaveTextContent(
       'Strategy survives',
     )
@@ -135,7 +138,7 @@ describe('StrategyTab', () => {
   it('shows an error when extraction fails', async () => {
     vi.spyOn(api.strategy, 'extract').mockRejectedValueOnce(new Error('boom'))
 
-    render(<StrategyTab portfolioId="p1" />)
+    render(<SimulationTab portfolioId="p1" />)
 
     fireEvent.change(screen.getByTestId('strategy-text'), {
       target: { value: 'anything' },

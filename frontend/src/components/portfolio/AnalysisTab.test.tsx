@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import OverviewTab from './OverviewTab'
+import AnalysisTab from './AnalysisTab'
 import { api } from '../../utils/api'
 import type { PortfolioSummaryReport } from '../../utils/types'
 
@@ -51,7 +51,7 @@ function makeReport(overrides: Partial<PortfolioSummaryReport> = {}): PortfolioS
   }
 }
 
-describe('OverviewTab', () => {
+describe('AnalysisTab', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
@@ -59,7 +59,7 @@ describe('OverviewTab', () => {
   it('renders aggregates, attention list, and per-holding row', async () => {
     vi.spyOn(api.portfolio, 'summary').mockResolvedValueOnce(makeReport())
 
-    render(<OverviewTab portfolioId="p1" />)
+    render(<AnalysisTab portfolioId="p1" />)
 
     await waitFor(() => screen.getByTestId('overview-tab'))
 
@@ -94,7 +94,7 @@ describe('OverviewTab', () => {
       }),
     )
 
-    render(<OverviewTab portfolioId="p1" />)
+    render(<AnalysisTab portfolioId="p1" />)
 
     await waitFor(() => screen.getByTestId('overview-tab'))
 
@@ -104,7 +104,7 @@ describe('OverviewTab', () => {
   it('surfaces an error when the summary request fails', async () => {
     vi.spyOn(api.portfolio, 'summary').mockRejectedValueOnce(new Error('boom'))
 
-    render(<OverviewTab portfolioId="p1" />)
+    render(<AnalysisTab portfolioId="p1" />)
 
     await waitFor(() => screen.getByTestId('overview-error'))
     expect(screen.getByTestId('overview-error')).toHaveTextContent('boom')

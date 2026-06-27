@@ -6,27 +6,27 @@ import HoldingsTab from '../components/portfolio/HoldingsTab'
 import UnderwriteTab from '../components/portfolio/UnderwriteTab'
 import StressTestTab from '../components/portfolio/StressTestTab'
 import DecisionsTab from '../components/portfolio/DecisionsTab'
-import OverviewTab from '../components/portfolio/OverviewTab'
+import AnalysisTab from '../components/portfolio/AnalysisTab'
 import RecentSimulations from '../components/portfolio/RecentSimulations'
-import StrategyTab from '../components/portfolio/StrategyTab'
+import SimulationTab from '../components/portfolio/SimulationTab'
 
 const SELECTED_USER_KEY = 'selectedUserId'
 
 type TabKey =
-  | 'overview'
+  | 'analysis'
   | 'holdings'
   | 'underwrite'
   | 'stress'
   | 'decisions'
-  | 'strategy'
+  | 'simulation'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'analysis', label: 'Analysis' },
   { key: 'holdings', label: 'Holdings' },
   { key: 'underwrite', label: 'Underwrite' },
   { key: 'stress', label: 'Stress Test' },
   { key: 'decisions', label: 'Decisions' },
-  { key: 'strategy', label: 'Strategy' },
+  { key: 'simulation', label: 'Simulation' },
 ]
 
 export default function PortfolioPage() {
@@ -38,7 +38,7 @@ export default function PortfolioPage() {
   const [portfolios, setPortfolios] = useState<InvestorPortfolio[]>([])
   const [selectedPortfolioId, setSelectedPortfolioId] = useState('')
   const [newPortfolioName, setNewPortfolioName] = useState('')
-  const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [activeTab, setActiveTab] = useState<TabKey>('analysis')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -174,14 +174,14 @@ export default function PortfolioPage() {
       <div className="portfolio-tab-body">
         {activeTab === 'underwrite' && <UnderwriteTab />}
         {activeTab === 'stress' && <StressTestTab />}
-        {(activeTab === 'overview' ||
+        {(activeTab === 'analysis' ||
           activeTab === 'holdings' ||
           activeTab === 'decisions' ||
-          activeTab === 'strategy') &&
+          activeTab === 'simulation') &&
           (selectedPortfolioId ? (
-            activeTab === 'overview' ? (
+            activeTab === 'analysis' ? (
               <>
-                <OverviewTab portfolioId={selectedPortfolioId} />
+                <AnalysisTab portfolioId={selectedPortfolioId} />
                 <RecentSimulations />
               </>
             ) : activeTab === 'holdings' ? (
@@ -189,12 +189,12 @@ export default function PortfolioPage() {
             ) : activeTab === 'decisions' ? (
               <DecisionsTab portfolioId={selectedPortfolioId} />
             ) : (
-              <StrategyTab portfolioId={selectedPortfolioId} />
+              <SimulationTab portfolioId={selectedPortfolioId} />
             )
           ) : (
             <p className="portfolio-empty">
-              Select or create a portfolio to see the summary, holdings,
-              recommendations, and strategy run.
+              Select or create a portfolio to see the analysis, holdings,
+              recommendations, and forward simulation.
             </p>
           ))}
       </div>
