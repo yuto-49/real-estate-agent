@@ -61,7 +61,6 @@ export default function SimulateReportPage() {
 
   const { record } = state
   const unified = record.unified
-  const negotiationTarget = record.simulation?.per_holding?.[0]?.holding_id
 
   return (
     <div className="simulate-report-page" data-testid="simulate-report-page">
@@ -151,15 +150,6 @@ export default function SimulateReportPage() {
         <Link to="/portfolio" className="onboarding-secondary" data-testid="report-portfolio-link">
           Back to portfolio
         </Link>
-        {negotiationTarget && (
-          <Link
-            to={`/negotiate/${negotiationTarget}`}
-            className="onboarding-primary"
-            data-testid="report-negotiate-cta"
-          >
-            Negotiate this property
-          </Link>
-        )}
       </footer>
     </div>
   )

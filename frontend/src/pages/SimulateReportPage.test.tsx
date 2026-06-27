@@ -112,18 +112,6 @@ describe('SimulateReportPage', () => {
     expect(screen.getByText('82%')).toBeInTheDocument()
   })
 
-  it('shows the Negotiate CTA when a holding is present', async () => {
-    vi.spyOn(api.strategy, 'result').mockResolvedValue(fakeRecord())
-    renderAt('/simulate/run-1/report')
-    await waitFor(() => {
-      expect(screen.getByTestId('report-negotiate-cta')).toBeInTheDocument()
-    })
-    expect(screen.getByTestId('report-negotiate-cta')).toHaveAttribute(
-      'href',
-      '/negotiate/h-1',
-    )
-  })
-
   it('renders failed state', async () => {
     vi.spyOn(api.strategy, 'result').mockResolvedValue(
       fakeRecord({ status: 'failed', error: 'portfolio_not_found', unified: null }),

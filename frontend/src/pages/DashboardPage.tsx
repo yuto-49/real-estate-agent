@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../utils/api'
-import type { Property, UserProfile, SimulationResult } from '../utils/types'
+import type { Property, UserProfile } from '../utils/types'
 import UserProfileCard from '../components/UserProfileCard'
 import DashboardMap from '../components/DashboardMap'
 import UserFormModal from '../components/UserFormModal'
 
 const SELECTED_USER_KEY = 'selectedUserId'
-
-interface ReportMini {
-  id: string
-  status: string
-  progress: number
-  created_at?: string
-}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -22,10 +15,7 @@ export default function DashboardPage() {
     () => localStorage.getItem(SELECTED_USER_KEY) || ''
   )
   const [loading, setLoading] = useState(true)
-  const [reports, setReports] = useState<ReportMini[]>([])
   const [properties, setProperties] = useState<Property[]>([])
-  const [savedSims, setSavedSims] = useState<SimulationResult[]>([])
-  const [selectedSimBatch, setSelectedSimBatch] = useState<string>('all')
 
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -39,10 +29,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedUserId) {
       localStorage.setItem(SELECTED_USER_KEY, selectedUserId)
-      void loadReports(selectedUserId)
-      void loadSavedSims(selectedUserId)
-    } else {
-      setSavedSims([])
     }
   }, [selectedUserId])
 
@@ -67,30 +53,6 @@ export default function DashboardPage() {
       setProperties(data.properties as Property[])
     } catch {
       setProperties([])
-    }
-  }
-
-  const loadSavedSims = async (userId: string) => {
-    try {
-      const data = await api.simulation.savedResults({ user_id: userId })
-      setSavedSims(data.results as SimulationResult[])
-      setSelectedSimBatch('all')
-    } catch {
-      setSavedSims([])
-    }
-  }
-
-  const loadReports = async (userId: string) => {
-    try {
-      const data = await api.reports.listByUser(userId)
-      setReports(data.slice(0, 5).map((r) => ({
-        id: r.id,
-        status: r.status,
-        progress: r.progress,
-        created_at: r.created_at,
-      })))
-    } catch {
-      setReports([])
     }
   }
 
@@ -123,17 +85,10 @@ export default function DashboardPage() {
       await api.users.delete(selectedUser.id)
       localStorage.removeItem(SELECTED_USER_KEY)
       setSelectedUserId('')
-      setReports([])
       void loadUsers()
     } catch {
       // ignore
     }
-  }
-
-  function formatDate(dateStr?: string): string {
-    if (!dateStr) return ''
-    const d = new Date(dateStr)
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
@@ -180,42 +135,11 @@ export default function DashboardPage() {
             <div className="dashboard-quick-actions">
               <h3>Quick Actions</h3>
               <div className="dashboard-action-buttons">
-                <button className="primary-btn" onClick={() => navigate('/analysis')}>
-                  Generate Report
-                </button>
-                <button className="primary-btn primary-btn--quiet" onClick={() => navigate('/simulation')}>
-                  Run Simulation
+                <button className="primary-btn" onClick={() => navigate('/portfolio')}>
+                  Open Portfolio
                 </button>
               </div>
             </div>
-
-            {/* Simulation Selector */}
-            {selectedUser && savedSims.length > 0 && (
-              <div className="agent-control-group">
-                <label>Saved Simulations ({savedSims.length})</label>
-                <select
-                  value={selectedSimBatch}
-                  onChange={(e) => setSelectedSimBatch(e.target.value)}
-                >
-                  <option value="all">All simulations</option>
-                  {(() => {
-                    const batches = new Map<string, { count: number; date: string }>()
-                    savedSims.forEach((s) => {
-                      const key = s.batch_id || s.id
-                      if (!batches.has(key)) {
-                        batches.set(key, { count: 0, date: s.created_at })
-                      }
-                      batches.get(key)!.count++
-                    })
-                    return Array.from(batches.entries()).map(([batchKey, info]) => (
-                      <option key={batchKey} value={batchKey}>
-                        Batch {batchKey.slice(0, 8)}... ({info.count} scenarios) — {new Date(info.date).toLocaleDateString()}
-                      </option>
-                    ))
-                  })()}
-                </select>
-              </div>
-            )}
 
             {/* Profile link */}
             {selectedUser && (
@@ -225,60 +149,13 @@ export default function DashboardPage() {
                 </Link>
               </div>
             )}
-
-            {/* Recent Reports */}
-            <div className="dashboard-recent">
-              <h3>Recent Reports</h3>
-              {reports.length === 0 ? (
-                <p className="dashboard-muted-copy">No reports yet. <Link to="/analysis">Generate one</Link>.</p>
-              ) : (
-                <table className="report-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Status</th>
-                      <th>Created</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reports.map((r) => (
-                      <tr key={r.id}>
-                        <td className="report-id-cell">{r.id.slice(0, 10)}...</td>
-                        <td>
-                          <span className={`status-pill ${r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'error' : 'running'}`}>
-                            {r.status}
-                          </span>
-                        </td>
-                        <td>{formatDate(r.created_at)}</td>
-                        <td>
-                          <button className="secondary-btn" onClick={() => navigate(`/analysis/${r.id}`)}>View</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
           </div>
 
           {/* Map */}
           <DashboardMap
             properties={properties}
             selectedUser={selectedUser}
-            onPropertyClick={(p) => {
-              const params = new URLSearchParams({
-                property_id: p.id,
-                address: p.address,
-                price: String(p.asking_price ?? ''),
-              })
-              navigate(`/simulation?${params.toString()}`)
-            }}
-            simulationResults={
-              selectedSimBatch === 'all'
-                ? savedSims
-                : savedSims.filter((s) => (s.batch_id || s.id) === selectedSimBatch)
-            }
+            onPropertyClick={() => navigate('/portfolio')}
           />
         </div>
       )}

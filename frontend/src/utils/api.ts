@@ -1,17 +1,3 @@
-import type {
-  Negotiation,
-  NegotiationAcceptRequest,
-  NegotiationMutationResponse,
-  NegotiationOfferRequest,
-  NegotiationSession,
-  SocialSimAction,
-  SocialSimResult,
-  SocialSimStartRequest,
-  SocialSimStartResponse,
-  SocialSimStatus,
-  SocialSimTimelineResponse,
-  NegotiationTransitionRequest,
-} from './types'
 import { getAccessToken } from './supabase'
 
 const BASE_URL = '/api'
@@ -52,33 +38,6 @@ export const api = {
       return fetchJSON<{ properties: unknown[]; count: number }>(`/properties/${qs}`)
     },
     get: (id: string) => fetchJSON(`/properties/${id}`),
-  },
-  negotiations: {
-    start: (data: { property_id: string; buyer_id: string; seller_id: string }) =>
-      fetchJSON<Negotiation>('/negotiations/', { method: 'POST', body: JSON.stringify(data) }),
-    get: (id: string) => fetchJSON<NegotiationSession>(`/negotiations/${id}`),
-    offer: (id: string, data: NegotiationOfferRequest) =>
-      fetchJSON<NegotiationMutationResponse>(`/negotiations/${id}/offer`, { method: 'POST', body: JSON.stringify(data) }),
-    accept: (id: string, data: NegotiationAcceptRequest) =>
-      fetchJSON<NegotiationMutationResponse>(`/negotiations/${id}/accept`, { method: 'POST', body: JSON.stringify(data) }),
-    transition: (id: string, data: NegotiationTransitionRequest) =>
-      fetchJSON<NegotiationMutationResponse>(`/negotiations/${id}/transition`, { method: 'POST', body: JSON.stringify(data) }),
-  },
-  reports: {
-    generate: (data: {
-      user_id: string;
-      question?: string;
-      zip_code?: string;
-      latitude?: number;
-      longitude?: number;
-      min_price?: number;
-      max_price?: number;
-      property_type?: string;
-    }) =>
-      fetchJSON<{ id: string; user_id: string; status: string; created_at?: string }>('/reports/generate', { method: 'POST', body: JSON.stringify(data) }),
-    status: (id: string) => fetchJSON<{ id: string; user_id: string; status: string; progress: number; current_step: string; step_key?: string; created_at?: string; error_message?: string | null }>(`/reports/status/${id}`),
-    get: (id: string) => fetchJSON<{ id: string; user_id: string; status: string; report_json: Record<string, unknown> }>(`/reports/${id}`),
-    listByUser: (userId: string) => fetchJSON<Array<{ id: string; user_id: string; status: string; progress: number; current_step: string; step_key?: string; created_at?: string; error_message?: string | null }>>(`/reports/user/${userId}`),
   },
   users: {
     list: () => fetchJSON<Array<{
@@ -140,123 +99,6 @@ export const api = {
   agent: {
     message: (data: { user_id: string; role: string; message: string; report_id?: string | null }) =>
       fetchJSON<{ response: string; tool_calls: Array<{ tool: string; input: unknown; output: unknown }>; error?: string | null }>('/agent/message', { method: 'POST', body: JSON.stringify(data) }),
-  },
-  socialSim: {
-    start: (data: SocialSimStartRequest) =>
-      fetchJSON<SocialSimStartResponse>('/social-sim/start', { method: 'POST', body: JSON.stringify(data) }),
-    status: (runId: string) => fetchJSON<SocialSimStatus>(`/social-sim/${runId}/status`),
-    result: (runId: string) => fetchJSON<SocialSimResult>(`/social-sim/${runId}/result`),
-    actions: (runId: string, params?: { round_num?: number; topic?: string; limit?: number; offset?: number }) => {
-      const search = new URLSearchParams()
-      if (params?.round_num != null) search.set('round_num', String(params.round_num))
-      if (params?.topic) search.set('topic', params.topic)
-      if (params?.limit != null) search.set('limit', String(params.limit))
-      if (params?.offset != null) search.set('offset', String(params.offset))
-      const query = search.toString()
-      return fetchJSON<SocialSimAction[]>(`/social-sim/${runId}/actions${query ? `?${query}` : ''}`)
-    },
-    timeline: (runId: string) => fetchJSON<SocialSimTimelineResponse>(`/social-sim/${runId}/timeline`),
-    generateReport: (runId: string, data: { property_id: string; household_id: string }) =>
-      fetchJSON<{ report_id: string; message: string }>(`/social-sim/${runId}/generate-report`, { method: 'POST', body: JSON.stringify(data) }),
-  },
-  simulation: {
-    start: (data: {
-      property_id: string;
-      buyer_user_id: string;
-      seller_user_id: string;
-      initial_offer: number;
-      asking_price: number;
-      seller_minimum: number;
-      buyer_maximum: number;
-      strategy?: string;
-      max_rounds?: number;
-      report_id?: string;
-    }) => fetchJSON<{ id: string; status: string; message: string }>('/simulation/start', { method: 'POST', body: JSON.stringify(data) }),
-    status: (id: string) => fetchJSON<{
-      id: string; status: string; current_round: number; max_rounds: number;
-      progress: number; transcript: Array<Record<string, unknown>>; created_at?: string;
-    }>(`/simulation/status/${id}`),
-    result: (id: string) => fetchJSON<{
-      id: string; status: string; outcome: string; final_price: number | null;
-      rounds_completed: number; transcript: Array<Record<string, unknown>>;
-      summary: Record<string, unknown>; created_at?: string;
-    }>(`/simulation/result/${id}`),
-    list: (params?: { property_id?: string; status?: string }) => {
-      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as string[][]).toString() : ''
-      return fetchJSON<Array<{
-        id: string; property_id: string; status: string; outcome: string;
-        final_price: number | null; rounds_completed: number; max_rounds: number;
-        created_at?: string;
-      }>>(`/simulation/list${qs}`)
-    },
-    // Batch simulation
-    generatePersonas: (data: { buyer_profile: Record<string, unknown>; property_context: Record<string, unknown> }) =>
-      fetchJSON<{ buyer: Record<string, unknown>; seller: Record<string, unknown> }>('/simulation/personas', { method: 'POST', body: JSON.stringify(data) }),
-    getScenarios: () => fetchJSON<{ scenarios: Array<{ name: string; description: string; constraints: Record<string, unknown>; max_rounds: number }> }>('/simulation/scenarios'),
-    batchStart: (data: {
-      property_id: string;
-      asking_price: number;
-      initial_offer: number;
-      seller_minimum: number;
-      buyer_maximum: number;
-      max_rounds?: number;
-      buyer_user_id?: string;
-      seller_user_id?: string;
-      strategy?: string;
-      scenario_names: string[];
-      report_id?: string;
-      persona_data?: Record<string, unknown>;
-    }) => fetchJSON<{ batch_id: string; status: string; total_scenarios: number; message: string }>('/simulation/batch/start', { method: 'POST', body: JSON.stringify(data) }),
-    batchStatus: (batchId: string) => fetchJSON<Record<string, unknown>>(`/simulation/batch/status/${batchId}`),
-    batchResult: (batchId: string) => fetchJSON<Record<string, unknown>>(`/simulation/batch/result/${batchId}`),
-    // DB-persisted simulation results
-    savedResults: (params?: { user_id?: string }) => {
-      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as string[][]).toString() : ''
-      return fetchJSON<{ results: Array<{
-        id: string; user_id: string; property_id: string; batch_id: string | null;
-        scenario_name: string | null; outcome: string; final_price: number | null;
-        asking_price: number; initial_offer: number; rounds_completed: number;
-        max_rounds: number; strategy: string; summary: Record<string, unknown>;
-        price_path: Array<{ round: number; role: string; price: number }>; created_at: string;
-      }>; count: number }>(`/simulation/results${qs}`)
-    },
-    savedResult: (id: string) => fetchJSON<{
-      id: string; user_id: string; property_id: string; batch_id: string | null;
-      scenario_name: string | null; outcome: string; final_price: number | null;
-      asking_price: number; initial_offer: number; rounds_completed: number;
-      max_rounds: number; strategy: string; summary: Record<string, unknown>;
-      price_path: Array<{ round: number; role: string; price: number }>; created_at: string;
-    }>(`/simulation/results/${id}`),
-  },
-  marketSimulation: {
-    generatePersonas: (data: {
-      investor_count: number
-      cohort_preset: string
-      scope?: Partial<import("./types").MarketSimulationScope>
-    }) => fetchJSON<import("./types").MarketSimulationPersonaResponse>("/simulation/market/personas", { method: "POST", body: JSON.stringify(data) }),
-    start: (data: {
-      investor_count: number
-      tick_count: number
-      cohort_preset: string
-      run_label?: string
-      scope?: Partial<import("./types").MarketSimulationScope>
-      seeded_personas?: import("./types").MarketInvestorPersona[]
-    }) => fetchJSON<import("./types").MarketSimulationStartResponse>("/simulation/market/start", { method: "POST", body: JSON.stringify(data) }),
-    status: (runId: string) => fetchJSON<import("./types").MarketSimulationRunStatus>(`/simulation/market/status/${runId}`),
-    result: (runId: string) => fetchJSON<import("./types").MarketSimulationRunResult>(`/simulation/market/result/${runId}`),
-    replay: (runId: string) => fetchJSON<import("./types").MarketSimulationReplay>(`/simulation/market/replay/${runId}`),
-    handoffToNegotiation: (data: { run_id: string; investor_id: string; property_id: string; max_rounds?: number }) =>
-      fetchJSON<import("./types").MarketSimulationHandoffResponse>("/simulation/market/handoff-to-negotiation", { method: "POST", body: JSON.stringify(data) }),
-  },
-  visualization: {
-    getProperty: (propertyId: string) =>
-      fetchJSON<import('./types').PropertyVisualization>(`/visualization/property/${propertyId}`),
-    getReplay: (simulationId: string) =>
-      fetchJSON<import('./types').SimulationReplay>(`/visualization/replay/${simulationId}`),
-    getBatchReplays: (batchId: string) =>
-      fetchJSON<{ replays: import('./types').SimulationReplay[]; count: number }>(`/visualization/replay/batch/${batchId}`),
-    getPropertyReplays: (propertyId: string, limit = 5) =>
-      fetchJSON<{ replays: import('./types').SimulationReplay[]; count: number }>(`/visualization/replay/by-property/${propertyId}?limit=${limit}`),
   },
   portfolio: {
     list: (userId: string) =>

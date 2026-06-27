@@ -4,11 +4,7 @@ import SystemDrawer from './components/SystemDrawer'
 import { useAuth } from './hooks/useAuth'
 import { usePortfolioMode } from './hooks/usePortfolioMode'
 
-const AnalysisPage = lazy(() => import('./pages/AnalysisPage'))
-const SimulationPage = lazy(() => import('./pages/SimulationPage'))
-const NegotiationPage = lazy(() => import('./pages/NegotiationPage'))
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage'))
-const SimulationVisualizePage = lazy(() => import('./pages/SimulationVisualizePage'))
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'))
 const SignInPage = lazy(() => import('./pages/SignInPage'))
 const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'))
@@ -61,9 +57,7 @@ function AuthStatus() {
 function isFullBleedRoute(pathname: string) {
   return (
     pathname === '/' ||
-    pathname.startsWith('/simulation') ||
     pathname.startsWith('/simulate') ||
-    pathname.startsWith('/negotiate') ||
     pathname.startsWith('/onboard')
   )
 }
@@ -97,12 +91,10 @@ export default function App() {
         <div className="app-header-inner">
           <div className="app-brand">
             <h1>Real Estate Agentic Platform</h1>
-            <p>Investor intelligence, reports, and market replay</p>
+            <p>Investor intelligence and portfolio analytics</p>
           </div>
           <nav className="app-nav">
             <NavLink to="/" end>Dashboard</NavLink>
-            <NavLink to="/analysis">Analysis</NavLink>
-            <NavLink to="/simulation">Simulation</NavLink>
             <NavLink to="/portfolio">Portfolio</NavLink>
             <NavLink to="/profile">Profile</NavLink>
             <PortfolioModeToggle />
@@ -129,22 +121,11 @@ export default function App() {
             <Route path="/onboard" element={<OnboardingWizard />} />
             <Route path="/simulate/:runId" element={<SimulatePage />} />
             <Route path="/simulate/:runId/report" element={<SimulateReportPage />} />
-            <Route path="/analysis/:id?" element={<AnalysisPage />} />
-            <Route path="/simulation" element={<SimulationPage />} />
-            <Route path="/simulation/visualize/:propertyId" element={<SimulationVisualizePage />} />
             <Route
               path="/portfolio"
               element={
                 <RequireAuth>
                   <PortfolioPage />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/negotiate/:id?"
-              element={
-                <RequireAuth>
-                  <NegotiationPage />
                 </RequireAuth>
               }
             />
