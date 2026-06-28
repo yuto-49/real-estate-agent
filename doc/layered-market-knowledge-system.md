@@ -1,3 +1,10 @@
+> ℹ️ **Partly historical (2026-06).** The negotiation / social-simulation framing in
+> this doc describes features that were **removed** (migration `f9a1b2c3d4e5`). The
+> **layered domain runtime** it proposed, however, was built and **survives** under
+> `domain/` (market → actor → reaction → decision → outcome → report) and now powers
+> the investor analytics surface. Read this for the layered-runtime rationale; see
+> `CLAUDE.md` and `architecture.md` for the current system.
+
 # Layered Market Knowledge System
 
 This document reframes negotiation and social simulation as one part of a deeper
