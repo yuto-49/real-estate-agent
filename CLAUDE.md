@@ -71,7 +71,7 @@ The agent layer is an **analyst council** (`agent/analyst_council.py`): 4 person
 | Path | Purpose |
 |------|---------|
 | `agent/` | Analyst council: `analyst_council.py` (orchestration), `analyst_personas.py` (4 personas with JP prompts) |
-| `api/` | 18 FastAPI routers + `schemas.py` + `stubs.py` (501s for removed features) |
+| `api/` | 20 live routers + 5 stub routers (501) + `schemas.py`. Key: `satei.py`, `price_probability.py`, `negotiation_coach.py`, `buyer_simulation.py`, `rent_comps.py` |
 | `db/models.py` | 12 SQLAlchemy models + 10 enums (JP-aware: AssetTier, ConstructionType, SeismicCode) |
 | `domain/` | Pure-Python layered runtime: events → market → actors → reactions → decisions → outcomes → reports. Plus `domain/simulation/` (cohort/investor/property steps, shocks, loop) |
 | `services/` | ~44 modules: business logic, JP data providers, market state, signal writer, satei engine, price probability, strategy runner, portfolio summary |
@@ -80,7 +80,7 @@ The agent layer is an **analyst council** (`agent/analyst_council.py`): 4 person
 | `intelligence/` | Financial models: underwriting (cap rate/CoC/DSCR/IRR), JP depreciation (`money_jp.py` for 法定耐用年数), Monte Carlo stress test, tax |
 | `middleware/` | Correlation ID, Supabase JWT (RS256 via JWKS, passthrough when unconfigured), rate limiting |
 | `frontend/` | React 18 + TypeScript + Vite + MapLibre GL + Recharts. 13+ pages, Supabase auth, Vitest + Playwright |
-| `tests/` | ~54 pytest modules, in-memory SQLite, fakeredis, no external services |
+| `tests/` | ~56 pytest modules, in-memory SQLite, fakeredis, no external services. `conftest.py` provides async session + app fixtures |
 | `scripts/` | DB init/seed, market signal backfill/fetch, dev user creation |
 | `doc/` | 28 docs: architecture, tier-1 plan, brokerage pitch, ADRs |
 
@@ -119,6 +119,11 @@ All config via `config.py` (pydantic-settings) from `.env`. Key variables:
 | `MONTE_CARLO_SCENARIOS` | `300` | Financial model iterations |
 | `SUPABASE_URL` | (empty) | Also exposed as `VITE_SUPABASE_URL` |
 | `SUPABASE_JWT_ISSUER` / `SUPABASE_JWKS_URL` | (empty) | Auth disabled (passthrough) when empty |
+| `REINFOLIB_API_KEY` | (empty) | Required for live REINFOLIB provider |
+| `ESTAT_APP_ID` | (empty) | e-Stat API for demographic/economic data |
+| `RESAS_API_KEY` | (empty) | RESAS API for regional economic data |
+| `VOYAGE_API_KEY` / `COHERE_API_KEY` | (empty) | Production embedder keys (when `EMBEDDER_MODE=voyage`) |
+| `DEFAULT_PREFECTURE_CODE` | `13` | 東京都 — used for JP provider defaults |
 
 ## Tier 1 Features (Current Roadmap)
 
@@ -130,9 +135,27 @@ All config via `config.py` (pydantic-settings) from `.env`. Key variables:
 
 See `doc/TIER1_IMPLEMENTATION_PLAN.md` for full specs and `doc/BROKERAGE_PITCH.md` for go-to-market.
 
+## API Routes (main.py)
+
+All routers mounted under `/api/`. Key live routes:
+
+| Prefix | Router | Purpose |
+|--------|--------|---------|
+| `/api/satei` | `satei.py` | Comp-based valuation grid |
+| `/api/price-probability` | `price_probability.py` | Settlement probability curves |
+| `/api/negotiation-coach` | `negotiation_coach.py` | Strategy coaching sessions |
+| `/api/buyer-simulation` | `buyer_simulation.py` | Buyer persona simulation |
+| `/api/properties` | `properties.py`, `rent_comps.py` | Property CRUD + rent comps |
+| `/api/portfolio` | `portfolio.py` | Portfolio holdings/analysis |
+| `/api/underwrite` | `underwrite.py` | Underwriting scenarios |
+| `/api/signals` | `signals.py` | Market signal CRUD |
+| `/api/simulation` | `simulation_unified.py`, `market_simulation.py` | Simulation engine |
+
+Swagger docs at `http://localhost:8000/docs`. Health check at `/health`.
+
 ## Stubbed / Removed Features
 
-Migration `f9a1b2c3d4e5` dropped negotiation chat, social simulation, and market-tick tables. These APIs return 501 via `api/stubs.py`: negotiations, reports, social-sim, visualization, agent. WebSocket routes are stub-only.
+Migration `f9a1b2c3d4e5` dropped negotiation chat, social simulation, and market-tick tables. These APIs return 501 via `api/stubs.py`: negotiations, reports, social-sim, visualization, agent. WebSocket routes (`/ws/negotiations/{id}`, `/ws/strategy/{run_id}`) accept then immediately close with error.
 
 ## Coding Conventions
 
