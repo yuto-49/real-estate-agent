@@ -927,3 +927,53 @@ export interface PropertyRecommendation {
   score: number
   rationale: string[]
 }
+
+// --- Market Context (REINFOLIB) ---
+
+export interface MarketContextSnapshot {
+  property_id?: string | null
+  zip_code?: string | null
+  median_sale_price?: number | null
+  median_unit_price?: number | null
+  median_rent?: number | null
+  land_price_psm?: number | null
+  appraised_value_psm?: number | null
+  cap_rate?: number | null
+  loan_rate?: number | null
+  inventory_pressure?: number | null
+  safety_score?: number | null
+  hazard_liquefaction?: number | null
+  hazard_flood?: number | null
+  hazard_landslide?: number | null
+  signals_count?: number
+  generated_at?: string | null
+}
+
+export type HazardLevel = 'low' | 'moderate' | 'high' | 'unknown'
+
+// --- Rent Comps ---
+
+export interface RentCompResponse {
+  id: string
+  source: string
+  address_hint: string | null
+  menseki_m2: number | null
+  madori: string | null
+  walk_minutes: number | null
+  monthly_rent_yen: number
+  management_fee_yen: number | null
+  built_year: number | null
+  construction_type: string | null
+}
+
+export interface RentValidationResponse {
+  property_id: string
+  assumed_rent_yen: number
+  comp_median_yen: number
+  comp_count: number
+  percentile: number
+  deviation_pct: number
+  verdict: string
+  flag: boolean
+  comps: RentCompResponse[]
+}

@@ -62,9 +62,9 @@ interface ReportOption {
 
 function formatCurrency(value?: number | null) {
   if (value == null || Number.isNaN(value)) return '—'
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ja-JP', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'JPY',
     maximumFractionDigits: 0,
   }).format(value)
 }
@@ -83,7 +83,7 @@ function formatDateTime(value?: string | null) {
 
 function formatStatusLabel(value?: string | null) {
   if (!value) return 'Unknown'
-  return value.replace(/[_\.]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+  return value.replace(/[_.]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function extractZipCode(address?: string | null) {
@@ -969,7 +969,7 @@ export default function NegotiationPage() {
                   ))}
                 </select>
                 <label>Zip Code</label>
-                <input type="text" value={socialZipCode} onChange={(event) => setSocialZipCode(event.target.value)} placeholder="60601" />
+                <input type="text" value={socialZipCode} onChange={(event) => setSocialZipCode(event.target.value)} placeholder="1730004" />
                 <label>Income Band</label>
                 <select value={socialIncomeBand} onChange={(event) => setSocialIncomeBand(event.target.value)}>
                   <option value="">All income bands</option>
@@ -1126,9 +1126,9 @@ export default function NegotiationPage() {
                 <label>Agent Role</label>
                 <select value={chatRole} onChange={(event) => setChatRole(event.target.value as 'assistant' | 'buyer' | 'seller' | 'broker')}>
                   <option value="assistant">AI Assistant</option>
-                  <option value="buyer">Buyer Agent</option>
-                  <option value="seller">Seller Agent</option>
-                  <option value="broker">Broker Agent</option>
+                  <option value="buyer">Buyer Side</option>
+                  <option value="seller">Seller Side</option>
+                  <option value="broker">Broker Coach</option>
                 </select>
               </div>
               <div className="agent-control-group">

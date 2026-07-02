@@ -23,6 +23,7 @@ from agent.analyst_personas import COUNCIL, AnalystPersona
 from config import settings
 from db.models import ConstructionType, Property
 from intelligence.depreciation_jp import project_depreciation
+from services.rent_validator import RentValidation
 
 log = logging.getLogger(__name__)
 
@@ -234,6 +235,7 @@ async def review_listing(
     building_basis_yen: float | None = None,
     building_age_years: int | None = None,
     marginal_tax_rate: float = 0.33,
+    rent_validation: RentValidation | None = None,
 ) -> ListingAnalysis:
     """Run the full council against one listing and return aggregated verdicts."""
     api_client = client or anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -247,10 +249,24 @@ async def review_listing(
 
     base_payload: dict[str, Any] = {"listing": listing_ctx}
 
+    # Build rent comp context for the vacancy/demand persona
+    rent_ctx: dict[str, Any] | None = None
+    if rent_validation and rent_validation.comp_count >= 3:
+        rent_ctx = {
+            "comp_median_yen": rent_validation.comp_median_yen,
+            "assumed_rent_yen": rent_validation.assumed_rent_yen,
+            "deviation_pct": rent_validation.deviation_pct,
+            "comp_count": rent_validation.comp_count,
+            "verdict": rent_validation.verdict,
+            "percentile": rent_validation.percentile,
+        }
+
     async def _run(persona: AnalystPersona) -> AnalystVerdict:
         payload = dict(base_payload)
         if persona.key == "depreciation_strategist":
             payload["depreciation_schedule"] = dep_ctx
+        if persona.key == "vacancy_demand" and rent_ctx:
+            payload["rent_comp_validation"] = rent_ctx
         return await _invoke_persona(api_client, persona, payload)
 
     verdicts = tuple(await asyncio.gather(*[_run(p) for p in COUNCIL]))

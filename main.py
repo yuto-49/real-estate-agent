@@ -1,6 +1,6 @@
 """FastAPI entry point for the Real Estate Agentic System.
 
-Scope (post-pivot): Tokyo workforce-housing investor analytics. The buyer/
+Scope (post-pivot): Tokyo brokerage satei-to-close platform. The buyer/
 seller negotiation chat, social-sentiment NIMBY simulator, and synthetic
 market tick engine have been removed — see migration ``f9a1b2c3d4e5``.
 """
@@ -21,6 +21,21 @@ from api.onboarding import router as onboarding_router
 from api.investor_profile import router as investor_profile_router
 from api.public_config import router as public_config_router
 from api.listing_analysis import router as listing_analysis_router
+from api.rent_comps import router as rent_comps_router
+from api.simulation_unified import router as simulation_router
+from api.market_simulation import router as market_sim_router
+from api.signals import router as signals_router
+from api.stubs import (
+    agent_stub,
+    negotiations_stub,
+    reports_stub,
+    social_sim_stub,
+    visualization_stub,
+)
+from api.satei import router as satei_router
+from api.price_probability import router as price_probability_router
+from api.negotiation_coach import router as negotiation_coach_router
+from api.buyer_simulation import router as buyer_simulation_router
 from db.database import engine
 from middleware.correlation import CorrelationIdMiddleware
 from services.logging import setup_logging
@@ -44,7 +59,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Real Estate Agentic System",
-    description="Tokyo workforce-housing investor analytics platform",
+    description="AI-powered satei-to-close platform for Tokyo brokerages",
     version="0.2.0",
     lifespan=lifespan,
 )
@@ -52,7 +67,7 @@ app = FastAPI(
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.cors_allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,6 +86,36 @@ app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboardin
 app.include_router(investor_profile_router, prefix="/api/investor-profile", tags=["investor-profile"])
 app.include_router(public_config_router, prefix="/api/config", tags=["public-config"])
 app.include_router(listing_analysis_router, prefix="/api/listings", tags=["listing-analysis"])
+app.include_router(rent_comps_router, prefix="/api/properties", tags=["rent-comps"])
+
+# Stub routers — return 501 for features removed in Tokyo pivot
+app.include_router(negotiations_stub, prefix="/api/negotiations", tags=["negotiations-stub"])
+app.include_router(reports_stub, prefix="/api/reports", tags=["reports-stub"])
+app.include_router(social_sim_stub, prefix="/api/social-sim", tags=["social-sim-stub"])
+app.include_router(simulation_router, prefix="/api/simulation", tags=["simulation"])
+app.include_router(market_sim_router, prefix="/api/simulation", tags=["market-simulation"])
+app.include_router(signals_router, prefix="/api/signals", tags=["signals"])
+app.include_router(visualization_stub, prefix="/api/visualization", tags=["visualization-stub"])
+app.include_router(agent_stub, prefix="/api/agent", tags=["agent-stub"])
+app.include_router(satei_router, prefix="/api/satei", tags=["satei"])
+app.include_router(price_probability_router, prefix="/api/price-probability", tags=["price-probability"])
+app.include_router(negotiation_coach_router, prefix="/api/negotiation-coach", tags=["negotiation-coach"])
+app.include_router(buyer_simulation_router, prefix="/api/buyer-simulation", tags=["buyer-simulation"])
+
+
+# WebSocket stubs — accept then close with error message
+@app.websocket("/ws/negotiations/{negotiation_id}")
+async def ws_negotiation_stub(websocket, negotiation_id: str):
+    await websocket.accept()
+    await websocket.send_json({"type": "error", "detail": "WebSocket not yet reimplemented"})
+    await websocket.close()
+
+
+@app.websocket("/ws/strategy/{run_id}")
+async def ws_strategy_stub(websocket, run_id: str):
+    await websocket.accept()
+    await websocket.send_json({"type": "error", "detail": "WebSocket not yet reimplemented"})
+    await websocket.close()
 
 
 @app.get("/health")

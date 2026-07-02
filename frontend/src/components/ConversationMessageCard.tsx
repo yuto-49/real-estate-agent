@@ -22,7 +22,7 @@ interface ConversationMessageCardProps {
 
 function formatPrice(value: number | undefined): string {
   if (value === undefined || value === null) return '—'
-  return `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  return `¥${value.toLocaleString('ja-JP', { maximumFractionDigits: 0 })}`
 }
 
 export default function ConversationMessageCard({ event }: ConversationMessageCardProps) {

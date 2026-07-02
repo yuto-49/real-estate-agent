@@ -58,7 +58,7 @@ export default function InvestorProfileForm({
       <h3>Tell us about your investing goals</h3>
 
       <label className="onboarding-field">
-        <span>Investment budget (USD)</span>
+        <span>Investment budget (JPY)</span>
         <input
           type="number"
           min="0"

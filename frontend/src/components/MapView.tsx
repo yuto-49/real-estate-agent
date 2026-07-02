@@ -17,7 +17,7 @@ const DEFAULT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.
 
 export default function MapView({
   properties,
-  center = { lat: 41.8781, lng: -87.6298 },
+  center = { lat: 35.6762, lng: 139.6503 },
   zoom = 12,
   onMarkerClick,
 }: MapViewProps) {
@@ -65,9 +65,9 @@ export default function MapView({
       .filter((p) => p.latitude && p.longitude)
       .map((property) => {
         const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
-          `<strong>$${property.asking_price?.toLocaleString()}</strong>
+          `<strong>¥${property.asking_price?.toLocaleString()}</strong>
            <br/>${property.address}
-           <br/>${property.bedrooms ?? '?'} bed / ${property.bathrooms ?? '?'} bath`
+           <br/>${property.sqft ?? '?'}m²`
         )
 
         const marker = new maplibregl.Marker({ color: '#1a1a2e' })

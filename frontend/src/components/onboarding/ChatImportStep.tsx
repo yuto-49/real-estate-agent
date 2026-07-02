@@ -120,7 +120,7 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g. I own 123 Main St 60601, worth ~$420k, $2,400/mo rent"
+          placeholder="例: 板橋区板橋1-42-5、評価額約2,800万円、家賃8万円/月"
           disabled={pending}
           data-testid="chat-input"
         />

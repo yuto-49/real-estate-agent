@@ -12,10 +12,10 @@ from services.market_data_provider import (
 @pytest.mark.asyncio
 async def test_mock_provider_local_stats():
     provider = MockMarketDataProvider()
-    stats = await provider.get_local_stats("60614")
-    assert stats["zip_code"] == "60614"
-    assert stats["median_price"] == 475000
-    assert stats["yoy_change"] == 4.2
+    stats = await provider.get_local_stats("1060032")
+    assert stats["zip_code"] == "1060032"
+    assert stats["median_price"] == 85_000_000  # 港区
+    assert stats["yoy_change"] == 4.5
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_mock_provider_fallback_stats():
     provider = MockMarketDataProvider()
     stats = await provider.get_local_stats("99999")
     assert stats["zip_code"] == "99999"
-    assert stats["median_price"] == 325000
+    assert stats["median_price"] == 50_000_000  # Tokyo fallback
 
 
 @pytest.mark.asyncio

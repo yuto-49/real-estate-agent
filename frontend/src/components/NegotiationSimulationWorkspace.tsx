@@ -299,25 +299,25 @@ export default function NegotiationSimulationWorkspace() {
                   <option value="">Select property</option>
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.address} - ${Number(p.asking_price || 0).toLocaleString()}
+                      {p.address} - ¥{Number(p.asking_price || 0).toLocaleString()}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="agent-control-group">
-                <label>Asking Price ($)</label>
+                <label>Asking Price (¥)</label>
                 <input type="number" value={askingPrice} onChange={e => setAskingPrice(Number(e.target.value))} />
               </div>
               <div className="agent-control-group">
-                <label>Initial Offer ($)</label>
+                <label>Initial Offer (¥)</label>
                 <input type="number" value={initialOffer} onChange={e => setInitialOffer(Number(e.target.value))} />
               </div>
               <div className="agent-control-group">
-                <label>Seller Minimum ($)</label>
+                <label>Seller Minimum (¥)</label>
                 <input type="number" value={sellerMin} onChange={e => setSellerMin(Number(e.target.value))} />
               </div>
               <div className="agent-control-group">
-                <label>Buyer Maximum ($)</label>
+                <label>Buyer Maximum (¥)</label>
                 <input type="number" value={buyerMax} onChange={e => setBuyerMax(Number(e.target.value))} />
               </div>
               <div className="agent-control-group">

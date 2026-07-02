@@ -52,6 +52,18 @@ export const api = {
       return fetchJSON<{ properties: unknown[]; count: number }>(`/properties/${qs}`)
     },
     get: (id: string) => fetchJSON(`/properties/${id}`),
+    marketContext: (id: string) =>
+      fetchJSON<import('./types').MarketContextSnapshot>(`/properties/${id}/market-context`),
+  },
+  signals: {
+    reinfolib: (params: { zip_code?: string; types?: string }) => {
+      const qs = new URLSearchParams()
+      if (params.zip_code) qs.set('zip_code', params.zip_code)
+      if (params.types) qs.set('types', params.types)
+      return fetchJSON<import('./types').MarketContextSnapshot>(
+        `/signals/reinfolib?${qs.toString()}`,
+      )
+    },
   },
   negotiations: {
     start: (data: { property_id: string; buyer_id: string; seller_id: string }) =>
@@ -227,6 +239,42 @@ export const api = {
       max_rounds: number; strategy: string; summary: Record<string, unknown>;
       price_path: Array<{ round: number; role: string; price: number }>; created_at: string;
     }>(`/simulation/results/${id}`),
+    // Unified simulation engine
+    runUnified: (data: {
+      holding_id: string
+      portfolio_id: string
+      max_rounds: number
+      shocks: Array<{ round_num: number; shock_type: string; magnitude: number; label: string }>
+      convergence_threshold: number
+    }) =>
+      fetchJSON<{
+        run_id: string
+        status: string
+        recommendation: string
+        converged: boolean
+        converged_at_round: number | null
+        final_noi: number
+        final_dscr: number
+        final_cap_rate: number
+        final_occupancy: number
+        rounds_count: number
+      }>('/simulation/run', { method: 'POST', body: JSON.stringify(data) }),
+    replayUnified: (runId: string) =>
+      fetchJSON<{
+        run_id: string
+        rounds: Array<{
+          round_num: number
+          noi: number
+          occupancy: number
+          dscr: number
+          cap_rate: number
+          recommendation: string
+          shocks: string[]
+          churn_avg: number
+        }>
+        converged: boolean
+        converged_at_round: number | null
+      }>(`/simulation/${runId}/replay`),
   },
   marketSimulation: {
     generatePersonas: (data: {
@@ -412,6 +460,66 @@ export const api = {
         candidates_considered: number
       }>(
         `/properties/recommend?user_id=${encodeURIComponent(userId)}&top_n=${topN}`,
+      ),
+  },
+  satei: {
+    compute: (data: {
+      city_code?: string; zip_code?: string; address?: string;
+      menseki_m2?: number; built_year?: number; construction_type?: string;
+      walk_minutes?: number; property_id?: string; user_id?: string;
+      overrides?: Record<string, Record<string, number>>;
+    }) =>
+      fetchJSON<{
+        session_id: string | null; satei_price_yen: number;
+        confidence_low_yen: number; confidence_high_yen: number;
+        comp_count: number; method: string;
+        comps: Array<{
+          comp_id: string; address_hint: string | null;
+          raw_price_yen: number; adjusted_price_yen: number;
+          menseki_m2: number | null; built_year: number | null;
+          construction_type: string | null; walk_minutes: number | null;
+          transaction_year: number | null; transaction_quarter: number | null;
+          adjustments: Array<{ factor_name: string; comp_value: unknown; subject_value: unknown; adjustment_pct: number }>;
+          total_adjustment_pct: number;
+        }>;
+      }>('/satei/compute', { method: 'POST', body: JSON.stringify(data) }),
+    get: (sessionId: string) =>
+      fetchJSON<{
+        session_id: string; satei_price_yen: number;
+        confidence_low_yen: number; confidence_high_yen: number;
+        comp_count: number; comps: unknown[]; method: string;
+      }>(`/satei/${sessionId}`),
+    listByUser: (userId: string) =>
+      fetchJSON<Array<{
+        id: string; address: string | null; satei_price_yen: number | null;
+        comp_count: number | null; created_at: string | null;
+      }>>(`/satei/user/${userId}`),
+  },
+  priceProbability: {
+    compute: (data: {
+      satei_price_yen: number;
+      range_low_pct?: number; range_high_pct?: number; step_pct?: number;
+      iterations?: number; avg_days_on_market?: number; demand_elasticity?: number;
+    }) =>
+      fetchJSON<{
+        satei_price_yen: number; iterations_per_point: number;
+        sweet_spot_yen: number | null; sweet_spot_pct: number | null;
+        points: Array<{
+          asking_price_yen: number; premium_pct: number;
+          p30: number; p60: number; p90: number; p180: number;
+          expected_days: number; expected_settlement_yen: number;
+        }>;
+      }>('/price-probability/compute', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  rentComps: {
+    get: (propertyId: string) =>
+      fetchJSON<import('./types').RentValidationResponse>(
+        `/properties/${propertyId}/rent-comps`,
+      ),
+    refresh: (propertyId: string) =>
+      fetchJSON<{ status: string; message: string }>(
+        `/properties/${propertyId}/rent-comps/refresh`,
+        { method: 'POST' },
       ),
   },
   system: {

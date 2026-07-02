@@ -146,7 +146,7 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASEMAP,
-      center: [-87.6298, 41.8781],
+      center: [139.6503, 35.6762],
       zoom: 10,
     })
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -179,7 +179,7 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
       popupRef.current?.remove()
 
       const price = Number(props.asking_price)
-      let html = `<strong>$${price.toLocaleString()}</strong><br/>${props.address}<br/>${props.bedrooms ?? '?'} bed / ${props.bathrooms ?? '?'} bath`
+      let html = `<strong>¥${price.toLocaleString()}</strong><br/>${props.address}<br/>${props.sqft ?? '?'}m²`
 
       if (mode === 'buyer-ability' && selectedUser?.budget_max) {
         const budget = selectedUser.budget_max
@@ -200,7 +200,7 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
             : outcome === 'max_rounds' ? 'Max Rounds (No Deal)'
             : outcome
           html += `<br/><strong style="color:${outcome === 'accepted' ? '#16a34a' : '#dc2626'}">${outcomeLabel}</strong>`
-          if (finalPrice) html += `<br/>Final: $${finalPrice.toLocaleString()} (${discount > 0 ? discount + '% below' : Math.abs(discount) + '% above'} asking)`
+          if (finalPrice) html += `<br/>Final: ¥${finalPrice.toLocaleString()} (${discount > 0 ? discount + '% below' : Math.abs(discount) + '% above'} asking)`
           html += `<br/>Rounds: ${rounds}`
           if (runs > 0) html += `<br/>Simulation Runs: ${runs} (Deals: ${deals})`
           html += `<br/><a href="/simulation/visualize/${props.id}" style="color:#3b82f6;font-size:12px;text-decoration:underline">View Replay</a>`
@@ -520,7 +520,7 @@ export default function DashboardMap({ properties, selectedUser, onPropertyClick
       {/* Budget legend */}
       {mode === 'buyer-ability' && selectedUser?.budget_max && (
         <div className="map-legend">
-          <div className="map-legend-title">Budget: ${selectedUser.budget_max.toLocaleString()}</div>
+          <div className="map-legend-title">Budget: ¥{selectedUser.budget_max.toLocaleString()}</div>
           <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--success" />Within Budget</div>
           <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--budget" />Stretch (up to +15%)</div>
           <div className="map-legend-item"><span className="map-legend-dot map-legend-dot--danger" />Over Budget</div>

@@ -1,3 +1,5 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
 export interface PublicRuntimeConfig {
   environment: string
   api_base_url: string
@@ -111,4 +113,36 @@ export function buildWebSocketUrl(path: string): string {
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${protocol}//${window.location.host}${joinPath(base, normalizedPath)}`
+}
+
+// ---------------------------------------------------------------------------
+// Singleton Supabase client — created lazily after loadRuntimeConfig resolves
+// ---------------------------------------------------------------------------
+
+let _supabaseClient: SupabaseClient | null = null
+
+export function getSupabaseClient(): SupabaseClient {
+  if (!_supabaseClient) {
+    const cfg = getRuntimeConfig()
+    const configured = isSupabaseConfigured()
+    _supabaseClient = createClient(
+      cfg.supabase_url || 'http://localhost:0',
+      cfg.supabase_publishable_key || 'missing-publishable-key',
+      {
+        auth: {
+          persistSession: configured,
+          autoRefreshToken: configured,
+          detectSessionInUrl: configured,
+          storageKey: 'real-estate-agent.session',
+        },
+      },
+    )
+  }
+  return _supabaseClient
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { data } = await getSupabaseClient().auth.getSession()
+  return data.session?.access_token ?? null
 }

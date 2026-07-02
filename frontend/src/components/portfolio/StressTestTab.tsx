@@ -8,35 +8,35 @@ import type {
 } from '../../utils/types'
 
 const BASE_INPUTS: UnderwriteRequest = {
-  purchase_price: 300000,
-  down_payment: 60000,
-  loan_rate: 0.07,
-  loan_term_years: 30,
-  monthly_rent: 2400,
+  purchase_price: 35000000,
+  down_payment: 3500000,
+  loan_rate: 0.018,
+  loan_term_years: 35,
+  monthly_rent: 95000,
   vacancy_rate: 0.05,
-  monthly_opex: 400,
-  property_tax_annual: 3600,
-  insurance_annual: 1200,
-  closing_costs: 9000,
-  exit_cap_rate: 0.07,
+  monthly_opex: 15000,
+  property_tax_annual: 80000,
+  insurance_annual: 15000,
+  closing_costs: 2450000,
+  exit_cap_rate: 0.05,
 }
 
 type SliderKey = 'vacancy_rate' | 'rent_growth' | 'expense_growth' | 'loan_rate' | 'exit_cap_rate'
 
 const SLIDER_DEFAULTS: Record<SliderKey, SliderRange> = {
-  vacancy_rate: { low: 0.03, high: 0.12 },
-  rent_growth: { low: 0.0, high: 0.04 },
-  expense_growth: { low: 0.02, high: 0.04 },
-  loan_rate: { low: 0.05, high: 0.08 },
-  exit_cap_rate: { low: 0.06, high: 0.085 },
+  vacancy_rate: { low: 0.03, high: 0.15 },
+  rent_growth: { low: -0.02, high: 0.02 },
+  expense_growth: { low: 0.005, high: 0.03 },
+  loan_rate: { low: 0.01, high: 0.035 },
+  exit_cap_rate: { low: 0.04, high: 0.07 },
 }
 
 const SLIDER_LABELS: Record<SliderKey, string> = {
-  vacancy_rate: 'Vacancy rate',
-  rent_growth: 'Rent growth',
-  expense_growth: 'Expense growth',
-  loan_rate: 'Loan rate',
-  exit_cap_rate: 'Exit cap rate',
+  vacancy_rate: '空室率',
+  rent_growth: '賃料上昇率',
+  expense_growth: '経費上昇率',
+  loan_rate: '借入金利',
+  exit_cap_rate: '出口キャップレート',
 }
 
 export default function StressTestTab() {
@@ -69,7 +69,7 @@ export default function StressTestTab() {
       {error && <p className="portfolio-error">{error}</p>}
 
       <label className="stress-iterations">
-        Monte Carlo iterations
+        モンテカルロ試行回数
         <input
           type="number"
           min={10}
@@ -84,7 +84,7 @@ export default function StressTestTab() {
           <div key={key} className="stress-slider-row">
             <span>{SLIDER_LABELS[key]}</span>
             <label>
-              low
+              下限
               <input
                 type="number"
                 step="0.005"
@@ -93,7 +93,7 @@ export default function StressTestTab() {
               />
             </label>
             <label>
-              high
+              上限
               <input
                 type="number"
                 step="0.005"
@@ -106,14 +106,14 @@ export default function StressTestTab() {
       </section>
 
       <button type="button" onClick={() => void run()} disabled={running} data-testid="run-stress-test">
-        {running ? 'Running…' : 'Run stress test'}
+        {running ? '計算中…' : 'ストレステスト実行'}
       </button>
 
       {result && (
         <section className="portfolio-results" data-testid="stress-test-result">
-          <div><span>Iterations</span><strong>{result.iterations.toLocaleString()}</strong></div>
+          <div><span>試行回数</span><strong>{result.iterations.toLocaleString()}</strong></div>
           <div>
-            <span>Cap rate P10 / P50 / P90</span>
+            <span>利回り P10 / P50 / P90</span>
             <strong>
               {(result.cap_rate_p10 * 100).toFixed(1)}% / {(result.cap_rate_p50 * 100).toFixed(1)}% /{' '}
               {(result.cap_rate_p90 * 100).toFixed(1)}%
@@ -126,11 +126,11 @@ export default function StressTestTab() {
             </strong>
           </div>
           <div>
-            <span>P(negative cash flow)</span>
+            <span>赤字確率</span>
             <strong>{(result.probability_negative_cash_flow * 100).toFixed(1)}%</strong>
           </div>
           <div>
-            <span>P(DSCR &lt; 1)</span>
+            <span>DSCR 1.0未満確率</span>
             <strong>{(result.probability_dscr_under_1 * 100).toFixed(1)}%</strong>
           </div>
         </section>

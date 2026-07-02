@@ -48,7 +48,7 @@ export default function AnalysisPage() {
     return (
       <div className="analysis-page">
         <div className="page-title-row">
-          <h2>Analysis</h2>
+          <h2>査定分析 (Satei Analysis)</h2>
           <button className="secondary-btn" onClick={() => setSearchOpen(true)}>
             Property Search
           </button>
@@ -61,7 +61,7 @@ export default function AnalysisPage() {
         />
 
         <div style={{ marginTop: '1.5rem' }}>
-          <h3 style={{ marginBottom: '0.75rem' }}>Reports</h3>
+          <h3 style={{ marginBottom: '0.75rem' }}>査定履歴</h3>
           <ReportList
             users={userOptions}
             selectedUserId={selectedUserId}
@@ -78,8 +78,8 @@ export default function AnalysisPage() {
   return (
     <div className="analysis-page">
       <div className="page-title-row">
-        <Link to="/analysis" className="secondary-btn">All Reports</Link>
-        <h2>Intelligence Report</h2>
+        <Link to="/analysis" className="secondary-btn">査定一覧</Link>
+        <h2>査定結果</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="secondary-btn" onClick={() => setSearchOpen(true)}>
             Property Search

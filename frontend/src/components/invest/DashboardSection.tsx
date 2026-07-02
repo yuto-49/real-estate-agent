@@ -1,0 +1,122 @@
+import { useEffect, useState } from 'react'
+import { api } from '../../utils/api'
+import type { PortfolioSummaryReport } from '../../utils/types'
+import StatCard from './StatCard'
+import RecentSimulations from '../portfolio/RecentSimulations'
+
+interface DashboardSectionProps {
+  portfolioId: string
+  userId: string
+}
+
+function formatYen(value: number): string {
+  if (value >= 100_000_000) return `\u00a5${(value / 100_000_000).toFixed(1)}B`
+  if (value >= 10_000) return `\u00a5${(value / 10_000).toFixed(0)}M`
+  return `\u00a5${value.toLocaleString()}`
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (value == null) return '\u2014'
+  return `${(value * 100).toFixed(1)}%`
+}
+
+export default function DashboardSection({ portfolioId }: DashboardSectionProps) {
+  const [summary, setSummary] = useState<PortfolioSummaryReport | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!portfolioId) return
+    setLoading(true)
+    api.portfolio
+      .summary(portfolioId)
+      .then(setSummary)
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false))
+  }, [portfolioId])
+
+  if (!portfolioId) {
+    return (
+      <div className="invest-section">
+        <div className="invest-empty">
+          <div className="invest-empty-title">Welcome</div>
+          <div className="invest-empty-text">Select an investor and portfolio to get started.</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="invest-section">
+        <div className="invest-empty">Loading dashboard...</div>
+      </div>
+    )
+  }
+
+  const agg = summary?.aggregates
+
+  return (
+    <div className="invest-section" key="dashboard">
+      <div className="invest-section-header">
+        <h2 className="invest-section-title">Dashboard</h2>
+        <p className="invest-section-subtitle">Portfolio overview and market intelligence</p>
+      </div>
+
+      <div className="invest-stat-grid">
+        <StatCard
+          label="Total Value"
+          value={agg ? formatYen(agg.total_value) : '\u2014'}
+          footer={summary ? `${summary.holding_count} holdings` : undefined}
+        />
+        <StatCard
+          label="Monthly Cash Flow"
+          value={agg ? formatYen(agg.monthly_cash_flow) : '\u2014'}
+          delta={agg && agg.monthly_cash_flow > 0 ? 0 : agg ? -1 : null}
+        />
+        <StatCard
+          label="Cap Rate"
+          value={agg ? formatPercent(agg.blended_cap_rate) : '\u2014'}
+        />
+        <StatCard
+          label="DSCR"
+          value={agg?.weighted_dscr != null ? agg.weighted_dscr.toFixed(2) : '\u2014'}
+          footer={agg?.weighted_dscr != null && agg.weighted_dscr < 1.0 ? 'Below threshold' : undefined}
+        />
+        <StatCard
+          label="Equity"
+          value={agg ? formatYen(agg.total_equity) : '\u2014'}
+        />
+        <StatCard
+          label="Annual NOI"
+          value={agg ? formatYen(agg.annual_noi) : '\u2014'}
+        />
+      </div>
+
+      {summary && summary.attention.length > 0 && (
+        <div className="invest-card" style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="invest-card-header">
+            <span className="invest-card-title">Attention Items</span>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
+              {summary.attention.length} item{summary.attention.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {summary.attention.map((item) => (
+            <div key={item.holding_id} className="invest-market-row">
+              <span className="invest-market-row-label">{item.address}</span>
+              <span className={`invest-market-pill ${item.action === 'SELL' ? 'below' : item.action === 'HOLD' ? 'at-market' : 'above'}`}>
+                {item.action}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="invest-card">
+        <div className="invest-card-header">
+          <span className="invest-card-title">Recent Simulations</span>
+        </div>
+        <RecentSimulations />
+      </div>
+    </div>
+  )
+}

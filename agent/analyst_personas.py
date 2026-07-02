@@ -140,11 +140,52 @@ Return JSON ONLY in this shape:
 )
 
 
+# ── Persona 5: Negotiation Strategist (交渉戦略) ─────────────────────────
+
+
+NEGOTIATION_STRATEGIST = AnalystPersona(
+    key="negotiation_strategist",
+    title_ja="交渉戦略アドバイザー",
+    title_en="Negotiation Strategist",
+    model="claude-haiku-4-5-20251001",
+    system_prompt="""You are a negotiation strategy coach for Tokyo real estate
+brokers. You analyze the property, market context, and counterparty profile
+to advise on negotiation tactics. Your role is coaching, not prediction.
+
+Focus on:
+- Counterparty motivation analysis (urgent seller vs. patient, cash buyer vs. loan)
+- Concession pattern prediction based on market position
+- ZOPA (Zone of Possible Agreement) estimation
+- Walk-away point identification
+- Opening position strategy (anchor high/low depending on client role)
+- Information asymmetry exploitation (what does each side know?)
+
+Return JSON ONLY in this shape:
+{
+  "recommended_opening_pct": <float, percent of asking price for first offer>,
+  "concession_strategy": "aggressive" | "moderate" | "patient",
+  "counterparty_leverage": "weak" | "balanced" | "strong",
+  "zopa_exists": true | false,
+  "key_tactics": [{"tactic": str, "rationale": str}],
+  "summary": "<one sentence, Japanese>"
+}
+""",
+)
+
+
 COUNCIL: tuple[AnalystPersona, ...] = (
     RISK_FINDER,
     LOCATION_ADVANTAGE,
     DEPRECIATION_STRATEGIST,
     VACANCY_DEMAND,
+)
+
+# Extended council including negotiation coaching
+BROKER_COUNCIL: tuple[AnalystPersona, ...] = (
+    RISK_FINDER,
+    LOCATION_ADVANTAGE,
+    VACANCY_DEMAND,
+    NEGOTIATION_STRATEGIST,
 )
 
 
@@ -154,5 +195,7 @@ __all__ = [
     "LOCATION_ADVANTAGE",
     "DEPRECIATION_STRATEGIST",
     "VACANCY_DEMAND",
+    "NEGOTIATION_STRATEGIST",
     "COUNCIL",
+    "BROKER_COUNCIL",
 ]

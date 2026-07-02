@@ -77,7 +77,7 @@ export default function RecommendationList({
     <div className="onboarding-recommendations" data-testid="onboarding-recommendations">
       <h3>Suggested properties</h3>
       <p className="onboarding-subtle">
-        Budget ${profile.budget?.toLocaleString() ?? '—'} · Strategy{' '}
+        Budget ¥{profile.budget?.toLocaleString() ?? '—'} · Strategy{' '}
         {profile.strategy ?? '—'} · Cap rate target{' '}
         {profile.target_cap_rate ?? '—'}%
       </p>
@@ -115,19 +115,17 @@ export default function RecommendationList({
             </header>
             <dl>
               <dt>Asking</dt>
-              <dd>${rec.asking_price.toLocaleString()}</dd>
+              <dd>¥{rec.asking_price.toLocaleString()}</dd>
               {rec.property_type && (
                 <>
                   <dt>Type</dt>
                   <dd>{rec.property_type}</dd>
                 </>
               )}
-              {rec.bedrooms !== null && rec.bedrooms !== undefined && (
+              {rec.sqft != null && (
                 <>
-                  <dt>Beds / baths</dt>
-                  <dd>
-                    {rec.bedrooms} / {rec.bathrooms ?? '—'}
-                  </dd>
+                  <dt>Area</dt>
+                  <dd>{rec.sqft}m²</dd>
                 </>
               )}
             </dl>

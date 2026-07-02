@@ -9,6 +9,7 @@ import DecisionsTab from '../components/portfolio/DecisionsTab'
 import OverviewTab from '../components/portfolio/OverviewTab'
 import RecentSimulations from '../components/portfolio/RecentSimulations'
 import StrategyTab from '../components/portfolio/StrategyTab'
+import SimulationTab from '../components/portfolio/SimulationTab'
 
 const SELECTED_USER_KEY = 'selectedUserId'
 
@@ -19,6 +20,7 @@ type TabKey =
   | 'stress'
   | 'decisions'
   | 'strategy'
+  | 'simulate'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
@@ -27,6 +29,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'stress', label: 'Stress Test' },
   { key: 'decisions', label: 'Decisions' },
   { key: 'strategy', label: 'Strategy' },
+  { key: 'simulate', label: 'Simulate' },
 ]
 
 export default function PortfolioPage() {
@@ -177,7 +180,8 @@ export default function PortfolioPage() {
         {(activeTab === 'overview' ||
           activeTab === 'holdings' ||
           activeTab === 'decisions' ||
-          activeTab === 'strategy') &&
+          activeTab === 'strategy' ||
+          activeTab === 'simulate') &&
           (selectedPortfolioId ? (
             activeTab === 'overview' ? (
               <>
@@ -188,6 +192,11 @@ export default function PortfolioPage() {
               <HoldingsTab portfolioId={selectedPortfolioId} />
             ) : activeTab === 'decisions' ? (
               <DecisionsTab portfolioId={selectedPortfolioId} />
+            ) : activeTab === 'simulate' ? (
+              <SimulationTab
+                holdingId=""
+                portfolioId={selectedPortfolioId}
+              />
             ) : (
               <StrategyTab portfolioId={selectedPortfolioId} />
             )

@@ -1,7 +1,7 @@
 import type { UserProfile } from '../utils/types'
 
 function formatCurrency(value: number | null | undefined): string {
-  return typeof value === 'number' ? `$${value.toLocaleString()}` : 'N/A'
+  return typeof value === 'number' ? `¥${value.toLocaleString()}` : 'N/A'
 }
 
 interface Props {
@@ -65,7 +65,7 @@ export default function UserProfileCard({ user, onEdit, onDelete }: Props) {
           <label>Location</label>
           <p>
             {user.zip_code || 'N/A'}
-            {user.search_radius ? ` (${user.search_radius} mi radius)` : ''}
+            {user.search_radius ? ` (${user.search_radius} km radius)` : ''}
           </p>
         </div>
         <div>

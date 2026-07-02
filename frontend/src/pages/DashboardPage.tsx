@@ -82,11 +82,11 @@ export default function DashboardPage() {
 
   const loadReports = async (userId: string) => {
     try {
-      const data = await api.reports.listByUser(userId)
+      const data = await api.satei.listByUser(userId)
       setReports(data.slice(0, 5).map((r) => ({
         id: r.id,
-        status: r.status,
-        progress: r.progress,
+        status: 'completed',
+        progress: 100,
         created_at: r.created_at,
       })))
     } catch {
@@ -181,7 +181,7 @@ export default function DashboardPage() {
               <h3>Quick Actions</h3>
               <div className="dashboard-action-buttons">
                 <button className="primary-btn" onClick={() => navigate('/analysis')}>
-                  Generate Report
+                  査定を実行
                 </button>
                 <button className="primary-btn primary-btn--quiet" onClick={() => navigate('/simulation')}>
                   Run Simulation
@@ -228,9 +228,9 @@ export default function DashboardPage() {
 
             {/* Recent Reports */}
             <div className="dashboard-recent">
-              <h3>Recent Reports</h3>
+              <h3>最近の査定</h3>
               {reports.length === 0 ? (
-                <p className="dashboard-muted-copy">No reports yet. <Link to="/analysis">Generate one</Link>.</p>
+                <p className="dashboard-muted-copy">査定履歴がありません。<Link to="/analysis">査定を実行</Link></p>
               ) : (
                 <table className="report-table">
                   <thead>

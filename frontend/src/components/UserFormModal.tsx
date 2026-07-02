@@ -13,7 +13,7 @@ interface Props {
 
 const LIFE_STAGES = ['first_time', 'relocating', 'investor', 'downsizing', 'upgrading']
 const RISK_LEVELS = ['low', 'moderate', 'high']
-const PROPERTY_TYPES = ['sfr', 'condo', 'multifamily', 'townhouse', 'land']
+const PROPERTY_TYPES = ['aparuto', 'mansion', 'ikkodate', 'one_room', 'land']
 const ROLES = ['buyer', 'seller', 'both']
 
 export default function UserFormModal({ user, onClose, onSaved }: Props) {
@@ -85,8 +85,8 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
     const map = new maplibregl.Map({
       container: miniMapRef.current,
       style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-      center: [longitude ? Number(longitude) : -87.6298, latitude ? Number(latitude) : 41.8781],
-      zoom: latitude ? 12 : 3,
+      center: [longitude ? Number(longitude) : 139.6503, latitude ? Number(latitude) : 35.6762],
+      zoom: latitude ? 12 : 11,
     })
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
     map.on('load', () => { miniMapLoaded.current = true })
@@ -245,11 +245,11 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
             <h4>Budget & Strategy</h4>
             <div className="form-row">
               <div className="form-group">
-                <label>Min Budget ($)</label>
+                <label>Min Budget (¥)</label>
                 <input type="number" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} placeholder="150000" />
               </div>
               <div className="form-group">
-                <label>Max Budget ($)</label>
+                <label>Max Budget (¥)</label>
                 <input type="number" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} placeholder="500000" />
               </div>
             </div>
@@ -309,10 +309,10 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
             <div className="form-row">
               <div className="form-group">
                 <label>ZIP Code</label>
-                <input value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder="60614" />
+                <input value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder="1730004" />
               </div>
               <div className="form-group">
-                <label>Search Radius (mi)</label>
+                <label>Search Radius (km)</label>
                 <input type="number" value={searchRadius} onChange={(e) => setSearchRadius(e.target.value)} placeholder="10" />
               </div>
             </div>

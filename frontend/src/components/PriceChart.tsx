@@ -39,7 +39,7 @@ export default function PriceChart({ scenarioPaths, askingPrice }: Props) {
   const scaleX = (round: number) => padL + (round / maxRound) * chartW
   const scaleY = (price: number) => padT + chartH - ((price - minPrice) / (maxPrice - minPrice)) * chartH
 
-  const formatK = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v.toLocaleString()}`
+  const formatK = (v: number) => v >= 1000 ? `¥${(v / 1000).toFixed(0)}k` : `¥${v.toLocaleString()}`
 
   // Y-axis ticks
   const yTicks: number[] = []

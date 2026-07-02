@@ -4,16 +4,16 @@
 
 set -euo pipefail
 
-CONTAINER="${POSTGRES_CONTAINER:-dev-postgres}"
+CONTAINER="${POSTGRES_CONTAINER:-postgres}"
 DB_NAME="${POSTGRES_DB:-realestate}"
 DB_USER="${POSTGRES_USER:-dev}"
 
 echo "Creating database '$DB_NAME' in container '$CONTAINER'..."
 
 # Create database if it doesn't already exist
-docker exec "$CONTAINER" psql -U "$DB_USER" -tc \
+docker exec "$CONTAINER" psql -U "$DB_USER" -d postgres -tc \
   "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" \
   | grep -q 1 \
   && echo "Database '$DB_NAME' already exists." \
-  || { docker exec "$CONTAINER" psql -U "$DB_USER" -c "CREATE DATABASE $DB_NAME;" \
+  || { docker exec "$CONTAINER" psql -U "$DB_USER" -d postgres -c "CREATE DATABASE $DB_NAME;" \
        && echo "Database '$DB_NAME' created."; }

@@ -339,3 +339,95 @@ class UnderwritingScenario(Base):
     outputs = Column(JSONB, default=dict)
     hazard_signals = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RentComp(Base):
+    """Comparable rental listing used for rent validation."""
+
+    __tablename__ = "rent_comps"
+    __table_args__ = (
+        Index("ix_rent_comps_zip", "zip_code"),
+        Index("ix_rent_comps_ward", "ward_code"),
+        Index("ix_rent_comps_property", "property_id"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    property_id = Column(String, ForeignKey("properties.id"), nullable=True)
+    zip_code = Column(String, nullable=False)
+    ward_code = Column(String, nullable=True)
+
+    # Comp data
+    source = Column(String, nullable=False)                # "suumo", "homes", "lifull", "manual"
+    source_listing_id = Column(String, nullable=True)
+    address_hint = Column(String, nullable=True)
+    menseki_m2 = Column(Float, nullable=True)
+    madori = Column(String, nullable=True)                 # "1K", "1LDK", "2LDK"
+    walk_minutes = Column(Integer, nullable=True)
+    monthly_rent_yen = Column(Integer, nullable=False)
+    management_fee_yen = Column(Integer, nullable=True)
+    built_year = Column(Integer, nullable=True)
+    construction_type = Column(String, nullable=True)
+
+    fetched_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)           # stale after 30 days
+
+
+class SaleComp(Base):
+    """Comparable sale transaction from REINFOLIB for satei valuation."""
+
+    __tablename__ = "sale_comps"
+    __table_args__ = (
+        Index("ix_sale_comps_zip", "zip_code"),
+        Index("ix_sale_comps_ward", "ward_code"),
+        Index("ix_sale_comps_city", "city_code"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    city_code = Column(String, nullable=False)
+    zip_code = Column(String, nullable=True)
+    ward_code = Column(String, nullable=True)
+
+    source = Column(String, nullable=False, default="reinfolib")
+    source_record_id = Column(String, nullable=True)
+    address_hint = Column(String, nullable=True)
+    trade_price_yen = Column(Integer, nullable=False)
+    unit_price_yen = Column(Integer, nullable=True)
+    menseki_m2 = Column(Float, nullable=True)
+    built_year = Column(Integer, nullable=True)
+    construction_type = Column(String, nullable=True)
+    walk_minutes = Column(Integer, nullable=True)
+    floor_level = Column(Integer, nullable=True)
+    transaction_year = Column(Integer, nullable=True)
+    transaction_quarter = Column(Integer, nullable=True)
+
+    fetched_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SateiSession(Base):
+    """Persisted satei (valuation) session with comp grid and result."""
+
+    __tablename__ = "satei_sessions"
+    __table_args__ = (
+        Index("ix_satei_sessions_user", "user_id"),
+        Index("ix_satei_sessions_created", "created_at"),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("user_profiles.id"), nullable=True)
+    property_id = Column(String, ForeignKey("properties.id"), nullable=True)
+
+    address = Column(String, nullable=True)
+    menseki_m2 = Column(Float, nullable=True)
+    built_year = Column(Integer, nullable=True)
+    construction_type = Column(String, nullable=True)
+    walk_minutes = Column(Integer, nullable=True)
+
+    satei_price_yen = Column(Integer, nullable=True)
+    confidence_low_yen = Column(Integer, nullable=True)
+    confidence_high_yen = Column(Integer, nullable=True)
+    comp_count = Column(Integer, nullable=True)
+    adjustment_grid = Column(JSONB, default=list)
+    result_payload = Column(JSONB, default=dict)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -6,6 +6,7 @@ import type {
   PortfolioHoldingCreate,
 } from '../../utils/types'
 import CsvImportPanel from './CsvImportPanel'
+import RentComps from '../RentComps'
 
 interface HoldingsTabProps {
   portfolioId: string
@@ -20,7 +21,7 @@ const EMPTY_HOLDING: PortfolioHoldingCreate = {
 
 function formatMoney(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
-  return `$${Math.round(value).toLocaleString()}`
+  return `¥${Math.round(value).toLocaleString()}`
 }
 
 export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
@@ -30,6 +31,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
   const [listingUrl, setListingUrl] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [expandedRentComps, setExpandedRentComps] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -142,11 +144,10 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
             value={draft.asset_class ?? 'sfr'}
             onChange={(e) => setDraft({ ...draft, asset_class: e.target.value })}
           >
-            <option value="sfr">Single family</option>
-            <option value="mf_2_4">2–4 unit</option>
-            <option value="mf_5_plus">5+ unit</option>
-            <option value="condo">Condo</option>
-            <option value="townhouse">Townhouse</option>
+            <option value="aparuto">アパート</option>
+            <option value="mansion">マンション</option>
+            <option value="ikkodate">一戸建て</option>
+            <option value="one_room">ワンルーム</option>
           </select>
           <input
             type="number"
@@ -184,9 +185,24 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
                   rent {formatMoney(h.financials?.monthly_rent)}
                 </span>
               </div>
-              <button type="button" onClick={() => void removeHolding(h.id)}>
-                Remove
-              </button>
+              <div>
+                {h.property_id && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedRentComps((prev) => (prev === h.id ? null : h.id))
+                    }
+                  >
+                    {expandedRentComps === h.id ? 'Hide Comps' : 'Rent Comps'}
+                  </button>
+                )}
+                <button type="button" onClick={() => void removeHolding(h.id)}>
+                  Remove
+                </button>
+              </div>
+              {expandedRentComps === h.id && h.property_id && (
+                <RentComps propertyId={h.property_id} />
+              )}
             </li>
           ))}
         </ul>

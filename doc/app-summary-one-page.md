@@ -1,27 +1,24 @@
 # Real Estate Agentic Platform - One-Page Summary
 
 ## What It Is
-A full-stack real estate workflow app that combines a FastAPI backend, React frontend, and AI agents for property analysis and buyer-seller-broker negotiation. It also runs intelligence report workflows and scenario-based negotiation simulations.
+An AI-powered satei-to-close SaaS platform for Tokyo real estate brokerages (不動産仲介). Combines a FastAPI backend, React frontend, and multi-agent AI system to help brokers win listings, set optimal asking prices, and coach negotiation strategy.
 
 ## Who It Is For
-- Primary persona: an investment-focused real estate user managing an "Active Investor Profile" and using AI-assisted decisions (repo evidence: dashboard/user/report flows).
-- Formal persona document: **Not found in repo.**
+- Primary persona: **brokerage agent (不動産仲介営業担当者)** — mid-size and proptech-native Tokyo firms using AI-assisted valuation and negotiation coaching to differentiate against major incumbents.
+- Secondary: investor-focused users managing portfolios (legacy surface, retained but no longer primary go-to-market).
 
 ## What It Does
-- Manages user/investor profiles, budgets, goals, and search preferences.
-- Lists and filters properties and visualizes them on interactive maps.
-- Generates intelligence reports with multi-step progress tracking.
-- Runs multi-scenario negotiation simulations with generated buyer/seller personas.
-- Compares simulation outcomes (win rate, best scenario, price path).
-- Provides agent chat with buyer/seller/broker/assistant roles and tool-call traces.
-- Exposes system health and metrics in-app.
+- **Satei Comp Grid (査定コンプグリッド):** Automated comparable-based valuation with editable hedonic adjustment grid. Pulls REINFOLIB transaction data, applies adjustments for age/area/walk-time/construction, produces defensible satei price. Reduces satei time from ~180 min to ~10 min.
+- **Price-vs-Probability Curve (価格帯別成約確率カーブ):** Monte Carlo simulation producing settlement probability distributions — "list at X yen → Y% chance of closing within 30/60/90/180 days." Answers the asking-price question with data, not intuition.
+- **Negotiation Strategy Coach (交渉戦略コーチ):** Multi-agent negotiation simulation repositioned as a broker coaching tool. Input client reservation price + counterparty profile → explore scenarios, concession ladders, ZOPA analysis before real negotiations.
+- Retains investor portfolio management, underwriting, and strategy projection surfaces.
 
 ## How It Works (Repo-Evidenced)
-- **Frontend:** React + TypeScript + Vite (`frontend/src/*`) with pages for dashboard, analysis, simulation, negotiation, and profile.
-- **API layer:** FastAPI routers mounted in `main.py` (`/api/properties`, `/api/reports`, `/api/simulation`, `/api/agent`, `/ws`, etc.).
-- **Core services:** report workflow (`api/reports.py` + `intelligence/*`), negotiation simulation (`services/negotiation_simulator.py`, `services/batch_simulator.py`), mapping/market adapters (`services/maps.py`, `services/market_data.py`).
-- **Data layer:** SQLAlchemy models + async sessions (`db/models.py`, `db/database.py`), Alembic migrations, plus Redis-backed services (pub/sub, cache, queue).
-- **Typical flow:** UI action -> API endpoint -> service/orchestrator -> DB/Redis/external intelligence -> status/results returned to UI.
+- **Frontend:** React + TypeScript + Vite (`frontend/src/*`) with pages for satei, negotiation coaching, investment analysis, portfolio, and profile.
+- **API layer:** FastAPI routers mounted in `main.py` (`/api/satei`, `/api/price-probability`, `/api/properties`, `/api/reports`, `/api/simulation`, etc.).
+- **Core services:** satei engine (`services/satei_engine.py`), price probability (`services/price_probability.py`), negotiation coach (`services/negotiation_coach.py`), REINFOLIB signal providers (`services/signal_providers/`), analyst council (`agent/analyst_council.py`).
+- **Data layer:** SQLAlchemy models + async sessions (`db/models.py`, `db/database.py`), Alembic migrations, Redis-backed pub/sub and cache.
+- **Typical flow:** Broker inputs property → satei engine pulls comps + applies adjustments → price-probability curve generated → negotiation coach available for scenario rehearsal.
 
 ## How to Run (Minimal)
 1. `docker compose -f ~/docker-shared-services.yml up -d postgres redis && bash scripts/init-shared-db.sh`
@@ -31,13 +28,7 @@ A full-stack real estate workflow app that combines a FastAPI backend, React fro
 5. `uvicorn main:app --reload`
 6. (Frontend) `cd frontend && npm install && npm run dev`
 
-## UI/UX Findings and Improvement Plan
-- **Flaw 1 (does not work):** Top-nav `Profile` links to `/profile` but page expects `:id`; without ID, `UserProfilePage` can stay in loading state.
-- **Flaw 2:** Simulation "Max Rounds" slider is shown but not sent in batch request payload, so control appears ineffective.
-- **Flaw 3:** Search location selector does not filter API results and map center updates are not reacted to after initial map mount, so location behavior can feel misleading.
-- **Figma MCP design source:** Figma URL/node reference **Not found in repo**, so MCP design-context pull cannot be run from repo artifacts alone.
-
-1. **P0 - Fix broken profile route flow:** redirect `/profile` to selected user profile or show explicit picker when no `id`.
-2. **P1 - Wire simulation controls end-to-end:** pass `max_rounds` from UI -> API schema -> batch simulator config; display applied value per scenario.
-3. **P1 - Make search location behavior honest:** either apply location filters backend-side or relabel as "Map focus"; also add map recenter effect when `center` prop changes.
-4. **P2 - Improve UX resilience:** add empty-state CTAs, explicit loading/error recovery patterns, and mobile-first spacing checks for dense tables/chat.
+## Competitive Positioning
+- Direct competitors (SRE AI査定CLOUD, Collabit AI査定プロ, Sumasate) are valuation-only tools.
+- **No identified product combines hedonic valuation + price-probability curves + negotiation simulation** — this triad is whitespace as of June 2026.
+- See `doc/BROKERAGE_PITCH.md` for full competitive analysis and go-to-market strategy.

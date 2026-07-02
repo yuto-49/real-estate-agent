@@ -10,10 +10,8 @@ export default function PropertyCard({ property, onSelect }: PropertyCardProps) 
     <div className="property-card" onClick={() => onSelect?.(property)}>
       <h3>{property.address}</h3>
       <div className="property-details">
-        <span className="price">${property.asking_price?.toLocaleString()}</span>
-        {property.bedrooms && <span>{property.bedrooms} bed</span>}
-        {property.bathrooms && <span>{property.bathrooms} bath</span>}
-        {property.sqft && <span>{property.sqft.toLocaleString()} sqft</span>}
+        <span className="price">¥{property.asking_price?.toLocaleString()}</span>
+        {property.sqft && <span>{property.sqft.toLocaleString()}m²</span>}
         {property.property_type && <span className="type">{property.property_type}</span>}
       </div>
       <div className="property-status">

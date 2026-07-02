@@ -104,7 +104,7 @@ export default function PropertySimulationMap({
         <div className="property-replay-map__card property-replay-map__card--property">
           <div className="property-replay-map__title">{visualization.address}</div>
           <div className="property-replay-map__meta">
-            ${visualization.asking_price.toLocaleString('en-US')}
+            ¥{visualization.asking_price.toLocaleString('ja-JP')}
             {visualization.property_type && ` - ${visualization.property_type.toUpperCase()}`}
           </div>
           {visualization.simulation_ids.length > 0 && (
@@ -167,7 +167,7 @@ function addPropertyMarker(map: maplibregl.Map, viz: PropertyVisualization) {
     .setHTML(`
       <div style="font-size:13px">
         <strong>${viz.address}</strong><br/>
-        $${viz.asking_price.toLocaleString('en-US')}
+        ¥${viz.asking_price.toLocaleString('ja-JP')}
       </div>
     `)
 
@@ -191,7 +191,7 @@ function addPropertyMarker(map: maplibregl.Map, viz: PropertyVisualization) {
       .setHTML(`
         <div style="font-size:12px">
           <strong>${comp.address}</strong><br/>
-          $${comp.asking_price.toLocaleString('en-US')}
+          ¥${comp.asking_price.toLocaleString('ja-JP')}
         </div>
       `)
 

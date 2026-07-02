@@ -87,10 +87,13 @@ async def _ensure_local_profile(supabase_user: dict, *, email: str, name: str) -
                 name=name,
                 email=email,
                 role="buyer",
-                budget_min=300_000,
-                budget_max=600_000,
+                budget_min=20_000_000,
+                budget_max=50_000_000,
                 timeline_days=90,
-                preferred_types=["sfr", "condo"],
+                latitude=35.6762,
+                longitude=139.6503,
+                zip_code="1060032",
+                preferred_types=["mansion", "aparuto"],
             )
             db.add(profile)
             await db.commit()

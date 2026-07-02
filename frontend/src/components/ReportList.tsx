@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../utils/api'
 
-interface ReportStatus {
+interface SateiSummary {
   id: string
-  user_id: string
-  status: string
-  progress: number
-  current_step: string
-  step_key?: string
-  created_at?: string
+  address: string | null
+  satei_price_yen: number | null
+  comp_count: number | null
+  created_at: string | null
 }
 
 interface UserOption {
@@ -18,10 +16,15 @@ interface UserOption {
   role: string
 }
 
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr?: string | null): string {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatYen(val: number | null | undefined): string {
+  if (val == null) return '-'
+  return '¥' + val.toLocaleString()
 }
 
 interface Props {
@@ -32,24 +35,24 @@ interface Props {
 
 export default function ReportList({ users, selectedUserId, onUserChange }: Props) {
   const navigate = useNavigate()
-  const [reports, setReports] = useState<ReportStatus[]>([])
+  const [sessions, setSessions] = useState<SateiSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (selectedUserId) {
-      void loadReports(selectedUserId)
+      void loadSessions(selectedUserId)
     }
   }, [selectedUserId])
 
-  const loadReports = async (userId: string) => {
+  const loadSessions = async (userId: string) => {
     setLoading(true)
     setError('')
     try {
-      const data = await api.reports.listByUser(userId)
-      setReports(data)
+      const data = await api.satei.listByUser(userId)
+      setSessions(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load reports')
+      setError(err instanceof Error ? err.message : '査定履歴の取得に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -59,9 +62,9 @@ export default function ReportList({ users, selectedUserId, onUserChange }: Prop
     <div>
       <div className="report-list-controls">
         <div className="agent-control-group">
-          <label>User</label>
+          <label>ユーザー</label>
           <select value={selectedUserId} onChange={(e) => onUserChange(e.target.value)}>
-            <option value="">Select a user</option>
+            <option value="">選択してください</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
             ))}
@@ -70,40 +73,36 @@ export default function ReportList({ users, selectedUserId, onUserChange }: Prop
       </div>
 
       {error && <p className="error">{error}</p>}
-      {loading && <p>Loading reports...</p>}
+      {loading && <p>読み込み中...</p>}
 
-      {!loading && selectedUserId && reports.length === 0 && (
+      {!loading && selectedUserId && sessions.length === 0 && (
         <div className="report-empty">
-          <p>No reports found for this user.</p>
+          <p>査定履歴がありません。</p>
         </div>
       )}
 
-      {!loading && reports.length > 0 && (
+      {!loading && sessions.length > 0 && (
         <div className="report-list">
           <table className="report-table">
             <thead>
               <tr>
-                <th>Report ID</th>
-                <th>Status</th>
-                <th>Progress</th>
-                <th>Created</th>
-                <th>Action</th>
+                <th>住所</th>
+                <th>査定価格</th>
+                <th>事例数</th>
+                <th>実施日</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {reports.map((r) => (
-                <tr key={r.id} className={`report-row ${r.status}`}>
-                  <td className="report-id-cell">{r.id.slice(0, 12)}...</td>
+              {sessions.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.address || s.id.slice(0, 12) + '...'}</td>
+                  <td>{formatYen(s.satei_price_yen)}</td>
+                  <td>{s.comp_count ?? '-'}</td>
+                  <td>{formatDate(s.created_at)}</td>
                   <td>
-                    <span className={`status-pill ${r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'error' : 'running'}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td>{r.progress}%</td>
-                  <td>{formatDate(r.created_at)}</td>
-                  <td>
-                    <button className="secondary-btn" onClick={() => navigate(`/analysis/${r.id}`)}>
-                      View
+                    <button className="secondary-btn" onClick={() => navigate(`/analysis/${s.id}`)}>
+                      詳細
                     </button>
                   </td>
                 </tr>

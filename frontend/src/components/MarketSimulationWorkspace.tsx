@@ -22,18 +22,18 @@ const COHORT_PRESET_DETAILS: Record<string, {
   archetypes: string[]
 }> = {
   balanced: {
-    label: 'Balanced',
-    description: 'Blends value hunters, yield seekers, momentum chasers, and contrarians so the market replay feels mixed rather than one-note.',
+    label: 'バランス型',
+    description: 'バリュー投資家、利回り重視型、モメンタム追随型、逆張り型をバランスよく配置し、多様な市場動向を再現します。',
     archetypes: ['value', 'yield', 'momentum', 'contrarian'],
   },
   income: {
-    label: 'Income Seekers',
-    description: 'Overweights rental-income buyers who care more about cash flow, durability, and downside protection.',
+    label: 'インカム重視型',
+    description: 'キャッシュフロー・安定性・下値リスク防御を重視する賃貸収益志向の買い手を多めに配置します。',
     archetypes: ['yield', 'yield', 'value', 'contrarian'],
   },
   momentum: {
-    label: 'Momentum Chasers',
-    description: 'Overweights heat-following investors who react faster to attention spikes and peer activity around hot listings.',
+    label: 'モメンタム追随型',
+    description: '注目度の急上昇や他投資家の動向に素早く反応する、トレンド追随型の投資家を多めに配置します。',
     archetypes: ['momentum', 'momentum', 'value', 'yield'],
   },
 }
@@ -48,7 +48,7 @@ export default function MarketSimulationWorkspace() {
   const [properties, setProperties] = useState<Property[]>([])
   const [stage, setStage] = useState<SimulationStage>('configure')
   const [runId, setRunId] = useState('')
-  const [runLabel, setRunLabel] = useState('Chicago investor sweep')
+  const [runLabel, setRunLabel] = useState('東京投資家シミュレーション')
   const [cohortPreset, setCohortPreset] = useState('balanced')
   const [investorCount, setInvestorCount] = useState(8)
   const [tickCount, setTickCount] = useState(8)
@@ -282,7 +282,7 @@ export default function MarketSimulationWorkspace() {
   }
 
   const eligiblePriceRange = useMemo(() => {
-    if (filteredProperties.length === 0) return 'No eligible inventory'
+    if (filteredProperties.length === 0) return '対象物件なし'
     const prices = filteredProperties.map((property) => Number(property.asking_price || 0)).sort((left, right) => left - right)
     return `${formatCurrency(prices[0])} - ${formatCurrency(prices[prices.length - 1])}`
   }, [filteredProperties])
@@ -295,34 +295,34 @@ export default function MarketSimulationWorkspace() {
     <div className="market-sim-shell">
       <div className="market-sim-header">
         <div>
-          <h2>Investor Market Simulation</h2>
+          <h2>投資家マーケットシミュレーション</h2>
           <p>
-            Configure the market scope, generate investor personas, then replay how those investors shift attention,
-            bids, and exits as signals and peer pressure change across the map.
+            市場スコープを設定し、投資家ペルソナを生成。シグナルや競合圧力の変化に応じて、
+            投資家がどのように注目・入札・撤退するかをリプレイで再現します。
           </p>
         </div>
         {stage !== 'configure' && (
-          <button type="button" className="secondary-btn" onClick={resetRun}>New Market Run</button>
+          <button type="button" className="secondary-btn" onClick={resetRun}>新規シミュレーション</button>
         )}
       </div>
 
       <div className="sim-step-indicator sim-step-indicator--wide">
-        <span className={`sim-step ${stage === 'configure' ? 'active' : 'done'}`}>1. Scope</span>
+        <span className={`sim-step ${stage === 'configure' ? 'active' : 'done'}`}>1. スコープ設定</span>
         <span className="sim-step-arrow">→</span>
-        <span className={`sim-step ${stage === 'personas' ? 'active' : stage === 'running' || stage === 'replay' ? 'done' : ''}`}>2. Personas</span>
+        <span className={`sim-step ${stage === 'personas' ? 'active' : stage === 'running' || stage === 'replay' ? 'done' : ''}`}>2. ペルソナ確認</span>
         <span className="sim-step-arrow">→</span>
-        <span className={`sim-step ${stage === 'running' ? 'active' : stage === 'replay' ? 'done' : ''}`}>3. Run</span>
+        <span className={`sim-step ${stage === 'running' ? 'active' : stage === 'replay' ? 'done' : ''}`}>3. 実行</span>
         <span className="sim-step-arrow">→</span>
-        <span className={`sim-step ${stage === 'replay' ? 'active' : ''}`}>4. Replay</span>
+        <span className={`sim-step ${stage === 'replay' ? 'active' : ''}`}>4. リプレイ</span>
       </div>
 
       {focusPropertyId && (
         <div className="market-sim-focus-banner">
           <div>
-            <strong>Focused property scope</strong>
-            <p>{focusPropertyAddress || 'A property selected from the dashboard'} will anchor this simulation run.</p>
+            <strong>フォーカス物件指定</strong>
+            <p>{focusPropertyAddress || 'ダッシュボードで選択された物件'}を基準にシミュレーションを実行します。</p>
           </div>
-          <button type="button" className="secondary-btn" onClick={clearFocusedProperty}>Clear Focus</button>
+          <button type="button" className="secondary-btn" onClick={clearFocusedProperty}>フォーカス解除</button>
         </div>
       )}
 
@@ -333,50 +333,46 @@ export default function MarketSimulationWorkspace() {
           <section className="market-sim-surface">
             <div className="market-sim-section-heading">
               <div>
-                <h3>Market Scope</h3>
-                <p>Choose the slice of inventory that your synthetic investors will evaluate together.</p>
+                <h3>マーケットスコープ</h3>
+                <p>シミュレーション対象となる物件の範囲を設定します。</p>
               </div>
             </div>
 
             <div className="market-sim-form-grid">
               <label className="agent-control-group">
-                <span>Run Label</span>
+                <span>実行ラベル</span>
                 <input value={runLabel} onChange={(event) => setRunLabel(event.target.value)} />
               </label>
               <label className="agent-control-group">
-                <span>Cohort Preset</span>
+                <span>コホートプリセット</span>
                 <select value={cohortPreset} onChange={(event) => setCohortPreset(event.target.value)}>
-                  <option value="balanced">Balanced</option>
-                  <option value="income">Income Seekers</option>
-                  <option value="momentum">Momentum Chasers</option>
+                  <option value="balanced">バランス型</option>
+                  <option value="income">インカム重視型</option>
+                  <option value="momentum">モメンタム追随型</option>
                 </select>
               </label>
               <label className="agent-control-group">
-                <span>Investor Count</span>
+                <span>投資家数</span>
                 <input type="number" min={1} max={40} value={investorCount} onChange={(event) => setInvestorCount(Number(event.target.value))} />
               </label>
               <label className="agent-control-group">
-                <span>Ticks</span>
+                <span>ティック数</span>
                 <input type="number" min={1} max={20} value={tickCount} onChange={(event) => setTickCount(Number(event.target.value))} />
               </label>
               <label className="agent-control-group">
-                <span>Property Type</span>
+                <span>物件種別</span>
                 <select value={propertyType} onChange={(event) => setPropertyType(event.target.value)}>
-                  <option value="">All active properties</option>
+                  <option value="">全物件</option>
                   {propertyTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
               </label>
               <label className="agent-control-group">
-                <span>ZIP Code</span>
-                <input placeholder="60601" value={zipCode} onChange={(event) => setZipCode(event.target.value)} />
+                <span>最低価格</span>
+                <input type="number" placeholder="10000000" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
               </label>
               <label className="agent-control-group">
-                <span>Min Price</span>
-                <input type="number" placeholder="300000" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
-              </label>
-              <label className="agent-control-group">
-                <span>Max Price</span>
-                <input type="number" placeholder="700000" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} />
+                <span>最高価格</span>
+                <input type="number" placeholder="200000000" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} />
               </label>
             </div>
 
@@ -386,7 +382,7 @@ export default function MarketSimulationWorkspace() {
                   <strong>{cohortPresetDetail.label} preset</strong>
                   <p>{cohortPresetDetail.description}</p>
                 </div>
-                <span>{investorCount} personas planned</span>
+                <span>{investorCount}名のペルソナを計画</span>
               </div>
               <div className="market-sim-chip-group">
                 {Object.entries(plannedPersonaCounts).map(([archetype, count]) => (
@@ -398,32 +394,32 @@ export default function MarketSimulationWorkspace() {
               <div className="market-sim-planned-types">
                 {plannedPersonaTypes.map((archetype, index) => (
                   <span key={`${archetype}-${index}`} className={`market-sim-planned-type market-sim-planned-type--${archetype}`}>
-                    Investor {index + 1}: {archetype}
+                    投資家{index + 1}: {archetype}
                   </span>
                 ))}
               </div>
               {personaLoading && (
-                <p className="market-sim-inline-note">Generating these persona types now using the current market scope and inventory mix.</p>
+                <p className="market-sim-inline-note">現在のマーケットスコープと在庫構成に基づき、ペルソナを生成中です。</p>
               )}
             </div>
 
             <div className="market-sim-summary-row">
-              <MetricCard label="Eligible Properties" value={String(filteredProperties.length)} />
-              <MetricCard label="Price Range" value={eligiblePriceRange} />
-              <MetricCard label="Replay Steps" value={String(tickCount)} />
+              <MetricCard label="対象物件数" value={String(filteredProperties.length)} />
+              <MetricCard label="価格帯" value={eligiblePriceRange} />
+              <MetricCard label="リプレイステップ" value={String(tickCount)} />
             </div>
 
             <div className="market-sim-callout">
-              <strong>What happens next</strong>
+              <strong>次のステップ</strong>
               <p>
-                We generate a cohort of investors that fits this exact scope, then replay how they watch, enter,
-                raise, hold, exit, or acquire based on valuation, yield, neighborhood quality, risk, and peer momentum.
+                設定したスコープに合う投資家コホートを生成し、利回り・エリア評価・リスク・
+                競合動向に基づく注目・入札・撤退・取得の動きをリプレイで再現します。
               </p>
             </div>
 
             <div className="market-sim-actions">
               <button type="button" className="primary-btn" onClick={() => void generatePersonas()} disabled={personaLoading || filteredProperties.length === 0}>
-                {personaLoading ? 'Generating Personas…' : 'Generate Investor Personas'}
+                {personaLoading ? 'ペルソナ生成中…' : '投資家ペルソナを生成'}
               </button>
             </div>
           </section>
@@ -431,10 +427,10 @@ export default function MarketSimulationWorkspace() {
           <section className="market-sim-surface market-sim-surface--inventory">
             <div className="market-sim-section-heading">
               <div>
-                <h3>Eligible Inventory</h3>
-                <p>These are the properties available to the cohort once the simulation starts.</p>
+                <h3>対象物件一覧</h3>
+                <p>シミュレーション開始後にコホートが評価する物件です。</p>
               </div>
-              <span>{filteredProperties.length} properties</span>
+              <span>{filteredProperties.length}件</span>
             </div>
             <div className="market-sim-property-list">
               {filteredProperties.slice(0, 24).map((property) => (
@@ -444,11 +440,11 @@ export default function MarketSimulationWorkspace() {
                   className={`market-sim-property-row ${focusPropertyId === property.id ? 'is-focused' : ''}`}
                 >
                   <strong>{property.address}</strong>
-                  <span>{formatCurrency(Number(property.asking_price || 0))} • {property.property_type || 'Unknown type'}</span>
+                  <span>{formatCurrency(Number(property.asking_price || 0))} • {property.property_type || '種別不明'}</span>
                 </button>
               ))}
               {filteredProperties.length === 0 && (
-                <div className="market-sim-empty-copy">No active properties match the current market scope filters.</div>
+                <div className="market-sim-empty-copy">現在のフィルター条件に一致する物件がありません。</div>
               )}
             </div>
           </section>
@@ -460,15 +456,15 @@ export default function MarketSimulationWorkspace() {
           <section className="market-sim-surface">
             <div className="market-sim-section-heading">
               <div>
-                <h3>Investor Persona Review</h3>
-                <p>Review who is in this run and what each investor optimizes for before you simulate movement.</p>
+                <h3>投資家ペルソナ確認</h3>
+                <p>シミュレーション実行前に、各投資家の特性と最適化対象を確認してください。</p>
               </div>
-              <span>{personas.length} personas</span>
+              <span>{personas.length}名</span>
             </div>
             <div className="market-sim-persona-summary">
-              <MetricCard label="Inventory Scope" value={String(inventorySummary?.property_count || filteredProperties.length)} />
-              <MetricCard label="Cohort Preset" value={cohortPreset} />
-              <MetricCard label="Investor Count" value={String(personas.length)} />
+              <MetricCard label="対象物件数" value={String(inventorySummary?.property_count || filteredProperties.length)} />
+              <MetricCard label="コホートプリセット" value={cohortPresetDetail.label} />
+              <MetricCard label="投資家数" value={String(personas.length)} />
             </div>
             <div className="market-sim-persona-grid">
               {personas.map((persona) => (
@@ -479,29 +475,29 @@ export default function MarketSimulationWorkspace() {
                   name={persona.display_name}
                   subtitle={`${persona.risk_posture} • ${persona.preferred_price_band}`}
                   traits={[
-                    { label: 'Budget', value: formatCurrency(persona.budget) },
-                    { label: 'Horizon', value: persona.hold_horizon },
-                    { label: 'Yield', value: persona.target_yield },
-                    { label: 'Competition', value: persona.competition_style },
+                    { label: '予算', value: formatCurrency(persona.budget) },
+                    { label: '保有期間', value: persona.hold_horizon },
+                    { label: '目標利回り', value: persona.target_yield },
+                    { label: '競合スタイル', value: persona.competition_style },
                   ]}
                   summary={<p>{persona.investment_thesis}</p>}
                   lists={[
-                    { label: 'Property Types', items: persona.preferred_property_types },
-                    { label: 'Neighborhoods', items: persona.neighborhood_preferences },
-                    { label: 'Avoidance Triggers', items: persona.avoidance_triggers },
+                    { label: '物件種別', items: persona.preferred_property_types },
+                    { label: '希望エリア', items: persona.neighborhood_preferences },
+                    { label: '回避条件', items: persona.avoidance_triggers },
                   ]}
-                  footer={<p>Exit style: {persona.exit_style}</p>}
+                  footer={<p>出口戦略: {persona.exit_style}</p>}
                 />
               ))}
             </div>
             <div className="market-sim-actions market-sim-actions--split">
-              <button type="button" className="secondary-btn" onClick={() => setStage('configure')}>Back to Scope</button>
+              <button type="button" className="secondary-btn" onClick={() => setStage('configure')}>スコープに戻る</button>
               <div className="market-sim-actions market-sim-actions--inline">
                 <button type="button" className="secondary-btn" onClick={() => void generatePersonas()} disabled={personaLoading}>
-                  {personaLoading ? 'Refreshing…' : 'Regenerate Personas'}
+                  {personaLoading ? '再生成中…' : 'ペルソナ再生成'}
                 </button>
                 <button type="button" className="primary-btn" onClick={() => void startRun()} disabled={loading || personas.length !== investorCount}>
-                  {loading ? 'Starting…' : 'Start Investor Simulation'}
+                  {loading ? '開始中…' : 'シミュレーション開始'}
                 </button>
               </div>
             </div>
@@ -513,7 +509,7 @@ export default function MarketSimulationWorkspace() {
         <div className="market-sim-surface market-sim-running-stage">
           <div className="market-sim-running-header">
             <div>
-              <h3>Running market simulation</h3>
+              <h3>マーケットシミュレーション実行中</h3>
               <p>
                 {status?.run_label || runLabel || 'Investor run'} • {status?.investor_count || investorCount} investors • {status?.property_count || filteredProperties.length} properties
               </p>
@@ -524,10 +520,10 @@ export default function MarketSimulationWorkspace() {
             <div className="market-sim-progress-bar" style={{ width: `${status?.progress || 0}%` }} />
           </div>
           <div className="market-sim-summary-row">
-            <MetricCard label="Current Tick" value={`${status?.current_tick || 0} / ${status?.total_ticks || tickCount}`} />
-            <MetricCard label="Investors" value={String(status?.investor_count || investorCount)} />
-            <MetricCard label="Tracked Properties" value={String(status?.property_count || filteredProperties.length)} />
-            <MetricCard label="Run ID" value={runId ? `${runId.slice(0, 12)}…` : 'Pending'} />
+            <MetricCard label="現在のティック" value={`${status?.current_tick || 0} / ${status?.total_ticks || tickCount}`} />
+            <MetricCard label="投資家数" value={String(status?.investor_count || investorCount)} />
+            <MetricCard label="対象物件数" value={String(status?.property_count || filteredProperties.length)} />
+            <MetricCard label="実行ID" value={runId ? `${runId.slice(0, 12)}…` : '準備中'} />
           </div>
         </div>
       )}
@@ -535,26 +531,26 @@ export default function MarketSimulationWorkspace() {
       {stage === 'replay' && replay && result && currentTick && (
         <div className="market-sim-replay-stage">
           <div className="market-sim-summary-row">
-            <MetricCard label="Completed Ticks" value={String(result.completed_ticks)} />
-            <MetricCard label="Acquisitions" value={String(result.acquisitions.length)} />
-            <MetricCard label="Decision Count" value={String(result.summary.decision_count || 0)} />
-            <MetricCard label="Market Temperature" value={formatScore(Number(result.summary.market_temperature || 0))} />
+            <MetricCard label="完了ティック" value={String(result.completed_ticks)} />
+            <MetricCard label="取得件数" value={String(result.acquisitions.length)} />
+            <MetricCard label="意思決定数" value={String(result.summary.decision_count || 0)} />
+            <MetricCard label="市場温度" value={formatScore(Number(result.summary.market_temperature || 0))} />
           </div>
 
           <section className="market-sim-surface market-sim-replay-controls">
             <div className="market-sim-replay-toolbar">
               <button type="button" className="primary-btn" onClick={() => setIsPlaying((current) => !current)}>
-                {isPlaying ? 'Pause Replay' : 'Play Replay'}
+                {isPlaying ? '一時停止' : '再生'}
               </button>
-              <button type="button" className="secondary-btn" onClick={() => setCurrentTickIndex((current) => Math.max(0, current - 1))}>Previous Tick</button>
-              <button type="button" className="secondary-btn" onClick={() => setCurrentTickIndex((current) => Math.min(replay.ticks.length - 1, current + 1))}>Next Tick</button>
+              <button type="button" className="secondary-btn" onClick={() => setCurrentTickIndex((current) => Math.max(0, current - 1))}>前のティック</button>
+              <button type="button" className="secondary-btn" onClick={() => setCurrentTickIndex((current) => Math.min(replay.ticks.length - 1, current + 1))}>次のティック</button>
               <label className="market-sim-speed-select">
-                <span>Speed</span>
+                <span>速度</span>
                 <select value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}>
                   {PLAYBACK_SPEEDS.map((speed) => <option key={speed} value={speed}>{speed}x</option>)}
                 </select>
               </label>
-              <div className="market-sim-toolbar-tick">Tick {currentTickIndex + 1} of {replay.ticks.length}</div>
+              <div className="market-sim-toolbar-tick">ティック {currentTickIndex + 1} / {replay.ticks.length}</div>
             </div>
             <input
               type="range"
@@ -580,23 +576,23 @@ export default function MarketSimulationWorkspace() {
             <section className="market-sim-surface market-sim-surface--panel">
               <div className="market-sim-section-heading">
                 <div>
-                  <h3>Property Panel</h3>
-                  <p>{selectedProperty?.address || 'Select a property on the map to inspect activity.'}</p>
+                  <h3>物件パネル</h3>
+                  <p>{selectedProperty?.address || '地図上の物件を選択して動向を確認してください。'}</p>
                 </div>
                 {selectedProperty ? <span className={`market-sim-status-pill market-sim-status-pill--${selectedProperty.status}`}>{selectedProperty.status}</span> : null}
               </div>
               {selectedProperty ? (
                 <>
                   <div className="market-sim-stat-grid">
-                    <StatRow label="Asking" value={formatCurrency(Number(selectedProperty.asking_price || 0))} />
-                    <StatRow label="Top Bid" value={selectedProperty.top_bid != null ? formatCurrency(Number(selectedProperty.top_bid)) : 'None'} />
-                    <StatRow label="Attention" value={String(selectedProperty.attention_count)} />
-                    <StatRow label="Competition" value={selectedProperty.local_competition.toFixed(1)} />
-                    <StatRow label="Bid Velocity" value={formatSignedCurrency(selectedProperty.bid_velocity)} />
-                    <StatRow label="Reservation" value={formatCurrency(Number(selectedProperty.reservation_threshold || 0))} />
+                    <StatRow label="売出価格" value={formatCurrency(Number(selectedProperty.asking_price || 0))} />
+                    <StatRow label="最高入札額" value={selectedProperty.top_bid != null ? formatCurrency(Number(selectedProperty.top_bid)) : 'なし'} />
+                    <StatRow label="注目度" value={String(selectedProperty.attention_count)} />
+                    <StatRow label="競合度" value={selectedProperty.local_competition.toFixed(1)} />
+                    <StatRow label="入札速度" value={formatSignedCurrency(selectedProperty.bid_velocity)} />
+                    <StatRow label="成約閾値" value={formatCurrency(Number(selectedProperty.reservation_threshold || 0))} />
                   </div>
                   <div className="market-sim-target-list">
-                    <strong>Investors targeting this property</strong>
+                    <strong>この物件を狙う投資家</strong>
                     <div className="market-sim-scroll-list">
                       {propertyDecisions.map((decision) => (
                         <button
@@ -616,20 +612,20 @@ export default function MarketSimulationWorkspace() {
                           </span>
                         </button>
                       ))}
-                      {propertyDecisions.length === 0 && <div className="market-sim-empty-copy">No investor targeted this property on the current tick.</div>}
+                      {propertyDecisions.length === 0 && <div className="market-sim-empty-copy">現在のティックでこの物件を狙う投資家はいません。</div>}
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="market-sim-empty-copy">Pick a property marker to inspect which investors converged on it and why.</div>
+                <div className="market-sim-empty-copy">地図上の物件マーカーを選択すると、どの投資家が集中しているか確認できます。</div>
               )}
             </section>
 
             <section className="market-sim-surface market-sim-surface--panel market-sim-surface--investor">
               <div className="market-sim-section-heading">
                 <div>
-                  <h3>Investor Panel</h3>
-                  <p>{selectedInvestor?.investor_name || 'Select an investor to inspect rationale.'}</p>
+                  <h3>投資家パネル</h3>
+                  <p>{selectedInvestor?.investor_name || '投資家を選択して判断根拠を確認してください。'}</p>
                 </div>
                 {selectedInvestor ? <span className="market-sim-investor-pill">{selectedInvestor.archetype}</span> : null}
               </div>
@@ -641,10 +637,10 @@ export default function MarketSimulationWorkspace() {
                     name={selectedInvestor.persona?.display_name || selectedInvestor.investor_name}
                     subtitle={`${selectedInvestor.persona?.risk_posture || 'investor'} • ${selectedInvestor.persona?.preferred_price_band || formatCurrency(selectedInvestor.budget)}`}
                     traits={[
-                      { label: 'Budget', value: formatCurrency(selectedInvestor.budget) },
-                      { label: 'Cash Left', value: formatCurrency(selectedInvestor.cash_remaining) },
-                      { label: 'Hold Horizon', value: `${selectedInvestor.hold_horizon_ticks} ticks` },
-                      { label: 'Diversification', value: selectedInvestor.diversification_cap },
+                      { label: '予算', value: formatCurrency(selectedInvestor.budget) },
+                      { label: '残余資金', value: formatCurrency(selectedInvestor.cash_remaining) },
+                      { label: '保有期間', value: `${selectedInvestor.hold_horizon_ticks}ティック` },
+                      { label: '分散上限', value: selectedInvestor.diversification_cap },
                     ]}
                     summary={<p>{selectedInvestor.persona?.investment_thesis || investorDecision.chosen_action_reason}</p>}
                     lists={[
@@ -652,7 +648,7 @@ export default function MarketSimulationWorkspace() {
                       { label: 'Neighborhood Preferences', items: selectedInvestor.persona?.neighborhood_preferences || [] },
                       { label: 'Avoidance Triggers', items: selectedInvestor.persona?.avoidance_triggers || [] },
                     ]}
-                    footer={<p>Exit style: {selectedInvestor.persona?.exit_style || 'Not specified'}</p>}
+                    footer={<p>出口戦略: {selectedInvestor.persona?.exit_style || '未設定'}</p>}
                   />
 
                   <div className="market-sim-decision-callout">
@@ -666,13 +662,13 @@ export default function MarketSimulationWorkspace() {
 
                   <div className="market-sim-inspector-grid">
                     <div>
-                      <strong>Why this property</strong>
+                      <strong>選定理由</strong>
                       <ul className="market-sim-bullet-list">
                         {topDrivers.map((driver) => <li key={driver}>{driver}</li>)}
                       </ul>
                     </div>
                     <div>
-                      <strong>Top risks</strong>
+                      <strong>主要リスク</strong>
                       <ul className="market-sim-bullet-list">
                         {riskNotes.map((note) => <li key={note}>{note}</li>)}
                       </ul>
@@ -680,14 +676,14 @@ export default function MarketSimulationWorkspace() {
                   </div>
 
                   <div>
-                    <strong>What changed since the previous tick</strong>
+                    <strong>前ティックからの変化</strong>
                     <ul className="market-sim-bullet-list">
                       {signalChanges.map((change) => <li key={change}>{change}</li>)}
                     </ul>
                   </div>
 
                   <div>
-                    <strong>Signal contributions</strong>
+                    <strong>シグナル寄与度</strong>
                     <div className="market-sim-signal-list">
                       {Object.entries(investorDecision.signal_scores).map(([label, score]) => (
                         <SignalBar key={label} label={label} score={Number(score)} />
@@ -696,23 +692,23 @@ export default function MarketSimulationWorkspace() {
                   </div>
 
                   <div>
-                    <strong>Property match factors</strong>
+                    <strong>物件適合要因</strong>
                     <ul className="market-sim-bullet-list">
                       {investorDecision.property_match_factors.length > 0
                         ? investorDecision.property_match_factors.map((factor) => <li key={factor}>{factor}</li>)
-                        : <li>No special fit factors were recorded on this tick.</li>}
+                        : <li>このティックでは特別な適合要因は記録されていません。</li>}
                     </ul>
                   </div>
 
                   <div className="market-sim-stat-grid">
-                    <StatRow label="Cash Remaining" value={formatCurrency(Number(investorDecision.budget_position.cash_remaining || 0))} />
-                    <StatRow label="Asking Price" value={formatCurrency(Number(investorDecision.budget_position.asking_price || 0))} />
-                    <StatRow label="Headroom" value={formatCurrency(Number(investorDecision.budget_position.headroom || 0))} />
-                    <StatRow label="Affordable" value={String(investorDecision.budget_position.is_affordable ? 'Yes' : 'No')} />
+                    <StatRow label="残余資金" value={formatCurrency(Number(investorDecision.budget_position.cash_remaining || 0))} />
+                    <StatRow label="売出価格" value={formatCurrency(Number(investorDecision.budget_position.asking_price || 0))} />
+                    <StatRow label="余裕額" value={formatCurrency(Number(investorDecision.budget_position.headroom || 0))} />
+                    <StatRow label="購入可能" value={String(investorDecision.budget_position.is_affordable ? 'はい' : 'いいえ')} />
                   </div>
 
                   <div>
-                    <strong>Runner-up properties rejected</strong>
+                    <strong>次点物件（不採用）</strong>
                     <div className="market-sim-scroll-list market-sim-scroll-list--compact">
                       {investorDecision.rejected_alternatives.length > 0 ? investorDecision.rejected_alternatives.map((alternative, index) => (
                         <div key={`${String(alternative.property_id || alternative.address)}-${index}`} className="market-sim-alternative-card">
@@ -720,12 +716,12 @@ export default function MarketSimulationWorkspace() {
                           <span>Score {formatScore(Number(alternative.score || 0))} • Bias {String(alternative.action_bias || 'watch')}</span>
                           <p>{String(alternative.reason || 'It ranked below the chosen property on this tick.')}</p>
                         </div>
-                      )) : <div className="market-sim-empty-copy">No shortlisted alternatives were recorded on this tick.</div>}
+                      )) : <div className="market-sim-empty-copy">このティックでは候補物件は記録されていません。</div>}
                     </div>
                   </div>
 
                   <div>
-                    <strong>Action history</strong>
+                    <strong>行動履歴</strong>
                     <div className="market-sim-history-list">
                       {investorHistory.map((decision) => (
                         <button
@@ -746,7 +742,7 @@ export default function MarketSimulationWorkspace() {
                   </div>
                 </>
               ) : (
-                <div className="market-sim-empty-copy">Select an investor from the property panel to inspect how each signal shaped the decision.</div>
+                <div className="market-sim-empty-copy">物件パネルから投資家を選択すると、各シグナルが判断にどう影響したか確認できます。</div>
               )}
             </section>
           </div>
@@ -754,8 +750,8 @@ export default function MarketSimulationWorkspace() {
           <section className="market-sim-surface">
             <div className="market-sim-section-heading">
               <div>
-                <h3>Acquisition Outcomes</h3>
-                <p>Jump directly to the decisive tick for each completed acquisition.</p>
+                <h3>取得結果</h3>
+                <p>各取得が決定したティックに直接ジャンプできます。</p>
               </div>
             </div>
             <div className="market-sim-acquisition-grid">
@@ -773,12 +769,12 @@ export default function MarketSimulationWorkspace() {
                   }}
                 >
                   <strong>{acquisition.property_address}</strong>
-                  <span>{acquisition.winning_investor_name} acquired on tick {acquisition.acquired_tick}</span>
-                  <p>Winning bid {formatCurrency(Number(acquisition.winning_bid))}</p>
+                  <span>{acquisition.winning_investor_name}がティック{acquisition.acquired_tick}で取得</span>
+                  <p>落札額 {formatCurrency(Number(acquisition.winning_bid))}</p>
                 </button>
               ))}
               {result.acquisitions.length === 0 && (
-                <div className="market-sim-empty-copy">This run ended without a completed acquisition. The replay still shows how investors shifted attention and bids.</div>
+                <div className="market-sim-empty-copy">今回のシミュレーションでは取得に至りませんでしたが、投資家の注目と入札の推移はリプレイで確認できます。</div>
               )}
             </div>
           </section>
@@ -861,9 +857,9 @@ function deriveSignalChanges(current: InvestorDecisionTrace | null, previous: In
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('ja-JP', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'JPY',
     maximumFractionDigits: 0,
   }).format(value)
 }
@@ -874,7 +870,7 @@ function formatScore(score: number) {
 
 function formatSignedCurrency(amount: number) {
   const rounded = Math.round(amount)
-  if (rounded === 0) return '$0'
+  if (rounded === 0) return '¥0'
   const prefix = rounded > 0 ? '+' : '-'
-  return `${prefix}$${Math.abs(rounded).toLocaleString()}`
+  return `${prefix}¥${Math.abs(rounded).toLocaleString()}`
 }

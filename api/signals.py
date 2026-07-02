@@ -57,7 +57,7 @@ async def get_reinfolib_signals(
             MarketSignal.subject_id == zip_code,
             MarketSignal.signal_type.in_(requested_types),
         )
-        .order_by(MarketSignal.recorded_at.desc())
+        .order_by(MarketSignal.observed_at.desc())
     )
     result = await db.execute(stmt)
     rows = result.scalars().all()

@@ -7,7 +7,7 @@ import UserFormModal from '../components/UserFormModal'
 const SELECTED_USER_KEY = 'selectedUserId'
 
 function formatCurrency(value: number | null | undefined): string {
-  return typeof value === 'number' ? `$${value.toLocaleString()}` : 'N/A'
+  return typeof value === 'number' ? `¥${value.toLocaleString()}` : 'N/A'
 }
 
 function formatDate(dateStr?: string | null): string {
@@ -166,7 +166,7 @@ export default function UserProfilePage() {
           <div><label>Budget</label><p>{formatCurrency(user.budget_min)} - {formatCurrency(user.budget_max)}</p></div>
           <div><label>Timeline</label><p>{user.timeline_days ?? 'N/A'} days</p></div>
           <div><label>Risk Tolerance</label><p>{user.risk_tolerance || 'N/A'}</p></div>
-          <div><label>Location</label><p>{user.zip_code || 'N/A'}{user.search_radius ? ` (${user.search_radius} mi radius)` : ''}</p></div>
+          <div><label>Location</label><p>{user.zip_code || 'N/A'}{user.search_radius ? ` (${user.search_radius} km radius)` : ''}</p></div>
           <div><label>Life Stage</label><p>{user.life_stage || 'N/A'}</p></div>
           <div><label>Preferred Types</label><p>{user.preferred_types.length ? user.preferred_types.join(', ') : 'N/A'}</p></div>
         </div>

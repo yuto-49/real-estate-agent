@@ -370,6 +370,7 @@ async def execute_strategy_run(
     portfolio_id: str,
     profile: StrategyProfile,
     event_sink: StrategyEventSink | None = None,
+    sim_config: object | None = None,
 ) -> StrategyRunRecord:
     """Run analysis → simulation for one strategy run.
 
@@ -420,7 +421,51 @@ async def execute_strategy_run(
         )
         await _set(running.model_copy(update={"analysis": analysis, "steps": list(steps)}))
 
-        simulation = project_simulation(analysis, profile)
+        if sim_config is not None:
+            from domain.simulation.loop import run_simulation as run_sim
+            from domain.simulation.models import SimConfig
+            from services.sim_orchestrator import (
+                build_sim_seed_from_holding,
+                sim_result_to_simulation_report,
+            )
+
+            cfg = sim_config if isinstance(sim_config, SimConfig) else SimConfig()
+            # Run unified simulation for each holding
+            holding_reports = []
+            for row in analysis.per_holding:
+                seed = await build_sim_seed_from_holding(db, row.holding_id)
+                if seed is None:
+                    continue
+                sim_result = run_sim(cfg, seed)
+                report = sim_result_to_simulation_report(
+                    sim_result, portfolio_id, row.holding_id, row.address,
+                )
+                holding_reports.append(report)
+            # Merge holding reports into one SimulationReport
+            if holding_reports:
+                from api.schemas import SimulationReport as SimReport
+                all_projections = []
+                total_val = 0.0
+                total_noi = 0.0
+                all_notes: list[str] = []
+                for hr in holding_reports:
+                    all_projections.extend(hr.per_holding)
+                    total_val += hr.aggregate_value_projection
+                    total_noi += hr.aggregate_annual_noi_projection
+                    all_notes.extend(hr.notes)
+                simulation = SimReport(
+                    portfolio_id=portfolio_id,
+                    horizon_years=cfg.max_rounds,
+                    per_holding=all_projections,
+                    aggregate_value_projection=total_val,
+                    aggregate_annual_noi_projection=total_noi,
+                    aggregate_cap_rate_projection=total_noi / total_val if total_val > 0 else None,
+                    notes=all_notes,
+                )
+            else:
+                simulation = project_simulation(analysis, profile)
+        else:
+            simulation = project_simulation(analysis, profile)
         await _emit_step(
             run_id, steps, event_sink,
             event_type="step.simulation_projected",

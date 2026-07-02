@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.user_resolve import resolve_user_id
+
 from api.schemas import (
     PropertyCreate,
     PropertyListResponse,
@@ -77,9 +79,14 @@ async def recommend_properties(
     ``InvestorProfile`` row (created by the onboarding wizard's "no portfolio"
     branch).
     """
+    try:
+        resolved_id = await resolve_user_id(db, user_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="profile_not_found")
+
     profile = (
         await db.execute(
-            select(InvestorProfile).where(InvestorProfile.user_id == user_id)
+            select(InvestorProfile).where(InvestorProfile.user_id == resolved_id)
         )
     ).scalar_one_or_none()
     if profile is None:

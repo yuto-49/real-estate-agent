@@ -1,10 +1,15 @@
 # Real Estate Agentic Platform
 
-Multi-agent real estate negotiation platform with social behavior simulation, intelligence pipeline, and workforce housing analysis.
+AI-powered satei-to-close SaaS for Tokyo real estate brokerages (不動産仲介向けSaaS). Hedonic valuation, price-vs-probability curves, and negotiation coaching via multi-agent simulation.
 
 **Stack:** FastAPI + React 18 + TypeScript + Claude API + PostgreSQL 16 + Redis 7
 
-**Domain focus:** Workforce housing -- affordable, accessible housing for essential workers and moderate-income households, with emphasis on regulatory compliance and community-driven intelligence.
+**Domain focus:** Tokyo real estate brokerage SaaS — AI-assisted satei (査定) for listing pitches, asking-price optimization via settlement-probability curves, and negotiation strategy coaching. Also retains investor portfolio analysis as a secondary surface.
+
+**Key value props for brokerages:**
+- **Satei Comp Grid** — REINFOLIB-backed valuation with editable hedonic adjustment grid (180 min → ~10 min)
+- **Price-vs-Probability Curve** — Monte Carlo simulation answering "list at X yen → Y% close probability within 30/60/90/180 days"
+- **Negotiation Strategy Coach** — multi-agent simulation for rehearsing scenarios before real negotiations
 
 ---
 
@@ -324,7 +329,7 @@ IDLE -> OFFER_PENDING -> COUNTER_PENDING -> ... -> ACCEPTED -> CONTRACT_PHASE ->
 - Round 10+: auto-escalation
 - Deadlines: 48h offers, 72h contracts, 10d inspection, 30d closing
 
-See [architecture.md](architecture.md) for the full system design, workforce housing model, legal/compliance audit trail, and simulation engine details.
+See [architecture.md](architecture.md) for the full system design, legal/compliance audit trail, and simulation engine details.
 See [doc/SIMULATION_ENGINE.md](doc/SIMULATION_ENGINE.md) for the simulation engine architecture and API reference.
 
 ---

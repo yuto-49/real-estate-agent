@@ -6,14 +6,14 @@ import type { Property } from '../utils/types'
 import { api } from '../utils/api'
 
 const LOCATIONS = [
-  { label: 'All Chicago', zip: '60601', lat: 41.8781, lng: -87.6298 },
-  { label: 'The Loop (60601)', zip: '60601', lat: 41.8819, lng: -87.6278 },
-  { label: 'Near North (60602)', zip: '60602', lat: 41.8858, lng: -87.6316 },
-  { label: 'Lincoln Park (60614)', zip: '60614', lat: 41.9214, lng: -87.6513 },
-  { label: 'Wicker Park (60622)', zip: '60622', lat: 41.9088, lng: -87.6796 },
-  { label: 'Uptown (60640)', zip: '60640', lat: 41.9654, lng: -87.6564 },
-  { label: 'Logan Square (60647)', zip: '60647', lat: 41.9234, lng: -87.7100 },
-  { label: 'Lakeview (60657)', zip: '60657', lat: 41.9403, lng: -87.6537 },
+  { label: '東京23区', zip: '1000001', lat: 35.6762, lng: 139.6503 },
+  { label: '千代田区 (100-0001)', zip: '1000001', lat: 35.6938, lng: 139.7532 },
+  { label: '新宿区 (160-0023)', zip: '1600023', lat: 35.6938, lng: 139.7036 },
+  { label: '渋谷区 (150-0001)', zip: '1500001', lat: 35.6619, lng: 139.7041 },
+  { label: '板橋区 (173-0004)', zip: '1730004', lat: 35.7516, lng: 139.7094 },
+  { label: '練馬区 (176-0001)', zip: '1760001', lat: 35.7356, lng: 139.6517 },
+  { label: '杉並区 (166-0001)', zip: '1660001', lat: 35.6994, lng: 139.6364 },
+  { label: '江戸川区 (132-0001)', zip: '1320001', lat: 35.7068, lng: 139.8685 },
 ]
 
 interface Props {
@@ -85,10 +85,10 @@ export default function SearchDrawer({ open, onClose }: Props) {
             <input type="number" placeholder="Max Price" value={filters.maxPrice} onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))} />
             <select value={filters.propertyType} onChange={(e) => setFilters((f) => ({ ...f, propertyType: e.target.value }))}>
               <option value="">All Types</option>
-              <option value="sfr">Single Family</option>
-              <option value="condo">Condo</option>
-              <option value="duplex">Duplex</option>
-              <option value="triplex">Triplex</option>
+              <option value="aparuto">アパート</option>
+              <option value="mansion">マンション</option>
+              <option value="ikkodate">一戸建て</option>
+              <option value="one_room">ワンルーム</option>
             </select>
             <button onClick={() => void loadProperties()} disabled={loading}>
               {loading ? 'Searching...' : 'Search'}
@@ -127,7 +127,7 @@ export default function SearchDrawer({ open, onClose }: Props) {
 
         {selectedProperty && (
           <div className="drawer-footer">
-            <p style={{ fontWeight: 600 }}>{selectedProperty.address} — ${selectedProperty.asking_price?.toLocaleString()}</p>
+            <p style={{ fontWeight: 600 }}>{selectedProperty.address} — ¥{selectedProperty.asking_price?.toLocaleString()}</p>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button
                 className="primary-btn"

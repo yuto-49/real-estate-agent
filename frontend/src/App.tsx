@@ -4,17 +4,18 @@ import SystemDrawer from './components/SystemDrawer'
 import { useAuth } from './hooks/useAuth'
 import { usePortfolioMode } from './hooks/usePortfolioMode'
 
-const AnalysisPage = lazy(() => import('./pages/AnalysisPage'))
-const SimulationPage = lazy(() => import('./pages/SimulationPage'))
 const NegotiationPage = lazy(() => import('./pages/NegotiationPage'))
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage'))
 const SimulationVisualizePage = lazy(() => import('./pages/SimulationVisualizePage'))
-const PortfolioPage = lazy(() => import('./pages/PortfolioPage'))
+const InvestmentPage = lazy(() => import('./pages/InvestmentPage'))
 const SignInPage = lazy(() => import('./pages/SignInPage'))
 const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'))
 const HomeGate = lazy(() => import('./components/onboarding/HomeGate'))
 const SimulatePage = lazy(() => import('./pages/SimulatePage'))
 const SimulateReportPage = lazy(() => import('./pages/SimulateReportPage'))
+const SateiPage = lazy(() => import('./pages/SateiPage'))
+const NegotiationCoachPage = lazy(() => import('./pages/NegotiationCoachPage'))
+const BuyerSimPage = lazy(() => import('./pages/BuyerSimPage'))
 
 function RouteFallback() {
   return <div className="route-loading">Loading…</div>
@@ -61,6 +62,7 @@ function AuthStatus() {
 function isFullBleedRoute(pathname: string) {
   return (
     pathname === '/' ||
+    pathname.startsWith('/invest') ||
     pathname.startsWith('/simulation') ||
     pathname.startsWith('/simulate') ||
     pathname.startsWith('/negotiate') ||
@@ -101,9 +103,7 @@ export default function App() {
           </div>
           <nav className="app-nav">
             <NavLink to="/" end>Dashboard</NavLink>
-            <NavLink to="/analysis">Analysis</NavLink>
-            <NavLink to="/simulation">Simulation</NavLink>
-            <NavLink to="/portfolio">Portfolio</NavLink>
+            <NavLink to="/invest">Investment</NavLink>
             <NavLink to="/profile">Profile</NavLink>
             <PortfolioModeToggle />
             <AuthStatus />
@@ -129,17 +129,19 @@ export default function App() {
             <Route path="/onboard" element={<OnboardingWizard />} />
             <Route path="/simulate/:runId" element={<SimulatePage />} />
             <Route path="/simulate/:runId/report" element={<SimulateReportPage />} />
-            <Route path="/analysis/:id?" element={<AnalysisPage />} />
-            <Route path="/simulation" element={<SimulationPage />} />
-            <Route path="/simulation/visualize/:propertyId" element={<SimulationVisualizePage />} />
             <Route
-              path="/portfolio"
+              path="/invest"
               element={
                 <RequireAuth>
-                  <PortfolioPage />
+                  <InvestmentPage />
                 </RequireAuth>
               }
             />
+            {/* Redirects from old routes */}
+            <Route path="/analysis/:id?" element={<Navigate to="/invest#analysis" replace />} />
+            <Route path="/simulation" element={<Navigate to="/invest#simulation" replace />} />
+            <Route path="/portfolio" element={<Navigate to="/invest#portfolio" replace />} />
+            <Route path="/simulation/visualize/:propertyId" element={<SimulationVisualizePage />} />
             <Route
               path="/negotiate/:id?"
               element={
@@ -148,6 +150,9 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            <Route path="/satei" element={<SateiPage />} />
+            <Route path="/coach" element={<Suspense fallback={<div>Loading...</div>}><NegotiationCoachPage /></Suspense>} />
+            <Route path="/buyer-sim" element={<BuyerSimPage />} />
             <Route
               path="/profile/:id?"
               element={

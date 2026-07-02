@@ -1,0 +1,32 @@
+# Pre-commit hooks — run `pre-commit install` to activate
+# https://pre-commit.com
+repos:
+  # Python — ruff lint + format
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # General file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Frontend — TypeScript type check (runs only when frontend files change)
+  - repo: local
+    hooks:
+      - id: tsc-check
+        name: TypeScript type check
+        entry: bash -c "cd frontend && npx tsc --noEmit"
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
