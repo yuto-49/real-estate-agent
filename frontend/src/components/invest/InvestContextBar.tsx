@@ -26,13 +26,13 @@ export default function InvestContextBar({
   return (
     <div className="invest-context-bar" data-testid="invest-context-bar">
       <label>
-        Investor
+        投資家
         <select
           value={selectedUserId}
           onChange={(e) => onUserChange(e.target.value)}
           data-testid="invest-user-select"
         >
-          <option value="">Select investor...</option>
+          <option value="">投資家を選択...</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>
               {u.name}
@@ -42,13 +42,13 @@ export default function InvestContextBar({
       </label>
 
       <label>
-        Portfolio
+        ポートフォリオ
         <select
           value={selectedPortfolioId}
           onChange={(e) => onPortfolioChange(e.target.value)}
           data-testid="invest-portfolio-select"
         >
-          <option value="">Select portfolio...</option>
+          <option value="">ポートフォリオを選択...</option>
           {portfolios.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -59,7 +59,7 @@ export default function InvestContextBar({
 
       <div className="invest-context-create">
         <input
-          placeholder="New portfolio name"
+          placeholder="新規ポートフォリオ名"
           value={newPortfolioName}
           onChange={(e) => onNewPortfolioNameChange(e.target.value)}
           data-testid="invest-new-portfolio-name"
@@ -70,7 +70,7 @@ export default function InvestContextBar({
           disabled={!selectedUserId || !newPortfolioName.trim()}
           data-testid="invest-create-portfolio-btn"
         >
-          Create
+          作成
         </button>
       </div>
     </div>

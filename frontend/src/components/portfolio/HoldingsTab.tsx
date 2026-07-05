@@ -104,13 +104,13 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
 
       {aggregate && (
         <section className="portfolio-aggregate" data-testid="portfolio-aggregate">
-          <div><span>Holdings</span><strong>{aggregate.holding_count}</strong></div>
-          <div><span>Total value</span><strong>{formatMoney(aggregate.total_value)}</strong></div>
-          <div><span>Total equity</span><strong>{formatMoney(aggregate.total_equity)}</strong></div>
-          <div><span>Monthly cash flow</span><strong>{formatMoney(aggregate.monthly_cash_flow)}</strong></div>
-          <div><span>Blended cap rate</span><strong>{(aggregate.blended_cap_rate * 100).toFixed(2)}%</strong></div>
+          <div><span>物件数</span><strong>{aggregate.holding_count}</strong></div>
+          <div><span>総資産額</span><strong>{formatMoney(aggregate.total_value)}</strong></div>
+          <div><span>自己資本</span><strong>{formatMoney(aggregate.total_equity)}</strong></div>
+          <div><span>月間キャッシュフロー</span><strong>{formatMoney(aggregate.monthly_cash_flow)}</strong></div>
+          <div><span>加重キャップレート</span><strong>{(aggregate.blended_cap_rate * 100).toFixed(2)}%</strong></div>
           <div>
-            <span>Weighted DSCR</span>
+            <span>加重DSCR</span>
             <strong>{aggregate.weighted_dscr ? aggregate.weighted_dscr.toFixed(2) : '—'}</strong>
           </div>
         </section>

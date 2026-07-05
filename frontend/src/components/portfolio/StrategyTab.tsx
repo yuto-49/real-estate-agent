@@ -376,6 +376,7 @@ export default function StrategyTab({ portfolioId }: StrategyTabProps) {
                 <th>将来の判断</th>
                 <th>予測価値</th>
                 <th>予測キャップレート</th>
+                <th>法定耐用年数</th>
                 <th>備考</th>
               </tr>
             </thead>
@@ -395,6 +396,7 @@ export default function StrategyTab({ portfolioId }: StrategyTabProps) {
                     <td>{r.projected_action}</td>
                     <td>{formatMoney(proj?.projected_value)}</td>
                     <td>{formatPercent(proj?.projected_cap_rate)}</td>
+                    <td>{proj?.remaining_useful_life != null ? `残${proj.remaining_useful_life}年` : '—'}</td>
                     <td>{r.note ?? ''}</td>
                   </tr>
                 )

@@ -8,5 +8,8 @@
       "Bash(python -m pytest tests/test_rent_comps.py -v)",
       "WebFetch(domain:api.e-stat.go.jp)"
     ]
+  },
+  "env": {
+    "ECC_GATEGUARD": "off"
   }
 }

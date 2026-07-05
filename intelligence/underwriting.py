@@ -1,11 +1,12 @@
 """Single-property underwriting engine for individual investors.
 
-Pure-function module. All money in USD; rates as decimal fractions.
+Pure-function module. Money in JPY by default; rates as decimal fractions.
 
 Inputs:
 - Purchase price, down payment, loan terms (rate, term years)
 - Operating: monthly rent, vacancy, opex, taxes, insurance, closing costs
 - Growth: rent growth, expense growth, appreciation, exit cap (for IRR)
+- JP-specific: construction_type for 法定耐用年数 depreciation
 
 Outputs (UnderwritingResult, frozen dataclass):
 - monthly_piti, annual_debt_service
@@ -13,12 +14,41 @@ Outputs (UnderwritingResult, frozen dataclass):
 - cap_rate, cash_on_cash, dscr
 - breakeven_occupancy
 - irr_5yr, irr_10yr (None when loan terms make IRR ill-defined)
+- jp_depreciation (法定耐用年数 schedule when construction_type provided)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Final
+
+
+# ── JP 法定耐用年数 (statutory useful life by construction type) ──────────
+
+JP_USEFUL_LIFE: Final[dict[str, int]] = {
+    "木造": 22,
+    "軽量鉄骨造": 27,
+    "重量鉄骨造": 34,
+    "鉄骨鉄筋コンクリート造": 47,
+    "鉄筋コンクリート造": 47,
+    "RC": 47,
+    "SRC": 47,
+    "S造": 34,
+    "W造": 22,
+}
+
+JP_ACQUISITION_COSTS_PCT: Final[float] = 0.071  # 不動産取得税3% + 登録免許税2% + 印紙税0.1% + 仲介手数料~2%
+JP_SELLING_COSTS_PCT: Final[float] = 0.064      # 仲介手数料~3.36% + 印紙税 + 抵当権抹消
+
+
+@dataclass(frozen=True, slots=True)
+class JPDepreciationSchedule:
+    """法定耐用年数 depreciation schedule for a JP property."""
+    construction_type: str
+    useful_life_years: int
+    remaining_years: int
+    annual_depreciation_yen: int
+    total_depreciable_yen: int
 
 # Optional dependency — pure-Python IRR fallback if numpy missing
 try:
@@ -47,6 +77,14 @@ class UnderwritingInputs:
     appreciation: float = 0.03
     exit_cap_rate: float = 0.07
     selling_costs_pct: float = 0.06
+    # JP-specific fields (optional — backward compatible)
+    construction_type: str | None = None  # e.g. "RC", "木造"
+    building_age_years: int = 0           # 築年数
+    building_ratio: float = 0.7           # 建物割合 (building vs land)
+    # JP-specific fields
+    construction_type: str | None = None  # e.g. "RC", "木造"
+    building_age_years: int = 0           # 築年数
+    building_ratio: float = 0.7           # 建物割合 (building vs land)
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +101,7 @@ class UnderwritingResult:
     irr_5yr: float | None
     irr_10yr: float | None
     cash_flow_path: tuple[float, ...] = field(default_factory=tuple)
+    jp_depreciation: JPDepreciationSchedule | None = None
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -193,6 +232,9 @@ def underwrite(inputs: UnderwritingInputs) -> UnderwritingResult:
     irr_5 = _project_irr(inputs, hold_years=5, initial_cash=initial_cash, loan_principal=loan_principal, annual_ds=annual_debt_service)
     irr_10 = _project_irr(inputs, hold_years=10, initial_cash=initial_cash, loan_principal=loan_principal, annual_ds=annual_debt_service)
 
+    # JP depreciation schedule (法定耐用年数)
+    jp_dep = _compute_jp_depreciation(inputs) if inputs.construction_type else None
+
     return UnderwritingResult(
         monthly_piti=monthly_piti,
         annual_debt_service=annual_debt_service,
@@ -205,6 +247,7 @@ def underwrite(inputs: UnderwritingInputs) -> UnderwritingResult:
         initial_equity=initial_cash,
         irr_5yr=irr_5,
         irr_10yr=irr_10,
+        jp_depreciation=jp_dep,
     )
 
 
@@ -255,4 +298,32 @@ def _project_irr(
     return _irr(cash_flows)
 
 
-__all__ = ["UnderwritingInputs", "UnderwritingResult", "underwrite"]
+def _compute_jp_depreciation(inp: UnderwritingInputs) -> JPDepreciationSchedule | None:
+    """Compute 法定耐用年数 depreciation for JP properties."""
+    if not inp.construction_type:
+        return None
+    useful_life = JP_USEFUL_LIFE.get(inp.construction_type)
+    if useful_life is None:
+        return None
+    remaining = max(useful_life - inp.building_age_years, 1)
+    # For buildings past useful life: remaining = useful_life * 0.2 (tax code rule)
+    if inp.building_age_years >= useful_life:
+        remaining = max(int(useful_life * 0.2), 1)
+    depreciable = int(inp.purchase_price * inp.building_ratio)
+    annual = depreciable // remaining
+    return JPDepreciationSchedule(
+        construction_type=inp.construction_type,
+        useful_life_years=useful_life,
+        remaining_years=remaining,
+        annual_depreciation_yen=annual,
+        total_depreciable_yen=depreciable,
+    )
+
+
+__all__ = [
+    "UnderwritingInputs",
+    "UnderwritingResult",
+    "JPDepreciationSchedule",
+    "JP_USEFUL_LIFE",
+    "underwrite",
+]

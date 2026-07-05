@@ -15,8 +15,8 @@ export default function PortfolioSection({ portfolioId }: PortfolioSectionProps)
     return (
       <div className="invest-section">
         <div className="invest-empty">
-          <div className="invest-empty-title">No Portfolio Selected</div>
-          <div className="invest-empty-text">Select or create a portfolio to view holdings and decisions.</div>
+          <div className="invest-empty-title">ポートフォリオ未選択</div>
+          <div className="invest-empty-text">保有物件と判断を表示するにはポートフォリオを選択してください。</div>
         </div>
       </div>
     )
@@ -25,8 +25,8 @@ export default function PortfolioSection({ portfolioId }: PortfolioSectionProps)
   return (
     <div className="invest-section" key="portfolio">
       <div className="invest-section-header">
-        <h2 className="invest-section-title">Portfolio</h2>
-        <p className="invest-section-subtitle">Manage holdings and per-holding recommendations</p>
+        <h2 className="invest-section-title">ポートフォリオ</h2>
+        <p className="invest-section-subtitle">保有物件と物件別レコメンデーションの管理</p>
       </div>
 
       <div className="invest-pill-tabs">
@@ -35,14 +35,14 @@ export default function PortfolioSection({ portfolioId }: PortfolioSectionProps)
           className={`invest-pill-tab${subTab === 'holdings' ? ' active' : ''}`}
           onClick={() => setSubTab('holdings')}
         >
-          Holdings
+          保有物件
         </button>
         <button
           type="button"
           className={`invest-pill-tab${subTab === 'decisions' ? ' active' : ''}`}
           onClick={() => setSubTab('decisions')}
         >
-          Decisions
+          判断履歴
         </button>
       </div>
 

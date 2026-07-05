@@ -82,17 +82,17 @@ export default function OverviewTab({ portfolioId }: OverviewTabProps) {
   return (
     <div className="overview-tab" data-testid="overview-tab">
       <section className="overview-aggregate-strip" data-testid="overview-aggregates">
-        <Metric label="Holdings" value={String(report.holding_count)} />
-        <Metric label="Total value" value={formatMoney(agg.total_value)} />
-        <Metric label="Total equity" value={formatMoney(agg.total_equity)} />
-        <Metric label="Monthly cash flow" value={formatMoney(agg.monthly_cash_flow)} />
-        <Metric label="Blended cap rate" value={formatPercent(agg.blended_cap_rate)} />
-        <Metric label="Weighted DSCR" value={formatRatio(agg.weighted_dscr)} />
+        <Metric label="物件数" value={String(report.holding_count)} />
+        <Metric label="総資産額" value={formatMoney(agg.total_value)} />
+        <Metric label="自己資本" value={formatMoney(agg.total_equity)} />
+        <Metric label="月間キャッシュフロー" value={formatMoney(agg.monthly_cash_flow)} />
+        <Metric label="加重キャップレート" value={formatPercent(agg.blended_cap_rate)} />
+        <Metric label="加重DSCR" value={formatRatio(agg.weighted_dscr)} />
       </section>
 
       {report.attention.length > 0 && (
         <section className="overview-attention" data-testid="overview-attention">
-          <h3>What needs attention</h3>
+          <h3>注意が必要な物件</h3>
           <ul>
             {report.attention.map((item) => (
               <li key={item.holding_id} data-testid={`attention-${item.holding_id}`}>
@@ -108,20 +108,20 @@ export default function OverviewTab({ portfolioId }: OverviewTabProps) {
       )}
 
       <section className="overview-per-holding" data-testid="overview-per-holding">
-        <h3>Per-holding analysis</h3>
+        <h3>物件別分析</h3>
         {report.per_holding.length === 0 ? (
-          <p className="portfolio-empty">No holdings yet — add one in the Holdings tab.</p>
+          <p className="portfolio-empty">物件がまだありません — 保有物件タブから追加してください。</p>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Value</th>
-                <th>Cap rate</th>
+                <th>住所</th>
+                <th>評価額</th>
+                <th>キャップレート</th>
                 <th>DSCR</th>
                 <th>CoC</th>
-                <th>Monthly CF</th>
-                <th>Recommendation</th>
+                <th>月間CF</th>
+                <th>推奨アクション</th>
               </tr>
             </thead>
             <tbody>

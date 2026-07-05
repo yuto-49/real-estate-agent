@@ -122,7 +122,7 @@ export default function InvestmentPage() {
       <div className="invest-content">
         {error && <p className="invest-error">{error}</p>}
 
-        <Suspense fallback={<div className="invest-empty">Loading...</div>}>
+        <Suspense fallback={<div className="invest-empty">読み込み中...</div>}>
           {activeSection === 'dashboard' && (
             <DashboardSection
               portfolioId={selectedPortfolioId}

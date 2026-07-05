@@ -38,6 +38,34 @@ class PriceProbabilityCurve:
     generated_at: datetime = field(default_factory=datetime.utcnow)
 
 
+# Ward/tier baseline days-on-market calibration (Tokyo 23区)
+WARD_DAYS_ON_MARKET: dict[str, int] = {
+    "千代田区": 35, "中央区": 38, "港区": 35, "渋谷区": 40, "新宿区": 42,
+    "目黒区": 48, "世田谷区": 50, "文京区": 45, "品川区": 48, "豊島区": 50,
+    "大田区": 55, "杉並区": 55, "中野区": 52, "練馬区": 58, "板橋区": 58,
+    "江東区": 50, "台東区": 48, "墨田区": 55,
+    "荒川区": 62, "北区": 60, "足立区": 68, "葛飾区": 70, "江戸川区": 65,
+}
+
+
+def _resolve_ward_params(
+    ward: str | None,
+    avg_days: int,
+    elasticity: float,
+) -> tuple[int, float]:
+    """Resolve days-on-market and elasticity from ward name."""
+    if not ward:
+        return avg_days, elasticity
+    days = WARD_DAYS_ON_MARKET.get(ward, avg_days)
+    if days <= 45:
+        e = 2.0
+    elif days <= 55:
+        e = 2.5
+    else:
+        e = 3.0
+    return days, e
+
+
 def compute_price_probability_curve(
     *,
     satei_price_yen: int,
@@ -48,12 +76,9 @@ def compute_price_probability_curve(
     seed: int | None = None,
     avg_days_on_market: int = 60,
     demand_elasticity: float = 2.5,
+    ward: str | None = None,
 ) -> PriceProbabilityCurve:
     """Compute price-vs-probability curve via Monte Carlo.
-
-    The model: for each asking price, we estimate days-to-close as a function
-    of the premium over satei. Higher premiums reduce buyer demand, increasing
-    time-on-market. Market condition noise is sampled each iteration.
 
     Parameters
     ----------
@@ -66,11 +91,15 @@ def compute_price_probability_curve(
     iterations:
         Monte Carlo iterations per price point.
     avg_days_on_market:
-        Baseline average days to close at fair value (from REINFOLIB calibration).
+        Baseline average days to close at fair value.
     demand_elasticity:
         How sensitive days-to-close is to price premium.
-        elasticity=2.5 means +10% premium → +25% more days.
+    ward:
+        Tokyo ward name (e.g. "港区") to auto-calibrate days and elasticity.
     """
+    avg_days_on_market, demand_elasticity = _resolve_ward_params(
+        ward, avg_days_on_market, demand_elasticity,
+    )
     rng = random.Random(seed)
     points: list[PriceProbabilityPoint] = []
 

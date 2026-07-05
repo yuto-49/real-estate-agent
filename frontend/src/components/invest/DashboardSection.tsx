@@ -38,8 +38,8 @@ export default function DashboardSection({ portfolioId }: DashboardSectionProps)
     return (
       <div className="invest-section">
         <div className="invest-empty">
-          <div className="invest-empty-title">Welcome</div>
-          <div className="invest-empty-text">Select an investor and portfolio to get started.</div>
+          <div className="invest-empty-title">ようこそ</div>
+          <div className="invest-empty-text">投資家とポートフォリオを選択してください。</div>
         </div>
       </div>
     )
@@ -48,7 +48,7 @@ export default function DashboardSection({ portfolioId }: DashboardSectionProps)
   if (loading) {
     return (
       <div className="invest-section">
-        <div className="invest-empty">Loading dashboard...</div>
+        <div className="invest-empty">ダッシュボードを読み込み中...</div>
       </div>
     )
   }
@@ -58,18 +58,18 @@ export default function DashboardSection({ portfolioId }: DashboardSectionProps)
   return (
     <div className="invest-section" key="dashboard">
       <div className="invest-section-header">
-        <h2 className="invest-section-title">Dashboard</h2>
-        <p className="invest-section-subtitle">Portfolio overview and market intelligence</p>
+        <h2 className="invest-section-title">ダッシュボード</h2>
+        <p className="invest-section-subtitle">ポートフォリオ概要とマーケットインテリジェンス</p>
       </div>
 
       <div className="invest-stat-grid">
         <StatCard
-          label="Total Value"
+          label="総資産額"
           value={agg ? formatYen(agg.total_value) : '\u2014'}
-          footer={summary ? `${summary.holding_count} holdings` : undefined}
+          footer={summary ? `${summary.holding_count} 物件` : undefined}
         />
         <StatCard
-          label="Monthly Cash Flow"
+          label="月間キャッシュフロー"
           value={agg ? formatYen(agg.monthly_cash_flow) : '\u2014'}
           delta={agg && agg.monthly_cash_flow > 0 ? 0 : agg ? -1 : null}
         />
@@ -80,14 +80,14 @@ export default function DashboardSection({ portfolioId }: DashboardSectionProps)
         <StatCard
           label="DSCR"
           value={agg?.weighted_dscr != null ? agg.weighted_dscr.toFixed(2) : '\u2014'}
-          footer={agg?.weighted_dscr != null && agg.weighted_dscr < 1.0 ? 'Below threshold' : undefined}
+          footer={agg?.weighted_dscr != null && agg.weighted_dscr < 1.0 ? '基準値以下' : undefined}
         />
         <StatCard
-          label="Equity"
+          label="自己資本"
           value={agg ? formatYen(agg.total_equity) : '\u2014'}
         />
         <StatCard
-          label="Annual NOI"
+          label="年間NOI"
           value={agg ? formatYen(agg.annual_noi) : '\u2014'}
         />
       </div>
@@ -95,7 +95,7 @@ export default function DashboardSection({ portfolioId }: DashboardSectionProps)
       {summary && summary.attention.length > 0 && (
         <div className="invest-card" style={{ marginBottom: 'var(--space-6)' }}>
           <div className="invest-card-header">
-            <span className="invest-card-title">Attention Items</span>
+            <span className="invest-card-title">注意事項</span>
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
               {summary.attention.length} item{summary.attention.length !== 1 ? 's' : ''}
             </span>
@@ -113,7 +113,7 @@ export default function DashboardSection({ portfolioId }: DashboardSectionProps)
 
       <div className="invest-card">
         <div className="invest-card-header">
-          <span className="invest-card-title">Recent Simulations</span>
+          <span className="invest-card-title">最近のシミュレーション</span>
         </div>
         <RecentSimulations />
       </div>
