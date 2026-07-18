@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../utils/api'
+import { formatStrategyLabel } from '../utils/japan'
 
 import ChatImportStep from '../components/onboarding/ChatImportStep'
 import ConfirmStep from '../components/onboarding/ConfirmStep'
@@ -33,6 +34,11 @@ export interface InvestorProfileDraft {
     zip?: string
     city?: string
     state?: string
+    prefecture?: string
+    municipality?: string
+    ward?: string
+    neighborhood?: string
+    station?: string
   }
 }
 
@@ -144,13 +150,13 @@ interface WizardChromeProps {
 
 function WizardChrome({ step, onBack, canGoBack, children }: WizardChromeProps) {
   const labels: Record<WizardStep, string> = {
-    fork: 'Portfolio',
-    import_method: 'Import',
+    fork: '現況確認',
+    import_method: '取り込み方法',
     csv_import: 'CSV',
-    chat_import: 'Chat',
-    profile_form: 'Profile',
-    recommendations: 'Recommendations',
-    confirm: 'Confirm',
+    chat_import: '対話入力',
+    profile_form: '投資条件',
+    recommendations: '候補物件',
+    confirm: '確認',
   }
   const order: WizardStep[] = [
     'fork',
@@ -166,8 +172,8 @@ function WizardChrome({ step, onBack, canGoBack, children }: WizardChromeProps) 
   return (
     <div className="onboarding-wizard" data-testid="onboarding-wizard">
       <header className="onboarding-wizard__header">
-        <h2>Get started</h2>
-        <ol className="onboarding-wizard__progress" aria-label="Progress">
+        <h2>初期設定</h2>
+        <ol className="onboarding-wizard__progress" aria-label="進行状況">
           {order.map((s, i) => (
             <li
               key={s}
@@ -187,7 +193,7 @@ function WizardChrome({ step, onBack, canGoBack, children }: WizardChromeProps) 
           disabled={!canGoBack}
           data-testid="wizard-back"
         >
-          Back
+          戻る
         </button>
       </footer>
     </div>
@@ -207,7 +213,7 @@ export default function OnboardingWizard() {
   const submitProfile = async () => {
     setProfileError(null)
     if (!user?.id) {
-      setProfileError('You must be signed in to save your profile.')
+      setProfileError('プロフィール保存にはログインが必要です。')
       return
     }
     try {
@@ -222,7 +228,7 @@ export default function OnboardingWizard() {
       })
       dispatch({ type: 'goto', step: 'recommendations' })
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Failed to save profile.')
+      setProfileError(err instanceof Error ? err.message : '投資条件を保存できませんでした。')
     }
   }
 
@@ -304,7 +310,7 @@ export default function OnboardingWizard() {
               onSelect={async (propertyId) => {
               setProfileError(null)
               if (!user?.id) {
-                setProfileError('You must be signed in to select a property.')
+                setProfileError('物件選択にはログインが必要です。')
                 return
               }
               try {
@@ -312,7 +318,7 @@ export default function OnboardingWizard() {
                   user_id: user.id,
                   user_email: user.email,
                   property_id: propertyId,
-                  portfolio_name: 'Recommended Property',
+                  portfolio_name: '提案物件ポートフォリオ',
                   investment_strategy: 'buy_hold',
                 })
                 dispatch({ type: 'select_property', propertyId })
@@ -325,7 +331,7 @@ export default function OnboardingWizard() {
                 setProfileError(
                   err instanceof Error
                     ? err.message
-                    : 'Could not stage the selected property.',
+                    : '選択した物件をポートフォリオに反映できませんでした。',
                 )
               }
             }}
@@ -346,14 +352,14 @@ export default function OnboardingWizard() {
                 const launch = await api.strategy.run({
                   portfolio_id: portfolioId,
                   text: state.profile.strategy
-                    ? `Strategy: ${state.profile.strategy}. Target cap rate ${state.profile.target_cap_rate ?? 'unset'}%.`
-                    : 'Default strategy run.',
+                    ? `投資方針: ${formatStrategyLabel(state.profile.strategy)}。目標表面利回り ${state.profile.target_cap_rate ?? '未設定'}%。`
+                    : '日本不動産向けの標準シミュレーションを実行。',
                 })
                 dispatch({ type: 'reset' })
                 navigate(`/simulate/${launch.run_id}`)
               } catch (err) {
                 setProfileError(
-                  err instanceof Error ? err.message : 'Could not launch simulation.',
+                  err instanceof Error ? err.message : 'シミュレーションを開始できませんでした。',
                 )
               }
             }}

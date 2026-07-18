@@ -84,19 +84,19 @@ describe('parseHoldingsCsv', () => {
     expect(result.holdings).toHaveLength(1)
     expect(result.holdings[0].address).toBe('789 Pine Rd')
     expect(result.errors).toHaveLength(1)
-    expect(result.errors[0]).toContain('Row 2')
+    expect(result.errors[0]).toContain('2 行目')
   })
 
   it('returns a fatal error when no address column is present', () => {
     const result = parseHoldingsCsv('Notes,Rent\nfoo,1200')
     expect(result.holdings).toEqual([])
-    expect(result.errors[0]).toContain('address')
+    expect(result.errors[0]).toContain('所在地')
   })
 
   it('handles an empty CSV gracefully', () => {
     const result = parseHoldingsCsv('')
     expect(result.holdings).toEqual([])
-    expect(result.errors[0]).toContain('empty')
+    expect(result.errors[0]).toContain('空')
   })
 
   it('leaves financials null when no financial columns are present', () => {

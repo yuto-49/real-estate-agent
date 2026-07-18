@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../utils/api'
+import { formatJpyCompact, formatRecommendationLabel } from '../../utils/japan'
 import type { PortfolioSummaryReport } from '../../utils/types'
 
 interface AnalysisTabProps {
@@ -7,20 +8,11 @@ interface AnalysisTabProps {
 }
 
 const ACTION_BLURB: Record<string, string> = {
-  HOLD: 'Stay the course — no action recommended.',
-  RAISE_RENT: 'Rent has room to move toward market.',
-  REFI: 'Refinance — the note rate is materially above the benchmark.',
-  SELL: 'Market conditions favor listing this holding.',
-  IMPROVE: 'Invest in the property to protect tenant retention.',
-}
-
-function formatMoney(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '—'
-  return value.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  })
+  HOLD: '現状維持で問題ありません。',
+  RAISE_RENT: '市場賃料に合わせた賃料改定余地があります。',
+  REFI: '借入条件の見直しで収支改善が見込めます。',
+  SELL: '市況上、売却の検討余地があります。',
+  IMPROVE: '改修や改善投資で競争力を高められます。',
 }
 
 function formatPercent(value: number | null | undefined, digits = 2): string {
@@ -49,7 +41,7 @@ export default function AnalysisTab({ portfolioId }: AnalysisTabProps) {
         if (active) setReport(r)
       })
       .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : 'Failed to load summary')
+        if (active) setError(err instanceof Error ? err.message : '概要レポートを取得できませんでした。')
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -62,7 +54,7 @@ export default function AnalysisTab({ portfolioId }: AnalysisTabProps) {
   if (loading) {
     return (
       <p className="portfolio-empty" data-testid="overview-loading">
-        Loading portfolio summary…
+        ポートフォリオ概要を読み込み中…
       </p>
     )
   }
@@ -82,22 +74,22 @@ export default function AnalysisTab({ portfolioId }: AnalysisTabProps) {
   return (
     <div className="overview-tab" data-testid="overview-tab">
       <section className="overview-aggregate-strip" data-testid="overview-aggregates">
-        <Metric label="Holdings" value={String(report.holding_count)} />
-        <Metric label="Total value" value={formatMoney(agg.total_value)} />
-        <Metric label="Total equity" value={formatMoney(agg.total_equity)} />
-        <Metric label="Monthly cash flow" value={formatMoney(agg.monthly_cash_flow)} />
-        <Metric label="Blended cap rate" value={formatPercent(agg.blended_cap_rate)} />
-        <Metric label="Weighted DSCR" value={formatRatio(agg.weighted_dscr)} />
+        <Metric label="保有件数" value={String(report.holding_count)} />
+        <Metric label="資産総額" value={formatJpyCompact(agg.total_value)} />
+        <Metric label="純資産" value={formatJpyCompact(agg.total_equity)} />
+        <Metric label="月次CF" value={formatJpyCompact(agg.monthly_cash_flow)} />
+        <Metric label="加重平均利回り" value={formatPercent(agg.blended_cap_rate)} />
+        <Metric label="加重平均DSCR" value={formatRatio(agg.weighted_dscr)} />
       </section>
 
       {report.attention.length > 0 && (
         <section className="overview-attention" data-testid="overview-attention">
-          <h3>What needs attention</h3>
+          <h3>優先して確認したい項目</h3>
           <ul>
             {report.attention.map((item) => (
               <li key={item.holding_id} data-testid={`attention-${item.holding_id}`}>
                 <span className={`overview-action overview-action-${item.action.toLowerCase()}`}>
-                  {item.action}
+                  {formatRecommendationLabel(item.action)}
                 </span>
                 <span className="overview-attention-address">{item.address}</span>
                 <span className="overview-attention-rationale">{item.rationale}</span>
@@ -108,37 +100,37 @@ export default function AnalysisTab({ portfolioId }: AnalysisTabProps) {
       )}
 
       <section className="overview-per-holding" data-testid="overview-per-holding">
-        <h3>Per-holding analysis</h3>
+        <h3>物件別分析</h3>
         {report.per_holding.length === 0 ? (
-          <p className="portfolio-empty">No holdings yet — add one in the Holdings tab.</p>
+          <p className="portfolio-empty">保有物件がありません。保有物件タブから追加してください。</p>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Value</th>
-                <th>Cap rate</th>
+                <th>所在地</th>
+                <th>評価額</th>
+                <th>利回り</th>
                 <th>DSCR</th>
-                <th>CoC</th>
-                <th>Monthly CF</th>
-                <th>Recommendation</th>
+                <th>自己資金利回り</th>
+                <th>月次CF</th>
+                <th>推奨</th>
               </tr>
             </thead>
             <tbody>
               {report.per_holding.map((row) => (
                 <tr key={row.holding_id} data-testid={`overview-row-${row.holding_id}`}>
                   <td>{row.address}</td>
-                  <td>{formatMoney(row.current_value)}</td>
+                  <td>{formatJpyCompact(row.current_value)}</td>
                   <td>{formatPercent(row.cap_rate)}</td>
                   <td>{formatRatio(row.dscr)}</td>
                   <td>{formatPercent(row.cash_on_cash)}</td>
-                  <td>{formatMoney(row.monthly_cash_flow)}</td>
+                  <td>{formatJpyCompact(row.monthly_cash_flow)}</td>
                   <td>
                     <span
                       className={`overview-action overview-action-${row.recommendation.toLowerCase()}`}
                       title={ACTION_BLURB[row.recommendation] ?? row.recommendation_rationale}
                     >
-                      {row.recommendation}
+                      {formatRecommendationLabel(row.recommendation)}
                     </span>
                   </td>
                 </tr>
@@ -149,8 +141,7 @@ export default function AnalysisTab({ portfolioId }: AnalysisTabProps) {
       </section>
 
       <p className="overview-coverage" data-testid="overview-coverage">
-        Market signals available for {report.market_coverage.with_signals} of{' '}
-        {report.market_coverage.total} holdings.
+        市場シグナル取得済み: {report.market_coverage.total} 件中 {report.market_coverage.with_signals} 件
       </p>
     </div>
   )

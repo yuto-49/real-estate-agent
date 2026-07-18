@@ -53,17 +53,14 @@ router = APIRouter()
 # ── helpers ─────────────────────────────────────────────────────────────
 
 
-async def _load_holding_with_financials(
-    db: AsyncSession, holding: PortfolioHolding
+def _holding_response(
+    holding: PortfolioHolding, fin_row: HoldingFinancials | None
 ) -> PortfolioHoldingResponse:
-    fin_row = (
-        await db.execute(
-            select(HoldingFinancials).where(
-                HoldingFinancials.holding_id == holding.id
-            )
-        )
-    ).scalar_one_or_none()
+    """Build the response shape from a holding + its (preloaded) financials.
 
+    Pure — no I/O. Lets batch callers preload financials once and avoid the
+    per-holding query that :func:`_load_holding_with_financials` performs.
+    """
     fin_resp = HoldingFinancialsResponse.model_validate(fin_row) if fin_row else None
     return PortfolioHoldingResponse(
         id=holding.id,
@@ -83,6 +80,36 @@ async def _load_holding_with_financials(
         financials=fin_resp,
         created_at=holding.created_at,
     )
+
+
+async def _load_holding_with_financials(
+    db: AsyncSession, holding: PortfolioHolding
+) -> PortfolioHoldingResponse:
+    """Single-holding response with its financials (one query). For CRUD paths."""
+    fin_row = (
+        await db.execute(
+            select(HoldingFinancials).where(
+                HoldingFinancials.holding_id == holding.id
+            )
+        )
+    ).scalar_one_or_none()
+    return _holding_response(holding, fin_row)
+
+
+async def _financials_by_holding(
+    db: AsyncSession, holding_ids: list[str]
+) -> dict[str, HoldingFinancials]:
+    """Bulk-load financials for many holdings → ``{holding_id: financials}``."""
+    if not holding_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(HoldingFinancials).where(
+                HoldingFinancials.holding_id.in_(holding_ids)
+            )
+        )
+    ).scalars().all()
+    return {row.holding_id: row for row in rows}
 
 
 def _coerce_enum(value: str, enum_cls: type) -> Any:
@@ -280,7 +307,8 @@ async def list_holdings(
             .order_by(PortfolioHolding.created_at.asc())
         )
     ).scalars().all()
-    return [await _load_holding_with_financials(db, h) for h in rows]
+    fin_by_holding = await _financials_by_holding(db, [h.id for h in rows])
+    return [_holding_response(h, fin_by_holding.get(h.id)) for h in rows]
 
 
 @router.get(
@@ -734,18 +762,14 @@ async def portfolio_aggregate(
     zip_counter: Counter[str] = Counter()
     asset_counter: Counter[str] = Counter()
 
+    fin_by_holding = await _financials_by_holding(db, [h.id for h in holdings])
+
     for h in holdings:
         zip_counter[h.zip_code or "unknown"] += 1
         asset_value = h.asset_class.value if hasattr(h.asset_class, "value") else str(h.asset_class)
         asset_counter[asset_value] += 1
 
-        fin = (
-            await db.execute(
-                select(HoldingFinancials).where(
-                    HoldingFinancials.holding_id == h.id
-                )
-            )
-        ).scalar_one_or_none()
+        fin = fin_by_holding.get(h.id)
         if not fin:
             continue
 

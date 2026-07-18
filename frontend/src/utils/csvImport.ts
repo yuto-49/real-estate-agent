@@ -164,7 +164,12 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
     .filter((line) => line.trim() !== '')
 
   if (lines.length === 0) {
-    return { format: 'generic', holdings: [], errors: ['CSV is empty.'], rowCount: 0 }
+    return {
+      format: 'generic',
+      holdings: [],
+      errors: ['CSV が空です。'],
+      rowCount: 0,
+    }
   }
 
   const headers = parseCsvLine(lines[0])
@@ -175,7 +180,7 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
     return {
       format,
       holdings: [],
-      errors: ['No recognizable "address" column found in CSV header.'],
+      errors: ['CSV ヘッダーに所在地を示す列が見つかりませんでした。'],
       rowCount: lines.length - 1,
     }
   }
@@ -193,7 +198,7 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
     })
 
     if (!flat.address) {
-      errors.push(`Row ${row + 1}: missing address — skipped.`)
+      errors.push(`${row + 1} 行目: 所在地がないためスキップしました。`)
       continue
     }
 

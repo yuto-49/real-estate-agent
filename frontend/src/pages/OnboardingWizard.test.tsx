@@ -117,6 +117,7 @@ describe('OnboardingWizard component', () => {
   it('renders fork step initially', () => {
     renderWizard()
     expect(screen.getByTestId('onboarding-fork')).toBeInTheDocument()
+    expect(screen.getByText('すでに保有ポートフォリオはありますか？')).toBeInTheDocument()
     expect(screen.getByTestId('fork-yes')).toBeInTheDocument()
     expect(screen.getByTestId('fork-no')).toBeInTheDocument()
   })
@@ -131,6 +132,9 @@ describe('OnboardingWizard component', () => {
     renderWizard()
     fireEvent.click(screen.getByTestId('fork-no'))
     expect(screen.getByTestId('onboarding-profile')).toBeInTheDocument()
+    expect(screen.getByTestId('profile-prefecture')).toBeInTheDocument()
+    expect(screen.getByTestId('profile-municipality')).toBeInTheDocument()
+    expect(screen.getByTestId('profile-neighborhood')).toBeInTheDocument()
   })
 
   it('persists step across remount via sessionStorage', async () => {

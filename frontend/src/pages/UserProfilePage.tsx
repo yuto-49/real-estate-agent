@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api } from '../utils/api'
+import {
+  formatJaDate,
+  formatJpyCompact,
+  formatLifeStageLabel,
+  formatRiskToleranceLabel,
+  formatSearchRadius,
+  formatUserRoleLabel,
+} from '../utils/japan'
 import type { UserProfile } from '../utils/types'
 import UserFormModal from '../components/UserFormModal'
 
 const SELECTED_USER_KEY = 'selectedUserId'
 
-function formatCurrency(value: number | null | undefined): string {
-  return typeof value === 'number' ? `$${value.toLocaleString()}` : 'N/A'
+function formatBudget(min: number | null | undefined, max: number | null | undefined): string {
+  return `${formatJpyCompact(min)} - ${formatJpyCompact(max)}`
 }
 
 export default function UserProfilePage() {
@@ -29,7 +37,7 @@ export default function UserProfilePage() {
         const users = await api.users.list()
         if (cancelled) return
         if (users.length === 0) {
-          setMissingIdMessage('No users found. Create a profile from the dashboard first.')
+          setMissingIdMessage('プロフィールがありません。先にダッシュボードから作成してください。')
           setLoading(false)
           return
         }
@@ -41,7 +49,7 @@ export default function UserProfilePage() {
         navigate(`/profile/${targetId}`, { replace: true })
       } catch {
         if (cancelled) return
-        setMissingIdMessage('Unable to select a profile. Open one from the dashboard.')
+        setMissingIdMessage('プロフィールを選択できませんでした。ダッシュボードから開いてください。')
         setLoading(false)
       }
     }
@@ -69,15 +77,15 @@ export default function UserProfilePage() {
     setUser(saved)
   }
 
-  if (loading) return <div className="profile-page"><p>Loading...</p></div>
+  if (loading) return <div className="profile-page"><p>読み込み中…</p></div>
   if (!id) {
     return (
       <div className="profile-page">
-        <p>{missingIdMessage || 'Select a profile from the dashboard.'} <Link to="/">Back to dashboard</Link></p>
+        <p>{missingIdMessage || 'ダッシュボードからプロフィールを選択してください。'} <Link to="/">ダッシュボードへ戻る</Link></p>
       </div>
     )
   }
-  if (!user) return <div className="profile-page"><p>User not found. <Link to="/">Back to dashboard</Link></p></div>
+  if (!user) return <div className="profile-page"><p>プロフィールが見つかりません。<Link to="/">ダッシュボードへ戻る</Link></p></div>
 
   return (
     <div className="profile-page">
@@ -90,28 +98,28 @@ export default function UserProfilePage() {
           <div>
             <h2>{user.name}</h2>
             <p className="profile-email">{user.email}</p>
-            <span className={`status-pill ok`}>{user.role}</span>
+            <span className={`status-pill ok`}>{formatUserRoleLabel(user.role)}</span>
             {user.created_at && (
-              <p className="profile-member-since">Member since {new Date(user.created_at).toLocaleDateString()}</p>
+              <p className="profile-member-since">登録日 {formatJaDate(user.created_at)}</p>
             )}
           </div>
         </div>
         <div className="profile-header-actions">
-          <button className="primary-btn" onClick={() => setShowModal(true)}>Edit Profile</button>
-          <Link to="/" className="secondary-btn">Back to Dashboard</Link>
+          <button className="primary-btn" onClick={() => setShowModal(true)}>プロフィールを編集</button>
+          <Link to="/" className="secondary-btn">ダッシュボードへ戻る</Link>
         </div>
       </div>
 
       {/* Profile Details */}
       <div className="profile-details-card">
-        <h3>Profile Details</h3>
+        <h3>プロフィール詳細</h3>
         <div className="user-meta-grid">
-          <div><label>Budget</label><p>{formatCurrency(user.budget_min)} - {formatCurrency(user.budget_max)}</p></div>
-          <div><label>Timeline</label><p>{user.timeline_days ?? 'N/A'} days</p></div>
-          <div><label>Risk Tolerance</label><p>{user.risk_tolerance || 'N/A'}</p></div>
-          <div><label>Location</label><p>{user.zip_code || 'N/A'}{user.search_radius ? ` (${user.search_radius} mi radius)` : ''}</p></div>
-          <div><label>Life Stage</label><p>{user.life_stage || 'N/A'}</p></div>
-          <div><label>Preferred Types</label><p>{user.preferred_types.length ? user.preferred_types.join(', ') : 'N/A'}</p></div>
+          <div><label>予算帯</label><p>{formatBudget(user.budget_min, user.budget_max)}</p></div>
+          <div><label>検討期間</label><p>{user.timeline_days ? `${user.timeline_days} 日` : '—'}</p></div>
+          <div><label>リスク許容度</label><p>{formatRiskToleranceLabel(user.risk_tolerance)}</p></div>
+          <div><label>対象エリア</label><p>{user.zip_code ? `〒${user.zip_code}` : '—'}{user.search_radius ? `（${formatSearchRadius(user.search_radius)}）` : ''}</p></div>
+          <div><label>運用フェーズ</label><p>{formatLifeStageLabel(user.life_stage)}</p></div>
+          <div><label>希望物件種別</label><p>{user.preferred_types.length ? user.preferred_types.join(', ') : '—'}</p></div>
         </div>
       </div>
 

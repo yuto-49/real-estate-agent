@@ -141,10 +141,9 @@ test.describe('onboarding wizard', () => {
     await expect(page.getByTestId('simulate-report-page')).toBeVisible()
     await expect(page.getByTestId('report-unified-summary')).toBeVisible()
     await expect(page.getByText('Portfolio survives the simulation horizon.')).toBeVisible()
-    // Negotiate CTA points at the first holding.
-    await expect(page.getByTestId('report-negotiate-cta')).toHaveAttribute(
+    await expect(page.getByTestId('report-portfolio-link')).toHaveAttribute(
       'href',
-      '/negotiate/h-1',
+      '/portfolio',
     )
   })
 
@@ -165,7 +164,12 @@ test.describe('onboarding wizard', () => {
           strategy: 'buy_and_hold',
           target_cap_rate: 7,
           target_coc: 8,
-          geography: { zip: '60601' },
+          geography: {
+            zip: '150-0001',
+            prefecture: '東京都',
+            municipality: '渋谷区',
+            neighborhood: '神宮前',
+          },
         }),
       })
     })
@@ -178,14 +182,14 @@ test.describe('onboarding wizard', () => {
           recommendations: [
             {
               property_id: 'prop-1',
-              address: '123 Main St 60601',
-              asking_price: 350000,
-              property_type: 'sfr',
-              bedrooms: 3,
-              bathrooms: 2,
-              sqft: 1400,
+              address: '東京都渋谷区神宮前1-1-1',
+              asking_price: 35000000,
+              property_type: 'condo',
+              bedrooms: 1,
+              bathrooms: 1,
+              sqft: 540,
               score: 0.81,
-              rationale: ['gross yield ~8.2%', 'exact ZIP match (60601)'],
+              rationale: ['表面利回りが目標水準に近い', '希望エリアとの整合性が高い'],
             },
           ],
           profile_id: 'prof-1',
@@ -201,7 +205,7 @@ test.describe('onboarding wizard', () => {
         body: JSON.stringify({
           id: 'pf-synth-1',
           user_id: FAKE_USER_ID,
-          name: 'Recommended Property',
+          name: '提案物件ポートフォリオ',
         }),
       })
     })
@@ -230,7 +234,10 @@ test.describe('onboarding wizard', () => {
     await page.getByTestId('profile-strategy-buy_and_hold').check()
     await page.getByTestId('profile-cap-rate').fill('7')
     await page.getByTestId('profile-coc').fill('8')
-    await page.getByTestId('profile-zip').fill('60601')
+    await page.getByTestId('profile-zip').fill('150-0001')
+    await page.getByTestId('profile-prefecture').selectOption('東京都')
+    await page.getByTestId('profile-municipality').fill('渋谷区')
+    await page.getByTestId('profile-neighborhood').fill('神宮前')
     await page.getByTestId('profile-submit').click()
 
     // Recommendations render the mocked property.

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api } from '../utils/api'
+import { formatBooleanJa, formatRecommendationLabel } from '../utils/japan'
 import type { StrategyRunRecord } from '../utils/types'
 
 interface State {
@@ -31,7 +32,7 @@ export default function SimulateReportPage() {
         if (!cancelled) {
           setState({
             loading: false,
-            error: err instanceof Error ? err.message : 'Could not load report.',
+            error: err instanceof Error ? err.message : 'レポートを取得できませんでした。',
             record: null,
           })
         }
@@ -44,7 +45,7 @@ export default function SimulateReportPage() {
   if (state.loading) {
     return (
       <div className="simulate-report-page" data-testid="simulate-report-loading">
-        Loading report…
+        レポートを読み込み中…
       </div>
     )
   }
@@ -54,7 +55,7 @@ export default function SimulateReportPage() {
         className="simulate-report-page onboarding-error"
         data-testid="simulate-report-error"
       >
-        {state.error ?? 'Report unavailable.'}
+        {state.error ?? 'レポートを表示できません。'}
       </div>
     )
   }
@@ -65,22 +66,22 @@ export default function SimulateReportPage() {
   return (
     <div className="simulate-report-page" data-testid="simulate-report-page">
       <header className="simulate-report-page__header">
-        <h2>Run report</h2>
+        <h2>運用レポート</h2>
         <p className="onboarding-subtle">
-          Run {runId} · Status {record.status}
+          実行ID {runId} ・ ステータス {record.status}
         </p>
       </header>
 
       {unified && (
         <section className="simulate-report-card" data-testid="report-unified-summary">
-          <h3>Summary</h3>
+          <h3>総括</h3>
           <dl className="simulate-report-stats">
-            <dt>Survives</dt>
-            <dd>{unified.survives ? 'Yes' : 'No'}</dd>
-            <dt>Confidence</dt>
+            <dt>成立性</dt>
+            <dd>{formatBooleanJa(unified.survives)}</dd>
+            <dt>確信度</dt>
             <dd>{(unified.confidence * 100).toFixed(0)}%</dd>
-            <dt>Horizon</dt>
-            <dd>{unified.horizon_years} years</dd>
+            <dt>検証期間</dt>
+            <dd>{unified.horizon_years} 年</dd>
           </dl>
           <p className="simulate-report-summary">{unified.summary}</p>
         </section>
@@ -88,7 +89,7 @@ export default function SimulateReportPage() {
 
       {unified && unified.agreements.length > 0 && (
         <section className="simulate-report-card" data-testid="report-agreements">
-          <h3>Agreements</h3>
+          <h3>一致ポイント</h3>
           <ul>
             {unified.agreements.map((line, i) => (
               <li key={i}>{line}</li>
@@ -99,7 +100,7 @@ export default function SimulateReportPage() {
 
       {unified && unified.divergences.length > 0 && (
         <section className="simulate-report-card" data-testid="report-divergences">
-          <h3>Divergences</h3>
+          <h3>差分ポイント</h3>
           <ul>
             {unified.divergences.map((line, i) => (
               <li key={i}>{line}</li>
@@ -110,15 +111,15 @@ export default function SimulateReportPage() {
 
       {unified && unified.reconciliations.length > 0 && (
         <section className="simulate-report-card" data-testid="report-reconciliations">
-          <h3>Per-holding reconciliation</h3>
+          <h3>物件別の整合確認</h3>
           <table className="simulate-report-table">
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Today action</th>
-                <th>Projected action</th>
-                <th>Flipped?</th>
-                <th>Note</th>
+                <th>所在地</th>
+                <th>現在判断</th>
+                <th>将来判断</th>
+                <th>変化有無</th>
+                <th>補足</th>
               </tr>
             </thead>
             <tbody>
@@ -129,9 +130,9 @@ export default function SimulateReportPage() {
                   data-testid={`report-rec-${rec.holding_id}`}
                 >
                   <td>{rec.address}</td>
-                  <td>{rec.today_action}</td>
-                  <td>{rec.projected_action}</td>
-                  <td>{rec.flipped ? 'Yes' : 'No'}</td>
+                  <td>{formatRecommendationLabel(rec.today_action)}</td>
+                  <td>{formatRecommendationLabel(rec.projected_action)}</td>
+                  <td>{formatBooleanJa(rec.flipped)}</td>
                   <td>{rec.note ?? '—'}</td>
                 </tr>
               ))}
@@ -142,13 +143,13 @@ export default function SimulateReportPage() {
 
       {record.status === 'failed' && (
         <p className="onboarding-error" data-testid="report-failed">
-          Run failed: {record.error ?? 'unknown error'}
+          実行に失敗しました: {record.error ?? '不明なエラー'}
         </p>
       )}
 
       <footer className="simulate-report-page__actions">
         <Link to="/portfolio" className="onboarding-secondary" data-testid="report-portfolio-link">
-          Back to portfolio
+          ポートフォリオへ戻る
         </Link>
       </footer>
     </div>

@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react'
 
 import type { InvestorProfileDraft, StrategyKind } from '../../pages/OnboardingWizard'
+import { PREFECTURES, formatStrategyLabel } from '../../utils/japan'
 
 interface InvestorProfileFormProps {
   value: InvestorProfileDraft
@@ -9,9 +10,9 @@ interface InvestorProfileFormProps {
 }
 
 const STRATEGY_OPTIONS: { value: StrategyKind; label: string }[] = [
-  { value: 'buy_and_hold', label: 'Buy and hold' },
-  { value: 'flip', label: 'Flip' },
-  { value: 'lease', label: 'Lease' },
+  { value: 'buy_and_hold', label: formatStrategyLabel('buy_and_hold') },
+  { value: 'flip', label: formatStrategyLabel('flip') },
+  { value: 'lease', label: formatStrategyLabel('lease') },
 ]
 
 function parseNumeric(raw: string): number | null {
@@ -27,8 +28,9 @@ function isComplete(p: InvestorProfileDraft): boolean {
   if (p.target_coc === null) return false
   const hasGeo =
     Boolean(p.geography.zip) ||
-    Boolean(p.geography.city) ||
-    Boolean(p.geography.state)
+    Boolean(p.geography.prefecture) ||
+    Boolean(p.geography.municipality) ||
+    Boolean(p.geography.neighborhood)
   return hasGeo
 }
 
@@ -42,7 +44,9 @@ export default function InvestorProfileForm({
     if (isComplete(value)) onSubmit()
   }
 
-  const handleGeoChange = (key: 'zip' | 'city' | 'state') =>
+  const handleGeoChange = (
+    key: 'zip' | 'prefecture' | 'municipality' | 'ward' | 'neighborhood' | 'station',
+  ) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       onChange({
         geography: { ...value.geography, [key]: event.target.value || undefined },
@@ -55,14 +59,14 @@ export default function InvestorProfileForm({
       onSubmit={handleSubmit}
       data-testid="onboarding-profile"
     >
-      <h3>Tell us about your investing goals</h3>
+      <h3>日本での投資条件を設定してください</h3>
 
       <label className="onboarding-field">
-        <span>Investment budget (USD)</span>
+        <span>投資予算（円）</span>
         <input
           type="number"
           min="0"
-          step="1000"
+          step="10000"
           value={value.budget ?? ''}
           onChange={(e) => onChange({ budget: parseNumeric(e.target.value) })}
           data-testid="profile-budget"
@@ -71,7 +75,7 @@ export default function InvestorProfileForm({
       </label>
 
       <fieldset className="onboarding-field onboarding-field--radio">
-        <legend>Strategy</legend>
+        <legend>投資方針</legend>
         {STRATEGY_OPTIONS.map((opt) => (
           <label key={opt.value}>
             <input
@@ -89,7 +93,7 @@ export default function InvestorProfileForm({
 
       <div className="onboarding-field-row">
         <label className="onboarding-field">
-          <span>Target cap rate (%)</span>
+          <span>目標表面利回り（%）</span>
           <input
             type="number"
             min="0"
@@ -103,7 +107,7 @@ export default function InvestorProfileForm({
           />
         </label>
         <label className="onboarding-field">
-          <span>Target CoC (%)</span>
+          <span>目標自己資金利回り（%）</span>
           <input
             type="number"
             min="0"
@@ -119,29 +123,67 @@ export default function InvestorProfileForm({
       </div>
 
       <fieldset className="onboarding-field onboarding-field--row">
-        <legend>Geography (at least one required)</legend>
+        <legend>希望エリア（いずれか必須）</legend>
         <input
           type="text"
-          placeholder="ZIP"
+          placeholder="郵便番号"
           value={value.geography.zip ?? ''}
           onChange={handleGeoChange('zip')}
           data-testid="profile-zip"
         />
+        <select
+          value={value.geography.prefecture ?? ''}
+          onChange={(e) =>
+            onChange({
+              geography: { ...value.geography, prefecture: e.target.value || undefined },
+            })
+          }
+          data-testid="profile-prefecture"
+        >
+          <option value="">都道府県を選択</option>
+          {PREFECTURES.map((prefecture) => (
+            <option key={prefecture} value={prefecture}>
+              {prefecture}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
-          placeholder="City"
-          value={value.geography.city ?? ''}
-          onChange={handleGeoChange('city')}
-          data-testid="profile-city"
+          placeholder="市区町村"
+          value={value.geography.municipality ?? ''}
+          onChange={handleGeoChange('municipality')}
+          data-testid="profile-municipality"
         />
         <input
           type="text"
-          placeholder="State"
-          value={value.geography.state ?? ''}
-          onChange={handleGeoChange('state')}
-          data-testid="profile-state"
+          placeholder="町名・丁目"
+          value={value.geography.neighborhood ?? ''}
+          onChange={handleGeoChange('neighborhood')}
+          data-testid="profile-neighborhood"
         />
       </fieldset>
+      <div className="onboarding-field-row">
+        <label className="onboarding-field">
+          <span>最寄り駅（任意）</span>
+          <input
+            type="text"
+            placeholder="例: 新宿"
+            value={value.geography.station ?? ''}
+            onChange={handleGeoChange('station')}
+            data-testid="profile-station"
+          />
+        </label>
+        <label className="onboarding-field">
+          <span>行政区（任意）</span>
+          <input
+            type="text"
+            placeholder="例: 港区"
+            value={value.geography.ward ?? ''}
+            onChange={handleGeoChange('ward')}
+            data-testid="profile-ward"
+          />
+        </label>
+      </div>
 
       <button
         type="submit"
@@ -149,7 +191,7 @@ export default function InvestorProfileForm({
         disabled={!isComplete(value)}
         data-testid="profile-submit"
       >
-        See recommendations
+        候補物件を見る
       </button>
     </form>
   )

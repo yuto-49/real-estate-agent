@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { parseHoldingsCsv, type CsvFormat } from '../../utils/csvImport'
+import { formatAssetClassLabel } from '../../utils/japan'
 import type { PortfolioHoldingCreate } from '../../utils/types'
 
 interface CsvImportPanelProps {
@@ -7,10 +8,20 @@ interface CsvImportPanelProps {
 }
 
 const FORMAT_LABELS: Record<CsvFormat, string> = {
-  stessa: 'Stessa export',
-  reihub: 'REI Hub export',
-  generic: 'generic CSV',
+  stessa: 'Stessa 形式',
+  reihub: 'REI Hub 形式',
+  generic: '汎用 CSV',
 }
+
+const ASSET_CLASS_OPTIONS = [
+  'sfr',
+  'mf_2_4',
+  'mf_5_plus',
+  'condo',
+  'townhouse',
+  'multifamily',
+  'land',
+] as const
 
 /**
  * CSV import for holdings. Auto-detects Stessa / REI Hub exports, then shows
@@ -62,7 +73,7 @@ export default function CsvImportPanel({ onImport }: CsvImportPanelProps) {
   return (
     <div className="csv-import-panel" data-testid="csv-import-panel">
       <label className="csv-import-label">
-        Import holdings from CSV (Stessa / REI Hub)
+        保有物件を CSV から取り込む
         <input
           type="file"
           accept=".csv,text/csv"
@@ -76,8 +87,8 @@ export default function CsvImportPanel({ onImport }: CsvImportPanelProps) {
 
       {format && (
         <p className="csv-import-format" data-testid="csv-format">
-          Detected: <strong>{FORMAT_LABELS[format]}</strong> — {rows.length} holding(s) ready.
-          Review and override any value before importing.
+          検出形式: <strong>{FORMAT_LABELS[format]}</strong> ・ {rows.length} 件の物件を確認できます。
+          取り込み前に内容を編集できます。
         </p>
       )}
 
@@ -94,10 +105,10 @@ export default function CsvImportPanel({ onImport }: CsvImportPanelProps) {
           <table className="csv-import-table">
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Zip</th>
-                <th>Asset class</th>
-                <th>Monthly rent</th>
+                <th>所在地</th>
+                <th>郵便番号</th>
+                <th>物件種別</th>
+                <th>月額賃料</th>
               </tr>
             </thead>
             <tbody>
@@ -116,10 +127,16 @@ export default function CsvImportPanel({ onImport }: CsvImportPanelProps) {
                     />
                   </td>
                   <td>
-                    <input
-                      value={row.asset_class ?? 'sfr'}
+                    <select
+                      value={row.asset_class}
                       onChange={(e) => updateRow(index, { asset_class: e.target.value })}
-                    />
+                    >
+                      {ASSET_CLASS_OPTIONS.map((assetClass) => (
+                        <option key={assetClass} value={assetClass}>
+                          {formatAssetClassLabel(assetClass)}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <input
@@ -138,7 +155,7 @@ export default function CsvImportPanel({ onImport }: CsvImportPanelProps) {
             onClick={() => void handleImport()}
             data-testid="csv-import-confirm"
           >
-            {importing ? 'Importing…' : `Import ${rows.length} holding(s)`}
+            {importing ? '取り込み中…' : `${rows.length} 件を取り込む`}
           </button>
         </>
       )}

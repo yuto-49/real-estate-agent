@@ -45,6 +45,7 @@ def _property(**overrides: Any) -> Property:
         "sqft": 1400,
         "status": PropertyStatus.ACTIVE,
         "neighborhood_data": {},
+        "jurisdiction": "us",
     }
     defaults.update(overrides)
     p = Property()
@@ -122,6 +123,30 @@ def test_hard_filter_rejects_zip_mismatch():
     assert reason == "geography_zip_mismatch"
 
 
+def test_hard_filter_rejects_jp_municipality_mismatch():
+    profile = _profile(
+        budget=120_000_000,
+        geography={"prefecture": "東京都", "municipality": "杉並区"},
+    )
+    prop = _property(
+        address="東京都 港区 六本木六丁目 10-1",
+        asking_price=98_000_000,
+        jurisdiction="jp",
+        neighborhood_data={
+            "jp": {
+                "shozaichi": {
+                    "todoufuken": "東京都",
+                    "shikuchouson": "港区",
+                    "chome": "六本木六丁目",
+                }
+            }
+        },
+    )
+    passed, reason = passes_hard_filters(profile, prop)
+    assert passed is False
+    assert reason == "geography_municipality_mismatch"
+
+
 def test_flip_strategy_rewards_below_median_asking():
     """A flip-strategy investor should rank a discounted property higher
     than the same property priced at the neighborhood median."""
@@ -144,6 +169,30 @@ def test_geography_exact_zip_beats_no_match():
     s_match = score_property(profile, prop_match, _snapshot())
     s_other = score_property(_profile(geography={}), prop_other, _snapshot())
     assert s_match.components["geo"] > s_other.components["geo"]
+
+
+def test_geography_jp_station_and_prefecture_score_above_generic_match():
+    profile = _profile(
+        budget=200_000_000,
+        geography={"prefecture": "東京都", "station": "六本木"},
+    )
+    prop = _property(
+        address="東京都 港区 六本木六丁目 10-1",
+        asking_price=128_000_000,
+        jurisdiction="jp",
+        nearest_stations=[{"eki": "六本木"}, {"eki": "六本木一丁目"}],
+        neighborhood_data={
+            "jp": {
+                "shozaichi": {
+                    "todoufuken": "東京都",
+                    "shikuchouson": "港区",
+                    "chome": "六本木六丁目",
+                }
+            }
+        },
+    )
+    score = score_property(profile, prop, _snapshot())
+    assert score.components["geo"] >= 0.82
 
 
 def test_rank_filters_and_orders():

@@ -4,10 +4,16 @@ Pure-ish orchestration of the layered domain runtime for a single holding.
 Extracted from ``api/decisions.py`` so both the read endpoint and the
 portfolio summary aggregator (Phase S2) can share one implementation.
 
-The function still owns the I/O of building the market snapshot (which has
-to read ``market_signals``) but takes pre-loaded ``PortfolioHolding`` +
-``HoldingFinancials`` so callers that already have them in hand do not
-round-trip the database again.
+The function owns the I/O of building the market snapshot (reading
+``market_signals``) and resolving the holding's owner profile, but takes
+pre-loaded ``PortfolioHolding`` + ``HoldingFinancials`` so callers that already
+have them in hand do not round-trip the database again.
+
+The reaction vector that feeds the decision policies is produced by the real
+layered pipeline — ``domain/actors`` (owner → :class:`ActorSignalState` /
+cohort) folded through ``domain/reactions`` (:func:`build_reaction_vector`) —
+rather than a hand-built heuristic. All projection math stays pure in
+``domain/``; this module only performs the I/O and assembly.
 """
 
 from __future__ import annotations
@@ -16,7 +22,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.schemas import DecisionCandidate, HoldingDecisionResponse
-from db.models import HoldingFinancials, MarketSignal, PortfolioHolding
+from db.models import (
+    HoldingFinancials,
+    InvestorPortfolio,
+    MarketSignal,
+    PortfolioHolding,
+    UserProfile,
+)
+from domain.actors.profiles import (
+    ActorSignalState,
+    cohort_signals,
+    infer_actor_type,
+    user_profile_signals,
+)
 from domain.decisions.policies import ChurnPolicy, LeasePolicy, ListHoldPolicy
 from domain.decisions.runtime import (
     DecisionContext,
@@ -24,7 +42,7 @@ from domain.decisions.runtime import (
     DecisionRuntime,
 )
 from domain.market.models import MarketContextSnapshot
-from domain.reactions.models import ReactionVector
+from domain.reactions.derive import build_reaction_vector
 from services.market_state import build_snapshot
 
 # Investor-facing action labels.
@@ -87,27 +105,39 @@ async def _snapshot_from_zip(
     return MarketContextSnapshot(**kwargs)
 
 
-def _derive_reaction(
-    market: MarketContextSnapshot, fin: HoldingFinancials | None
-) -> ReactionVector:
-    """Project a lenient reaction vector from observable market + financial signals."""
-    kwargs: dict[str, float] = {}
+async def _load_owner_profile(
+    db: AsyncSession, holding: PortfolioHolding
+) -> UserProfile | None:
+    """Resolve the investor who owns ``holding`` (holding → portfolio → user).
 
-    if market.inventory_pressure is not None:
-        slack = _clamp_unit(1.0 - 2.0 * market.inventory_pressure)
-        kwargs["investor_optimism"] = slack
-        kwargs["willingness_to_transact"] = slack
+    Lenient: a holding without a resolvable owner returns ``None`` so the
+    decision falls back to a market-only reaction.
+    """
+    if not holding.portfolio_id:
+        return None
+    return (
+        await db.execute(
+            select(UserProfile)
+            .join(InvestorPortfolio, InvestorPortfolio.user_id == UserProfile.id)
+            .where(InvestorPortfolio.id == holding.portfolio_id)
+        )
+    ).scalar_one_or_none()
 
-    if market.safety_score is not None:
-        safety = _clamp_unit(market.safety_score / 5.0 - 1.0)
-        kwargs["perceived_safety"] = safety
-        kwargs["displacement_concern"] = _clamp_unit(-safety)
 
-    if market.median_rent and fin and fin.monthly_rent:
-        gap = (fin.monthly_rent - market.median_rent) / market.median_rent
-        kwargs["affordability_pressure"] = _clamp_unit(gap)
+def _build_actor_state(
+    owner: UserProfile | None, *, label: str
+) -> ActorSignalState | None:
+    """Project the owner profile into a cohort actor state via the actors layer.
 
-    return ReactionVector(**kwargs)
+    Wraps the single owner in a one-member cohort so the same path extends to a
+    real tenant/peer cohort later. Returns ``None`` when there is no owner to
+    project, which the reaction bridge treats as a market-only signal.
+    """
+    if owner is None:
+        return None
+    actor_type = infer_actor_type(owner)
+    investor_signals = user_profile_signals(owner)
+    return cohort_signals([investor_signals], actor_type=actor_type, label=label)
 
 
 def _refi_candidate(fin: HoldingFinancials | None) -> DecisionCandidate | None:
@@ -161,10 +191,32 @@ async def compute_holding_decision(
     """Run the layered runtime + financial heuristics for one holding.
 
     The caller is responsible for loading ``holding`` and ``fin``. This
-    function only touches the database to resolve the market snapshot.
+    function touches the database only to resolve the market snapshot and the
+    holding's owner profile, then delegates the pure scoring to
+    :func:`compute_holding_decision_preloaded`. Batch callers that already have
+    the snapshot + owner in hand should call that function directly to avoid the
+    per-holding round-trips.
     """
     snapshot = await _resolve_snapshot(db, holding)
+    owner = await _load_owner_profile(db, holding) if snapshot is not None else None
+    return compute_holding_decision_preloaded(
+        holding, fin, snapshot=snapshot, owner=owner
+    )
 
+
+def compute_holding_decision_preloaded(
+    holding: PortfolioHolding,
+    fin: HoldingFinancials | None,
+    *,
+    snapshot: MarketContextSnapshot | None,
+    owner: UserProfile | None,
+) -> HoldingDecisionResponse:
+    """Pure decision scoring over preloaded inputs — no database access.
+
+    Identical logic to :func:`compute_holding_decision`, but the market snapshot
+    and owner profile are supplied by the caller (resolved in bulk). ``owner`` is
+    consulted only when ``snapshot`` is present, mirroring the I/O wrapper.
+    """
     market_context_available = snapshot is not None and any(
         getattr(snapshot, f) is not None for f in _SCALAR_SIGNAL_FIELDS.values()
     )
@@ -172,9 +224,16 @@ async def compute_holding_decision(
     candidates: list[DecisionCandidate] = []
 
     if snapshot is not None:
+        actor_state = _build_actor_state(owner, label=holding.zip_code or "")
+        reaction = build_reaction_vector(
+            actor_state,
+            snapshot,
+            monthly_rent=fin.monthly_rent if fin else None,
+        )
         context = DecisionContext(
             market=snapshot,
-            reaction=_derive_reaction(snapshot, fin),
+            reaction=reaction,
+            actor=actor_state,
         )
         runtime = DecisionRuntime([ListHoldPolicy(), LeasePolicy(), ChurnPolicy()])
         for rec in runtime.evaluate(context):

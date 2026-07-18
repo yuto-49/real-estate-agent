@@ -33,6 +33,9 @@ async def _seed_property(
     *,
     address: str = "123 Main St 60601",
     asking_price: float = 350_000.0,
+    jurisdiction: str = "us",
+    neighborhood_data: dict | None = None,
+    nearest_stations: list[dict] | None = None,
 ) -> str:
     async with _factory(db_engine)() as s:
         p = Property(
@@ -40,6 +43,9 @@ async def _seed_property(
             asking_price=asking_price,
             property_type="sfr",
             status=PropertyStatus.ACTIVE,
+            jurisdiction=jurisdiction,
+            neighborhood_data=neighborhood_data or {},
+            nearest_stations=nearest_stations,
         )
         s.add(p)
         await s.commit()
@@ -88,6 +94,34 @@ async def test_upsert_profile_creates_row(db_engine):
     assert body["budget"] == 500_000
     assert body["strategy"] == "buy_and_hold"
     assert body["geography"]["zip"] == "60601"
+
+
+@pytest.mark.asyncio
+async def test_upsert_profile_preserves_japan_geography_fields(db_engine):
+    user_id = await _seed_user(db_engine, email="jp-profile@test.com")
+    payload = _profile_payload(
+        user_id,
+        budget=120_000_000,
+        geography={
+            "zip": "167-0043",
+            "prefecture": "東京都",
+            "municipality": "杉並区",
+            "ward": "杉並区",
+            "neighborhood": "上荻",
+            "station": "荻窪",
+        },
+    )
+    app, ac = await _client(db_engine)
+    async with ac:
+        r = await ac.post("/api/investor-profile/", json=payload)
+    app.dependency_overrides.clear()
+
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["geography"]["prefecture"] == "東京都"
+    assert body["geography"]["municipality"] == "杉並区"
+    assert body["geography"]["neighborhood"] == "上荻"
+    assert body["geography"]["station"] == "荻窪"
 
 
 @pytest.mark.asyncio
@@ -191,3 +225,54 @@ async def test_recommend_drops_over_budget(db_engine):
 
     addresses = [rec["address"] for rec in r.json()["recommendations"]]
     assert "Expensive 60601" not in " ".join(addresses)
+
+
+@pytest.mark.asyncio
+async def test_recommend_prefers_jp_listings_for_japan_targeted_profile(db_engine):
+    user_id = await _seed_user(db_engine, email="jp-rec@test.com")
+    await _seed_property(
+        db_engine,
+        address="1842 W Armitage Ave, Chicago, IL 60622",
+        asking_price=485_000,
+        jurisdiction="us",
+    )
+    await _seed_property(
+        db_engine,
+        address="東京都 杉並区 上荻3-12-2",
+        asking_price=86_000_000,
+        jurisdiction="jp",
+        neighborhood_data={
+            "jp": {
+                "shozaichi": {
+                    "todoufuken": "東京都",
+                    "shikuchouson": "杉並区",
+                    "chome": "上荻",
+                }
+            }
+        },
+        nearest_stations=[{"eki": "荻窪"}],
+    )
+
+    app, ac = await _client(db_engine)
+    async with ac:
+        await ac.post(
+            "/api/investor-profile/",
+            json=_profile_payload(
+                user_id,
+                budget=100_000_000,
+                geography={
+                    "zip": "167-0043",
+                    "prefecture": "東京都",
+                    "municipality": "杉並区",
+                    "neighborhood": "上荻",
+                    "station": "荻窪",
+                },
+            ),
+        )
+        r = await ac.get(f"/api/properties/recommend?user_id={user_id}")
+    app.dependency_overrides.clear()
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["candidates_considered"] == 1
+    assert [rec["address"] for rec in body["recommendations"]] == ["東京都 杉並区 上荻3-12-2"]

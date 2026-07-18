@@ -24,6 +24,7 @@ from api.schemas import (
     HoldingProjection,
     PortfolioSummaryReport,
     SimulationReport,
+    YearProjection,
     StrategyProfile,
     StrategyRunRecord,
     StrategyRunStep,
@@ -250,6 +251,55 @@ def _project_recommendation(
     return _HOLD
 
 
+def _growth_factors(profile: StrategyProfile, years: float) -> tuple[float, float]:
+    """``(noi_growth_factor, appreciation_factor)`` after *years*.
+
+    Single source of truth for the compound-growth math so the year-by-year
+    curve and the horizon endpoint can never drift apart.
+    """
+    a = profile.assumptions
+    outlook_tilt = _market_outlook_modifier(profile.thesis.market_outlook)
+    noi_growth = (1.0 + a.rent_growth - a.expense_growth) ** years
+    appreciation = (1.0 + 0.03 + outlook_tilt) ** years
+    return noi_growth, appreciation
+
+
+def project_year_series(
+    analysis: PortfolioSummaryReport, profile: StrategyProfile
+) -> list[YearProjection]:
+    """Portfolio value / NOI / cash-flow at each year from 0 to the horizon.
+
+    Pure and lenient: holdings missing a value or cap rate simply contribute
+    nothing rather than failing the projection. Year 0 is today's position.
+    """
+    horizon = profile.assumptions.hold_period_years
+    series: list[YearProjection] = []
+
+    for year in range(horizon + 1):
+        noi_growth, appreciation = _growth_factors(profile, year)
+        value = noi = cash_flow = 0.0
+
+        for row in analysis.per_holding:
+            current_value = row.current_value
+            if isinstance(current_value, (int, float)) and current_value > 0:
+                value += current_value * appreciation
+                if isinstance(row.cap_rate, (int, float)):
+                    noi += row.cap_rate * current_value * noi_growth
+            if isinstance(row.monthly_cash_flow, (int, float)):
+                cash_flow += row.monthly_cash_flow * noi_growth
+
+        series.append(
+            YearProjection(
+                year=year,
+                portfolio_value=value,
+                annual_noi=noi,
+                monthly_cash_flow=cash_flow,
+                cap_rate=(noi / value) if value > 0 else None,
+            )
+        )
+    return series
+
+
 def project_simulation(
     analysis: PortfolioSummaryReport, profile: StrategyProfile
 ) -> SimulationReport:
@@ -293,6 +343,7 @@ def project_simulation(
         aggregate_value_projection=total_projected_value,
         aggregate_annual_noi_projection=total_projected_noi,
         aggregate_cap_rate_projection=aggregate_cap,
+        per_year=project_year_series(analysis, profile),
         notes=notes,
     )
 

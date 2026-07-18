@@ -38,7 +38,7 @@ export default function SystemDrawer({ open, onClose }: Props) {
       setHealth(healthData)
       setMetrics(metricsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load system data')
+      setError(err instanceof Error ? err.message : 'システム情報を取得できませんでした。')
     } finally {
       setLoading(false)
     }
@@ -50,45 +50,45 @@ export default function SystemDrawer({ open, onClose }: Props) {
     <div className="drawer-overlay" onClick={onClose}>
       <div className="drawer-panel drawer-right" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-header">
-          <h3>System Health</h3>
+          <h3>システム状態</h3>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="secondary-btn" onClick={() => void loadSystem()} disabled={loading}>Refresh</button>
+            <button className="secondary-btn" onClick={() => void loadSystem()} disabled={loading}>再読み込み</button>
             <button className="drawer-close-btn" onClick={onClose}>x</button>
           </div>
         </div>
 
         <div className="drawer-body">
-          {loading && <p>Loading system health...</p>}
+          {loading && <p>システム状態を読み込み中…</p>}
           {error && <p className="error">{error}</p>}
 
           {health && metrics && (
             <>
               <div className="system-grid">
                 <article className="system-card">
-                  <h3>Status</h3>
+                  <h3>状態</h3>
                   <p className={`status-pill ${health.status === 'ok' ? 'ok' : 'error'}`}>
                     {health.status}
                   </p>
                 </article>
                 <article className="system-card">
-                  <h3>Version</h3>
+                  <h3>バージョン</h3>
                   <p>{health.version}</p>
                 </article>
                 <article className="system-card">
-                  <h3>Counters</h3>
+                  <h3>カウンター</h3>
                   <p>{Object.keys(metrics.counters).length}</p>
                 </article>
                 <article className="system-card">
-                  <h3>Gauges</h3>
+                  <h3>ゲージ</h3>
                   <p>{Object.keys(metrics.gauges).length}</p>
                 </article>
                 <article className="system-card">
-                  <h3>Histograms</h3>
+                  <h3>ヒストグラム</h3>
                   <p>{Object.keys(metrics.histograms).length}</p>
                 </article>
               </div>
               <div className="system-metrics-raw">
-                <h3>Metrics (Raw JSON)</h3>
+                <h3>メトリクス（JSON）</h3>
                 <pre>{JSON.stringify(metrics, null, 2)}</pre>
               </div>
             </>

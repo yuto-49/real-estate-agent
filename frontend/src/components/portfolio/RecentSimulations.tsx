@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { useAuth } from '../../hooks/useAuth'
 import { api } from '../../utils/api'
+import { formatJaDateTime, formatMarketOutlookLabel } from '../../utils/japan'
 import type { StrategyRunRecord } from '../../utils/types'
 
 interface State {
@@ -14,11 +15,7 @@ interface State {
 const INITIAL: State = { loading: true, error: null, runs: [] }
 
 function formatStarted(ts: string): string {
-  try {
-    return new Date(ts).toLocaleString()
-  } catch {
-    return ts
-  }
+  return formatJaDateTime(ts)
 }
 
 /**
@@ -48,7 +45,7 @@ export default function RecentSimulations() {
         if (cancelled) return
         setState({
           loading: false,
-          error: err instanceof Error ? err.message : 'Could not load runs.',
+          error: err instanceof Error ? err.message : '実行履歴を取得できませんでした。',
           runs: [],
         })
       })
@@ -58,7 +55,7 @@ export default function RecentSimulations() {
   }, [user?.id])
 
   if (state.loading) {
-    return <p data-testid="recent-runs-loading">Loading recent simulations…</p>
+    return <p data-testid="recent-runs-loading">直近の試算を読み込み中…</p>
   }
   if (state.error) {
     return (
@@ -70,12 +67,12 @@ export default function RecentSimulations() {
   if (state.runs.length === 0) {
     return (
       <section className="recent-runs" data-testid="recent-runs-empty">
-        <h3>Most recent simulations</h3>
+        <h3>直近のシミュレーション</h3>
         <p className="onboarding-subtle">
-          No runs yet. Start one from the onboarding wizard.
+          まだ試算結果がありません。オンボーディングから新しい試算を開始してください。
         </p>
         <Link to="/onboard" className="onboarding-primary" data-testid="recent-runs-onboard-cta">
-          Run another simulation
+          新しい試算を始める
         </Link>
       </section>
     )
@@ -84,9 +81,9 @@ export default function RecentSimulations() {
   return (
     <section className="recent-runs" data-testid="recent-runs">
       <header className="recent-runs__header">
-        <h3>Most recent simulations</h3>
+        <h3>直近のシミュレーション</h3>
         <Link to="/onboard" data-testid="recent-runs-launch">
-          Run another
+          新規作成
         </Link>
       </header>
       <ul className="recent-runs__list">
@@ -104,14 +101,14 @@ export default function RecentSimulations() {
             </div>
             <div className="recent-runs__row">
               <span className="onboarding-subtle">
-                Strategy {run.profile.thesis?.market_outlook ?? 'baseline'} ·{' '}
-                {run.profile.assumptions?.hold_period_years ?? '—'}y horizon
+                見通し {formatMarketOutlookLabel(run.profile.thesis?.market_outlook)} ・
+                保有期間 {run.profile.assumptions?.hold_period_years ?? '—'} 年
               </span>
               <Link
                 to={`/simulate/${run.run_id}/report`}
                 data-testid={`recent-run-link-${run.run_id}`}
               >
-                Open report
+                レポートを見る
               </Link>
             </div>
           </li>

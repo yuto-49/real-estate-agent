@@ -23,6 +23,7 @@ Caller pattern::
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any
 
 from db.models import InvestorProfile, Property
@@ -58,6 +59,8 @@ _STRATEGY_WEIGHTS: dict[str, dict[str, float]] = {
     },
 }
 _DEFAULT_STRATEGY = "buy_and_hold"
+_JP_ZIP_RE = re.compile(r"^\d{3}-?\d{4}$")
+_US_ZIP_RE = re.compile(r"^\d{5}$")
 
 
 def _weights_for(strategy: str | None) -> dict[str, float]:
@@ -96,26 +99,130 @@ def passes_hard_filters(
     profile: InvestorProfile, prop: Property
 ) -> tuple[bool, str | None]:
     """Apply non-scoring constraints. Returns (passed, reason_if_not)."""
-    if profile.budget is not None and prop.asking_price > profile.budget * 1.05:
+    asking_price = _asking_price(prop)
+    if profile.budget is not None and asking_price > profile.budget * 1.05:
         return False, "over_budget"
+
     geo = profile.geography or {}
     if geo:
-        zip_filter = (geo.get("zip") or "").strip()
+        zip_filter = _normalize_zip(geo.get("zip"))
         if zip_filter:
-            prop_zip = _extract_zip(prop)
+            prop_zip = _normalize_zip(_extract_zip(prop))
             if prop_zip and prop_zip != zip_filter:
                 return False, "geography_zip_mismatch"
+
+        location = _property_location(prop)
+        for reason, profile_key, prop_key in (
+            ("geography_prefecture_mismatch", "prefecture", "prefecture"),
+            ("geography_state_mismatch", "state", "prefecture"),
+            ("geography_municipality_mismatch", "municipality", "municipality"),
+            ("geography_city_mismatch", "city", "municipality"),
+            ("geography_ward_mismatch", "ward", "municipality"),
+            ("geography_neighborhood_mismatch", "neighborhood", "neighborhood"),
+        ):
+            token = str(geo.get(profile_key) or "").strip()
+            if not token:
+                continue
+            prop_value = location.get(prop_key)
+            if prop_value:
+                if not _location_matches(token, prop_value):
+                    return False, reason
+                continue
+            if not _address_contains_token(token, location.get("address")):
+                return False, reason
+
     return True, None
 
 
 def _extract_zip(prop: Property) -> str | None:
-    """Find a 5-digit zip in the address, since Property has no zip column."""
+    """Find a zip/postal code from listing fields or free-form address text."""
+    address_jp = dict(prop.address_jp or {})
+    for candidate in (
+        address_jp.get("zip"),
+        address_jp.get("postal_code"),
+        dict(prop.disclosures or {}).get("zip_code"),
+    ):
+        normalized = _normalize_zip(candidate)
+        if normalized:
+            return normalized
+
     if not prop.address:
         return None
     for token in reversed(prop.address.replace(",", " ").split()):
-        if len(token) == 5 and token.isdigit():
-            return token
+        normalized = _normalize_zip(token)
+        if normalized:
+            return normalized
     return None
+
+
+def _asking_price(prop: Property) -> float:
+    if prop.baibai_kakaku_yen is not None:
+        return float(prop.baibai_kakaku_yen)
+    return float(prop.asking_price)
+
+
+def _normalize_zip(value: object | None) -> str | None:
+    if value is None:
+        return None
+    digits = "".join(ch for ch in str(value) if ch.isdigit())
+    if len(digits) == 7 and _JP_ZIP_RE.fullmatch(str(value).strip()):
+        return digits
+    if len(digits) == 7 and not str(value).strip():
+        return None
+    if len(digits) == 7:
+        return digits
+    if len(digits) == 5 and _US_ZIP_RE.fullmatch(digits):
+        return digits
+    return None
+
+
+def _normalize_text(value: object | None) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip().lower()
+    return "".join(ch for ch in text if not ch.isspace() and ch not in "-,")
+
+
+def _property_location(prop: Property) -> dict[str, str]:
+    shozaichi = dict(dict(prop.neighborhood_data or {}).get("jp", {}).get("shozaichi") or {})
+    address_jp = dict(prop.address_jp or {})
+    stations = prop.nearest_stations or dict(prop.neighborhood_data or {}).get("jp", {}).get(
+        "nearest_stations",
+        [],
+    )
+
+    prefecture = shozaichi.get("todoufuken") or address_jp.get("prefecture")
+    municipality = shozaichi.get("shikuchouson") or address_jp.get("municipality")
+    neighborhood = shozaichi.get("chome") or address_jp.get("neighborhood")
+    station_names = [
+        str(item.get("eki") or item.get("station") or "").strip()
+        for item in stations
+        if isinstance(item, dict)
+    ]
+
+    return {
+        "prefecture": str(prefecture or ""),
+        "municipality": str(municipality or ""),
+        "neighborhood": str(neighborhood or ""),
+        "stations": " ".join(name for name in station_names if name),
+        "address": str(prop.address or ""),
+    }
+
+
+def _location_matches(token: str, prop_value: object | None) -> bool:
+    wanted = _normalize_text(token)
+    known = _normalize_text(prop_value)
+    if not wanted:
+        return True
+    if not known:
+        return True
+    return wanted in known or known in wanted
+
+
+def _address_contains_token(token: str, address: object | None) -> bool:
+    wanted = _normalize_text(token)
+    haystack = _normalize_text(address)
+    return bool(wanted and haystack and wanted in haystack)
 
 
 # ── component scorers ──────────────────────────────────────────────────
@@ -126,10 +233,11 @@ def _strategy_buy_and_hold(
 ) -> tuple[float, str]:
     """Reward properties whose implied gross yield supports a buy-and-hold thesis."""
     median_rent = snapshot.median_rent if snapshot else None
-    if median_rent is None or prop.asking_price <= 0:
+    asking_price = _asking_price(prop)
+    if median_rent is None or asking_price <= 0:
         return 0.0, "buy_and_hold: rent benchmark unavailable"
     annual_rent = float(median_rent) * 12.0
-    gross_yield = annual_rent / prop.asking_price  # ~ 0.05–0.12 typical
+    gross_yield = annual_rent / asking_price  # ~ 0.05–0.12 typical
     # Map 4–10% → 0–1
     score = _clip((gross_yield - 0.04) / 0.06)
     return score, f"gross yield ~{gross_yield * 100:.1f}% (rent benchmark vs ask)"
@@ -142,7 +250,7 @@ def _strategy_flip(
     median = snapshot.median_sale_price if snapshot else None
     if median is None or median <= 0:
         return 0.0, "flip: median sale benchmark unavailable"
-    spread = (float(median) - prop.asking_price) / float(median)
+    spread = (float(median) - _asking_price(prop)) / float(median)
     # Map -10% to +25% spread → 0 to 1
     score = _clip((spread + 0.10) / 0.35)
     return score, f"asking is {spread * 100:+.1f}% vs neighborhood median sale"
@@ -158,7 +266,8 @@ def _strategy_lease(
         return 0.0, "lease: rent benchmark unavailable"
     # Same gross-yield base as buy_and_hold...
     annual_rent = float(median_rent) * 12.0
-    gross_yield = annual_rent / prop.asking_price if prop.asking_price > 0 else 0.0
+    asking_price = _asking_price(prop)
+    gross_yield = annual_rent / asking_price if asking_price > 0 else 0.0
     yield_part = _clip((gross_yield - 0.04) / 0.06)
     # ...but discount when inventory is loose (renters have options).
     inv_part = 1.0 if inventory is None else _clip(1.0 - float(inventory))
@@ -189,9 +298,10 @@ def _score_risk(
     """Proximity to target cap rate using median rent / asking proxy."""
     if profile.target_cap_rate is None:
         return 0.5, "risk: no target cap rate set"
-    if snapshot is None or snapshot.median_rent is None or prop.asking_price <= 0:
+    asking_price = _asking_price(prop)
+    if snapshot is None or snapshot.median_rent is None or asking_price <= 0:
         return 0.0, "risk: data unavailable"
-    proxy_cap = (float(snapshot.median_rent) * 12.0 / prop.asking_price) * 100.0
+    proxy_cap = (float(snapshot.median_rent) * 12.0 / asking_price) * 100.0
     target = float(profile.target_cap_rate)
     if target <= 0:
         return 0.5, "risk: invalid target"
@@ -240,12 +350,13 @@ def _score_underwriting(
     snapshot: MarketContextSnapshot | None,
 ) -> tuple[float, str]:
     """Light proxy for DSCR-style health using rent vs assumed debt service."""
-    if snapshot is None or snapshot.median_rent is None or prop.asking_price <= 0:
+    asking_price = _asking_price(prop)
+    if snapshot is None or snapshot.median_rent is None or asking_price <= 0:
         return 0.5, "underwriting: data unavailable"
     # Crude monthly payment estimate at 75% LTV, 30y, 7% rate
     rate_m = 0.07 / 12.0
     n = 360
-    loan = prop.asking_price * 0.75
+    loan = asking_price * 0.75
     monthly_payment = loan * (rate_m * (1 + rate_m) ** n) / ((1 + rate_m) ** n - 1)
     rent = float(snapshot.median_rent)
     if monthly_payment <= 0:
@@ -258,19 +369,38 @@ def _score_underwriting(
 def _score_geography(
     profile: InvestorProfile, prop: Property
 ) -> tuple[float, str]:
-    """Gradient: exact zip 1.0, address-substring match 0.7, else 0.3."""
+    """Japan-aware geography matching with graceful fallback for legacy US data."""
     geo = profile.geography or {}
     if not geo:
         return 0.5, "geography: no preference set"
-    prop_zip = _extract_zip(prop)
-    if geo.get("zip") and prop_zip and prop_zip == geo["zip"]:
-        return 1.0, f"exact ZIP match ({prop_zip})"
-    address = (prop.address or "").lower()
-    for key in ("city", "state"):
-        token = (geo.get(key) or "").strip().lower()
-        if token and token in address:
-            return 0.7, f"{key} match ({token})"
-    return 0.3, "geography: no direct match"
+
+    prop_zip = _normalize_zip(_extract_zip(prop))
+    wanted_zip = _normalize_zip(geo.get("zip"))
+    if wanted_zip and prop_zip and wanted_zip == prop_zip:
+        label = "郵便番号" if len(wanted_zip) == 7 else "ZIP"
+        return 1.0, f"exact {label} match ({prop_zip})"
+
+    location = _property_location(prop)
+    location_checks = [
+        ("station", "stations", 0.95, "最寄り駅一致"),
+        ("municipality", "municipality", 0.92, "市区町村一致"),
+        ("ward", "municipality", 0.92, "行政区一致"),
+        ("neighborhood", "neighborhood", 0.88, "町名一致"),
+        ("prefecture", "prefecture", 0.82, "都道府県一致"),
+        ("city", "municipality", 0.72, "city match"),
+        ("state", "prefecture", 0.72, "state match"),
+    ]
+    for geo_key, loc_key, score, label in location_checks:
+        token = str(geo.get(geo_key) or "").strip()
+        if token and _location_matches(token, location.get(loc_key)):
+            return score, f"{label} ({token})"
+
+    address = location["address"]
+    for key in ("municipality", "ward", "neighborhood", "city", "state"):
+        token = str(geo.get(key) or "").strip()
+        if token and _normalize_text(token) in _normalize_text(address):
+            return 0.65, f"address match ({token})"
+    return 0.2, "geography: no direct match"
 
 
 def _score_momentum(snapshot: MarketContextSnapshot | None) -> tuple[float, str]:
@@ -330,7 +460,7 @@ def rank_properties(
         if not passed:
             continue
         scored.append(score_property(profile, prop, snapshots.get(prop.id)))
-    scored.sort(key=lambda s: (-s.score, -s.property.asking_price, s.property_id))
+    scored.sort(key=lambda s: (-s.score, -_asking_price(s.property), s.property_id))
     return scored[:top_n]
 
 

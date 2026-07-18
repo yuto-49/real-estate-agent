@@ -5,6 +5,11 @@ import { api } from '../../utils/api'
 import type {
   InvestorProfileDraft,
 } from '../../pages/OnboardingWizard'
+import {
+  formatJpyCompact,
+  formatPropertyTypeLabel,
+  formatStrategyLabel,
+} from '../../utils/japan'
 import type { PropertyRecommendation } from '../../utils/types'
 
 interface RecommendationListProps {
@@ -37,7 +42,7 @@ export default function RecommendationList({
     if (!user?.id) {
       setState({
         loading: false,
-        error: 'Sign in to see your recommendations.',
+        error: '候補物件を表示するにはログインが必要です。',
         recommendations: [],
         candidatesConsidered: null,
       })
@@ -62,7 +67,7 @@ export default function RecommendationList({
         setState({
           loading: false,
           error:
-            err instanceof Error ? err.message : 'Could not load recommendations.',
+            err instanceof Error ? err.message : '候補物件を取得できませんでした。',
           recommendations: [],
           candidatesConsidered: null,
         })
@@ -75,15 +80,14 @@ export default function RecommendationList({
 
   return (
     <div className="onboarding-recommendations" data-testid="onboarding-recommendations">
-      <h3>Suggested properties</h3>
+      <h3>おすすめ物件</h3>
       <p className="onboarding-subtle">
-        Budget ${profile.budget?.toLocaleString() ?? '—'} · Strategy{' '}
-        {profile.strategy ?? '—'} · Cap rate target{' '}
-        {profile.target_cap_rate ?? '—'}%
+        予算 {formatJpyCompact(profile.budget)} ・ 方針 {formatStrategyLabel(profile.strategy)} ・
+        目標表面利回り {profile.target_cap_rate ?? '—'}%
       </p>
 
       {state.loading && (
-        <p data-testid="recommendations-loading">Scoring candidates…</p>
+        <p data-testid="recommendations-loading">候補物件を評価中…</p>
       )}
       {state.error && (
         <p className="onboarding-error" data-testid="recommendations-error">
@@ -92,11 +96,11 @@ export default function RecommendationList({
       )}
       {!state.loading && !state.error && state.recommendations.length === 0 && (
         <p data-testid="recommendations-empty">
-          No properties matched your filters
+          条件に合う物件が見つかりませんでした
           {state.candidatesConsidered !== null
-            ? ` (${state.candidatesConsidered} considered)`
+            ? `（候補 ${state.candidatesConsidered} 件を確認）`
             : ''}
-          . Try broadening your geography or budget.
+          。希望エリアや予算条件を広げて再度お試しください。
         </p>
       )}
 
@@ -109,22 +113,22 @@ export default function RecommendationList({
           >
             <header>
               <strong>{rec.address}</strong>
-              <span className="recommendation-score" title="Composite score 0–1">
+              <span className="recommendation-score" title="総合スコア">
                 {(rec.score * 100).toFixed(0)}
               </span>
             </header>
             <dl>
-              <dt>Asking</dt>
-              <dd>${rec.asking_price.toLocaleString()}</dd>
+              <dt>販売価格</dt>
+              <dd>{formatJpyCompact(rec.asking_price)}</dd>
               {rec.property_type && (
                 <>
-                  <dt>Type</dt>
-                  <dd>{rec.property_type}</dd>
+                  <dt>物件種別</dt>
+                  <dd>{formatPropertyTypeLabel(rec.property_type)}</dd>
                 </>
               )}
               {rec.bedrooms !== null && rec.bedrooms !== undefined && (
                 <>
-                  <dt>Beds / baths</dt>
+                  <dt>部屋数 / 水回り</dt>
                   <dd>
                     {rec.bedrooms} / {rec.bathrooms ?? '—'}
                   </dd>
@@ -142,7 +146,7 @@ export default function RecommendationList({
               onClick={() => onSelect(rec.property_id)}
               data-testid={`recommendation-select-${rec.property_id}`}
             >
-              Simulate with this property
+              この物件で試算する
             </button>
           </li>
         ))}

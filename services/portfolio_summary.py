@@ -28,8 +28,10 @@ from db.models import (
     InvestorPortfolio,
     PortfolioHolding,
     Property,
+    UserProfile,
 )
-from services.holding_decision import HOLD, compute_holding_decision
+from services.holding_decision import HOLD, compute_holding_decision_preloaded
+from services.market_state import build_snapshots, neighborhood_snapshots
 
 # Building / land split used to derive ``building_basis_yen`` from cost basis
 # when the linked Property doesn't carry an explicit split. Aparuto and
@@ -98,23 +100,43 @@ def _per_holding_metrics(fin: HoldingFinancials | None) -> dict[str, float | Non
     }
 
 
-async def _load_financials(
-    db: AsyncSession, holding_id: str
-) -> HoldingFinancials | None:
-    return (
+async def _load_financials_by_holding(
+    db: AsyncSession, holding_ids: list[str]
+) -> dict[str, HoldingFinancials]:
+    """Bulk-load financials for many holdings → ``{holding_id: financials}``."""
+    if not holding_ids:
+        return {}
+    rows = (
         await db.execute(
-            select(HoldingFinancials).where(HoldingFinancials.holding_id == holding_id)
+            select(HoldingFinancials).where(
+                HoldingFinancials.holding_id.in_(holding_ids)
+            )
         )
-    ).scalar_one_or_none()
+    ).scalars().all()
+    return {row.holding_id: row for row in rows}
 
 
-async def _load_property(
-    db: AsyncSession, property_id: str | None
-) -> Property | None:
-    if property_id is None:
+async def _load_properties_by_id(
+    db: AsyncSession, property_ids: list[str]
+) -> dict[str, Property]:
+    """Bulk-load properties → ``{property_id: property}``. Missing ids are absent."""
+    ids = [pid for pid in dict.fromkeys(property_ids) if pid]
+    if not ids:
+        return {}
+    rows = (
+        await db.execute(select(Property).where(Property.id.in_(ids)))
+    ).scalars().all()
+    return {row.id: row for row in rows}
+
+
+async def _load_owner(
+    db: AsyncSession, user_id: str | None
+) -> UserProfile | None:
+    """Load the portfolio owner once — shared by every holding's decision."""
+    if not user_id:
         return None
     return (
-        await db.execute(select(Property).where(Property.id == property_id))
+        await db.execute(select(UserProfile).where(UserProfile.id == user_id))
     ).scalar_one_or_none()
 
 
@@ -179,12 +201,41 @@ async def build_portfolio_summary(
     dscr_components: list[tuple[float, float]] = []  # (annual_noi, annual_ds)
     coverage_with_signals = 0
 
+    # ── Bulk-load everything the per-holding loop needs (O(1) in holdings) ──
+    fin_by_holding = await _load_financials_by_holding(db, [h.id for h in holdings])
+    prop_by_id = await _load_properties_by_id(
+        db, [h.property_id for h in holdings if h.property_id]
+    )
+    owner = await _load_owner(db, portfolio.user_id)
+    prop_snapshots = await build_snapshots(db, prop_by_id.values())
+
+    # Off-platform holdings (no linked property, or a property whose snapshot
+    # didn't resolve) fall back to neighborhood signals keyed by zip — batched.
+    fallback_zips = [
+        h.zip_code
+        for h in holdings
+        if h.zip_code
+        and (not h.property_id or prop_snapshots.get(h.property_id) is None)
+    ]
+    zip_snapshots = await neighborhood_snapshots(db, fallback_zips)
+
+    def _resolve_snapshot(h: PortfolioHolding):
+        if h.property_id and prop_snapshots.get(h.property_id) is not None:
+            return prop_snapshots[h.property_id]
+        if h.zip_code:
+            return zip_snapshots.get(h.zip_code)
+        return None
+
     as_of_year = datetime.now(timezone.utc).year
     for h in holdings:
-        fin = await _load_financials(db, h.id)
-        prop = await _load_property(db, h.property_id)
+        fin = fin_by_holding.get(h.id)
+        prop = prop_by_id.get(h.property_id) if h.property_id else None
         metrics = _per_holding_metrics(fin)
-        decision = await compute_holding_decision(db, h, fin)
+        snapshot = _resolve_snapshot(h)
+        owner_for_decision = owner if snapshot is not None else None
+        decision = compute_holding_decision_preloaded(
+            h, fin, snapshot=snapshot, owner=owner_for_decision
+        )
 
         if decision.market_context_available:
             coverage_with_signals += 1

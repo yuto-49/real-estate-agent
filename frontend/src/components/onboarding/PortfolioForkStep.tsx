@@ -5,9 +5,9 @@ interface PortfolioForkStepProps {
 export default function PortfolioForkStep({ onAnswer }: PortfolioForkStepProps) {
   return (
     <div className="onboarding-fork" data-testid="onboarding-fork">
-      <h3>Do you have an existing portfolio?</h3>
+      <h3>すでに保有ポートフォリオはありますか？</h3>
       <p className="onboarding-subtle">
-        Tell us where you are today so we can tailor the simulation.
+        現在の運用状況に合わせて、日本の不動産投資向けに初期設定します。
       </p>
       <div className="onboarding-fork__choices">
         <button
@@ -16,8 +16,8 @@ export default function PortfolioForkStep({ onAnswer }: PortfolioForkStepProps) 
           onClick={() => onAnswer(true)}
           data-testid="fork-yes"
         >
-          <strong>Yes, I have one</strong>
-          <span>Import via CSV or chat with the assistant.</span>
+          <strong>はい、あります</strong>
+          <span>CSV または対話入力で保有物件を取り込みます。</span>
         </button>
         <button
           type="button"
@@ -25,8 +25,8 @@ export default function PortfolioForkStep({ onAnswer }: PortfolioForkStepProps) 
           onClick={() => onAnswer(false)}
           data-testid="fork-no"
         >
-          <strong>Not yet</strong>
-          <span>Tell us your strategy and budget — we'll suggest properties.</span>
+          <strong>まだありません</strong>
+          <span>投資方針と予算を入力すると、日本向けの候補物件を提案します。</span>
         </button>
       </div>
     </div>

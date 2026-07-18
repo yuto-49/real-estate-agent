@@ -531,11 +531,21 @@ class ChatImportConfirm(BaseModel):
 
 
 class InvestorProfileGeography(BaseModel):
-    """One-of constraint: at least one of zip/city/state must be set."""
+    """Geography preferences for recommendation filtering/scoring.
+
+    Legacy US-oriented fields (`city`, `state`) stay for compatibility, while
+    the Japan-first onboarding flow persists prefecture/municipality/station
+    detail without dropping it at the API boundary.
+    """
 
     zip: str | None = None
     city: str | None = None
     state: str | None = None
+    prefecture: str | None = None
+    municipality: str | None = None
+    ward: str | None = None
+    neighborhood: str | None = None
+    station: str | None = None
 
 
 class InvestorProfileUpsert(BaseModel):
@@ -861,6 +871,16 @@ class HoldingProjection(BaseModel):
     shield_expired_in_horizon: bool = False
 
 
+class YearProjection(BaseModel):
+    """One point on the portfolio's forward curve. Year 0 is today."""
+
+    year: int
+    portfolio_value: float
+    annual_noi: float
+    monthly_cash_flow: float
+    cap_rate: float | None = None
+
+
 class SimulationReport(BaseModel):
     portfolio_id: str
     horizon_years: int
@@ -868,6 +888,9 @@ class SimulationReport(BaseModel):
     aggregate_value_projection: float
     aggregate_annual_noi_projection: float
     aggregate_cap_rate_projection: float | None = None
+    # Year-by-year curve (len == horizon_years + 1). Its final point equals the
+    # aggregate_* endpoints above by construction.
+    per_year: list[YearProjection] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 
@@ -970,4 +993,3 @@ class ListingAnalysisRequest(BaseModel):
     building_basis_yen: float | None = None
     building_age_years: int | None = None
     marginal_tax_rate: float = Field(0.33, ge=0, le=1)
-

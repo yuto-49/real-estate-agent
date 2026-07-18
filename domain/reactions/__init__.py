@@ -1,5 +1,10 @@
 """Reaction-layer primitives and social-dynamics helpers."""
 
+from domain.reactions.derive import (
+    actor_reaction_events,
+    build_reaction_vector,
+    market_reaction_events,
+)
 from domain.reactions.engine import (
     ConvergenceReport,
     NarrativeCluster,
@@ -34,4 +39,7 @@ __all__ = [
     "extract_narratives",
     "validate_topics",
     "vector_distance",
+    "actor_reaction_events",
+    "build_reaction_vector",
+    "market_reaction_events",
 ]

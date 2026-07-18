@@ -1,6 +1,12 @@
 import { useState } from 'react'
 
 import type { WizardState } from '../../pages/OnboardingWizard'
+import {
+  formatBooleanJa,
+  formatImportMethodLabel,
+  formatJpyCompact,
+  formatStrategyLabel,
+} from '../../utils/japan'
 
 interface ConfirmStepProps {
   state: WizardState
@@ -25,18 +31,18 @@ export default function ConfirmStep({
   }
   return (
     <div className="onboarding-confirm" data-testid="onboarding-confirm">
-      <h3>Ready to launch</h3>
+      <h3>試算を開始する準備ができました</h3>
       <dl className="onboarding-summary">
-        <dt>Has portfolio</dt>
-        <dd>{state.hasPortfolio === null ? '—' : state.hasPortfolio ? 'Yes' : 'No'}</dd>
+        <dt>既存ポートフォリオ</dt>
+        <dd>{state.hasPortfolio === null ? '—' : formatBooleanJa(state.hasPortfolio)}</dd>
 
         {state.hasPortfolio && (
           <>
-            <dt>Import method</dt>
-            <dd>{state.importMethod ?? '—'}</dd>
+            <dt>取り込み方法</dt>
+            <dd>{formatImportMethodLabel(state.importMethod)}</dd>
             {state.importedPortfolioId && (
               <>
-                <dt>Portfolio</dt>
+                <dt>ポートフォリオ</dt>
                 <dd>
                   <code>{state.importedPortfolioId.slice(0, 8)}…</code>
                 </dd>
@@ -44,10 +50,9 @@ export default function ConfirmStep({
             )}
             {state.importSummary && (
               <>
-                <dt>Imported</dt>
+                <dt>反映件数</dt>
                 <dd>
-                  {state.importSummary.inserted} new ·{' '}
-                  {state.importSummary.updated} updated
+                  新規 {state.importSummary.inserted} 件 ・ 更新 {state.importSummary.updated} 件
                 </dd>
               </>
             )}
@@ -56,15 +61,13 @@ export default function ConfirmStep({
 
         {state.hasPortfolio === false && (
           <>
-            <dt>Strategy</dt>
-            <dd>{state.profile.strategy ?? '—'}</dd>
-            <dt>Budget</dt>
+            <dt>投資方針</dt>
+            <dd>{formatStrategyLabel(state.profile.strategy)}</dd>
+            <dt>予算</dt>
             <dd>
-              {state.profile.budget !== null
-                ? `$${state.profile.budget.toLocaleString()}`
-                : '—'}
+              {formatJpyCompact(state.profile.budget)}
             </dd>
-            <dt>Selected property</dt>
+            <dt>選択物件</dt>
             <dd>{state.selectedPropertyId ?? '—'}</dd>
           </>
         )}
@@ -78,7 +81,7 @@ export default function ConfirmStep({
             disabled={launching}
             data-testid="confirm-launch-simulation"
           >
-            {launching ? 'Launching…' : 'Run simulation'}
+            {launching ? '開始中…' : 'シミュレーション開始'}
           </button>
         )}
         <button
@@ -87,7 +90,7 @@ export default function ConfirmStep({
           onClick={onSkipToPortfolio}
           data-testid="confirm-skip"
         >
-          {canSimulate ? 'Skip for now — go to portfolio' : 'Go to portfolio'}
+          {canSimulate ? '今回はスキップしてポートフォリオへ' : 'ポートフォリオへ移動'}
         </button>
       </div>
     </div>

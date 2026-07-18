@@ -166,7 +166,8 @@ All config via `config.py` (pydantic-settings) reading from `.env`:
 | `MONTE_CARLO_SCENARIOS` | `300` | Stress-test / financial-model iterations |
 | `JURISDICTION` | `us` | `us` or `jp` (Tokyo) |
 | `DEFAULT_PREFECTURE_CODE` | `13` | 東京都 (JP mode) |
-| `REINFOLIB_MODE` / `REINS_MODE` | `mock` | JP listing/transaction data sources |
+| `REINFOLIB_MODE` / `REINS_MODE` | `mock` | Legacy fixture-only `services/providers_jp/` mocks — **no consumer reads these** |
+| `REINFOLIB_API_KEY` | (empty) | MLIT 不動産情報ライブラリ subscription key — required by the four live `reinfolib_*` signal providers |
 | `SUPABASE_URL` | (empty) | Supabase project URL (frontend: `VITE_SUPABASE_URL`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | (empty) | Server-only — `scripts/create_dev_user.py` and admin ops |
 | `SUPABASE_JWT_ISSUER` | (empty) | Expected `iss`, e.g. `https://<project>.supabase.co/auth/v1` |
@@ -221,6 +222,11 @@ The investor underwriting + decision surface reads signals via
 | FRED | `services/signal_providers/fred.py` | Federal Reserve mortgage rate → `loan_rate` |
 | FEMA NFHL | `services/signal_providers/fema_nfhl.py` | Flood hazard → `hazard` flags per property |
 | Census ACS | `services/signal_providers/census_acs.py` | ACS → `median_rent` + `median_sale_price` per zip |
+| REINFOLIB base | `services/signal_providers/reinfolib_base.py` | Shared MLIT client — `Ocp-Apim-Subscription-Key` header + XYZ tile math (lat/lng → tile). 404 = "no data" → `None` |
+| REINFOLIB transaction | `services/signal_providers/reinfolib_transaction.py` | MLIT XIT001 取引価格 → `median_sale_price` + `median_unit_price` per municipality |
+| REINFOLIB land price | `services/signal_providers/reinfolib_land_price.py` | 地価公示・地価調査 → `land_price_psm` |
+| REINFOLIB appraisal | `services/signal_providers/reinfolib_appraisal.py` | 鑑定評価 → `appraised_value_psm` |
+| REINFOLIB hazard | `services/signal_providers/reinfolib_hazard.py` | Tile-based hazard → `hazard_flood` / `hazard_landslide` / `hazard_liquefaction` |
 | Read API | `GET /api/properties/{id}/market-context` | Wraps `build_snapshot`, returns `MarketContextSnapshot` JSON |
 
 Adding a new provider = ~50 lines: implement the Protocol, register in

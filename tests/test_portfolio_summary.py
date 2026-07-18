@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from db.models import (
@@ -17,6 +18,27 @@ from services.portfolio_summary import build_portfolio_summary
 
 def _factory(db_engine):
     return async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def _count_select_queries(db_engine, portfolio_id: str) -> int:
+    """Count SELECT round-trips issued while building one portfolio summary.
+
+    Attaches a cursor-level listener to the sync engine so every statement the
+    async session executes is observed.
+    """
+    selects: list[str] = []
+
+    def _on_execute(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip()[:6].upper() == "SELECT":
+            selects.append(statement)
+
+    event.listen(db_engine.sync_engine, "after_cursor_execute", _on_execute)
+    try:
+        async with _factory(db_engine)() as s:
+            await build_portfolio_summary(s, portfolio_id)
+    finally:
+        event.remove(db_engine.sync_engine, "after_cursor_execute", _on_execute)
+    return len(selects)
 
 
 async def _seed_portfolio(
@@ -206,3 +228,51 @@ async def test_summary_no_financials_holding(db_engine):
     assert row.market_context_available is False
     assert result.aggregates.total_value == 0.0
     assert result.aggregates.weighted_dscr is None
+
+
+def _holding_specs(n: int) -> list[dict]:
+    """N structurally-identical holdings (zip + financials) sharing two zips."""
+    zips = ("60601", "60615")
+    return [
+        {
+            "address": f"{i} Batch St",
+            "zip_code": zips[i % len(zips)],
+            "financials": {
+                "current_value_estimate": 400_000.0,
+                "loan_balance": 240_000.0,
+                "interest_rate": 0.085,  # exercises REFI + attention path
+                "monthly_piti": 1_400.0,
+                "monthly_rent": 2_400.0,
+                "vacancy_rate": 0.05,
+            },
+        }
+        for i in range(n)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_summary_query_count_is_constant_in_holdings(db_engine):
+    """DB round-trips must be O(1) in holding count, not O(N).
+
+    Two portfolios of the same shape but different sizes (2 vs 8 holdings) must
+    issue the same number of SELECTs. A per-holding (N+1) implementation makes
+    the larger portfolio issue several more queries.
+    """
+    signals = {
+        "60601": {"inventory_pressure": 0.2, "median_rent": 2_000.0, "safety_score": 7.5},
+        "60615": {"inventory_pressure": 0.4, "median_rent": 1_800.0, "safety_score": 6.0},
+    }
+    small_id, _ = await _seed_portfolio(
+        db_engine, holdings=_holding_specs(2), signals_for_zip=signals, email_tag="batch-small"
+    )
+    large_id, _ = await _seed_portfolio(
+        db_engine, holdings=_holding_specs(8), signals_for_zip=signals, email_tag="batch-large"
+    )
+
+    small_queries = await _count_select_queries(db_engine, small_id)
+    large_queries = await _count_select_queries(db_engine, large_id)
+
+    assert small_queries == large_queries, (
+        f"portfolio summary is N+1: 2 holdings issued {small_queries} SELECTs, "
+        f"8 holdings issued {large_queries}"
+    )

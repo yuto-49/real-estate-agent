@@ -580,8 +580,6 @@ export interface MarketSimulationHandoffResponse {
 
 // ── Investor portfolio (Phase P6) ──────────────────────────────────────
 
-export type PortfolioMode = 'institutional' | 'individual'
-
 export interface HoldingFinancials {
   cost_basis?: number | null
   current_value_estimate?: number | null
@@ -612,6 +610,8 @@ export interface PortfolioHolding {
   portfolio_id: string
   property_id?: string | null
   address: string
+  latitude?: number | null
+  longitude?: number | null
   zip_code?: string | null
   asset_class: string
   status: string
@@ -889,6 +889,11 @@ export interface InvestorProfileGeography {
   zip?: string | null
   city?: string | null
   state?: string | null
+  prefecture?: string | null
+  municipality?: string | null
+  ward?: string | null
+  neighborhood?: string | null
+  station?: string | null
 }
 
 export interface InvestorProfile {

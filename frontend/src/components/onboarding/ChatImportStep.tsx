@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 
 import { useAuth } from '../../hooks/useAuth'
 import { api } from '../../utils/api'
+import { formatAssetClassLabel } from '../../utils/japan'
 import type { PortfolioHoldingCreate } from '../../utils/types'
 
 interface ChatTurn {
@@ -12,6 +13,16 @@ interface ChatTurn {
 interface ChatImportStepProps {
   onImported: (portfolioId: string, summary: { inserted: number; updated: number }) => void
 }
+
+const ASSET_CLASS_OPTIONS = [
+  'sfr',
+  'mf_2_4',
+  'mf_5_plus',
+  'condo',
+  'townhouse',
+  'multifamily',
+  'land',
+] as const
 
 /**
  * Conversational portfolio import. The user describes their holdings in free
@@ -53,7 +64,7 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
         setHoldings(Array.from(merged.values()))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Extraction failed')
+      setError(err instanceof Error ? err.message : '保有物件の抽出に失敗しました。')
     } finally {
       setPending(false)
     }
@@ -75,7 +86,7 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
   const commit = async () => {
     setError(null)
     if (!user?.id) {
-      setError('You must be signed in to import a portfolio.')
+      setError('ポートフォリオを取り込むにはログインが必要です。')
       return
     }
     if (holdings.length === 0) return
@@ -92,7 +103,7 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
         updated: result.updated_count,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Commit failed')
+      setError(err instanceof Error ? err.message : 'ポートフォリオの保存に失敗しました。')
     } finally {
       setCommitting(false)
     }
@@ -100,16 +111,16 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
 
   return (
     <div className="onboarding-chat-step" data-testid="onboarding-chat-step">
-      <h3>Tell us about your holdings</h3>
+      <h3>保有物件の内容を文章で入力してください</h3>
       <p className="onboarding-subtle">
-        Describe each property in your own words — address, value, rent,
-        loan. The assistant will fill in a table you can edit before saving.
+        所在地、価格、賃料、借入などを自由に書くと、
+        保存前に確認できる一覧へ自動反映します。
       </p>
 
       <ul className="chat-transcript" data-testid="chat-transcript">
         {turns.map((turn, i) => (
           <li key={i} className={`chat-turn chat-turn--${turn.role}`}>
-            <strong>{turn.role === 'user' ? 'You' : 'Assistant'}:</strong>{' '}
+            <strong>{turn.role === 'user' ? 'あなた' : 'アシスタント'}:</strong>{' '}
             {turn.content}
           </li>
         ))}
@@ -120,25 +131,25 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g. I own 123 Main St 60601, worth ~$420k, $2,400/mo rent"
+          placeholder="例: 東京都墨田区押上1-1-2の区分マンション、価格4,200万円、月額賃料18万円、借入残高2,500万円"
           disabled={pending}
           data-testid="chat-input"
         />
         <button type="submit" disabled={pending || !input.trim()} data-testid="chat-send">
-          {pending ? 'Thinking…' : 'Send'}
+          {pending ? '整理中…' : '送信'}
         </button>
       </form>
 
       {holdings.length > 0 && (
         <div className="chat-confirm" data-testid="chat-confirm-preview">
-          <h4>Review extracted holdings ({holdings.length})</h4>
+          <h4>抽出結果を確認してください（{holdings.length} 件）</h4>
           <table className="csv-import-table">
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Zip</th>
-                <th>Asset class</th>
-                <th>Monthly rent</th>
+                <th>所在地</th>
+                <th>郵便番号</th>
+                <th>物件種別</th>
+                <th>月額賃料</th>
                 <th />
               </tr>
             </thead>
@@ -162,12 +173,18 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
                     />
                   </td>
                   <td>
-                    <input
+                    <select
                       value={h.asset_class ?? 'sfr'}
                       onChange={(e) =>
                         updateHolding(i, { asset_class: e.target.value })
                       }
-                    />
+                    >
+                      {ASSET_CLASS_OPTIONS.map((assetClass) => (
+                        <option key={assetClass} value={assetClass}>
+                          {formatAssetClassLabel(assetClass)}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <input
@@ -204,7 +221,7 @@ export default function ChatImportStep({ onImported }: ChatImportStepProps) {
             className="onboarding-primary"
             data-testid="chat-commit"
           >
-            {committing ? 'Saving…' : `Confirm ${holdings.length} holding(s)`}
+            {committing ? '保存中…' : `${holdings.length} 件を保存する`}
           </button>
         </div>
       )}

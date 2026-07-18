@@ -14,10 +14,10 @@ interface StepTimelineProps {
 }
 
 const STATUS_LABEL: Record<StepTimelineProps['status'], string> = {
-  connecting: 'Connecting…',
-  streaming: 'Streaming',
-  closed: 'Done',
-  error: 'Error',
+  connecting: '接続中',
+  streaming: '進行中',
+  closed: '完了',
+  error: 'エラー',
 }
 
 export default function StepTimeline({
@@ -28,7 +28,7 @@ export default function StepTimeline({
   return (
     <div className="step-timeline" data-testid="step-timeline">
       <header className="step-timeline__header">
-        <h3>Run trace</h3>
+        <h3>実行ログ</h3>
         <span
           className={`step-timeline__badge step-timeline__badge--${status}`}
           data-testid="step-timeline-status"
@@ -58,7 +58,7 @@ export default function StepTimeline({
           </li>
         ))}
         {status === 'streaming' && steps.length === 0 && (
-          <li className="step-timeline__empty">Waiting for the first event…</li>
+          <li className="step-timeline__empty">最初のイベントを待っています…</li>
         )}
       </ol>
     </div>

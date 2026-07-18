@@ -32,7 +32,7 @@ export default function SignInPage() {
       }
       navigate(fromPath, { replace: true })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Authentication failed'
+      const message = err instanceof Error ? err.message : '認証に失敗しました。'
       setError(message)
     } finally {
       setSubmitting(false)
@@ -47,12 +47,12 @@ export default function SignInPage() {
   return (
     <div style={{ maxWidth: 380, margin: '4rem auto', padding: '0 1rem' }}>
       <h2 style={{ marginBottom: '1rem' }}>
-        {mode === 'signin' ? 'Sign in' : 'Create account'}
+        {mode === 'signin' ? 'ログイン' : 'アカウント作成'}
       </h2>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Email</span>
+          <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>メールアドレス</span>
           <input
             type="email"
             value={email}
@@ -63,7 +63,7 @@ export default function SignInPage() {
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Password</span>
+          <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>パスワード</span>
           <input
             type="password"
             value={password}
@@ -82,7 +82,7 @@ export default function SignInPage() {
         )}
 
         <button type="submit" disabled={submitting} style={primaryButton}>
-          {submitting ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
+          {submitting ? '処理中…' : mode === 'signin' ? 'ログイン' : '登録する'}
         </button>
       </form>
 
@@ -92,23 +92,23 @@ export default function SignInPage() {
           onClick={() => setMode((m) => (m === 'signin' ? 'signup' : 'signin'))}
           style={linkButton}
         >
-          {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+          {mode === 'signin' ? 'アカウントを作成する' : 'すでにアカウントをお持ちの方'}
         </button>
         <Link to="/" style={{ textDecoration: 'none' }}>
-          Cancel
+          戻る
         </Link>
       </div>
 
       <hr style={{ margin: '1.5rem 0', opacity: 0.3 }} />
 
       <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
-        <strong>Dev shortcut</strong> — created via{' '}
+        <strong>開発用ショートカット</strong> — 作成元:{' '}
         <code>scripts/create_dev_user.py</code>:
         <pre style={devBlock}>
           {`email:    ${DEV_EMAIL}\npassword: ${DEV_PASSWORD}`}
         </pre>
         <button type="button" onClick={fillDevCredentials} style={ghostButton}>
-          Fill dev credentials
+          開発用資格情報を入力
         </button>
       </div>
     </div>

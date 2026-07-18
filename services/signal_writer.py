@@ -12,12 +12,25 @@ column reads as a time series.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import MarketSignal
+
+
+def _as_naive_utc(value: datetime) -> datetime:
+    """Normalise a timestamp to naive UTC.
+
+    ``market_signals.observed_at`` is ``TIMESTAMP WITHOUT TIME ZONE``. The JP
+    providers stamp signals with ``datetime.now(UTC)``, which asyncpg refuses to
+    bind to a naive column. Aware values are converted to UTC (not merely
+    stripped, so a JST stamp shifts correctly); naive values pass through.
+    """
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
 
 
 async def upsert_signal(
@@ -35,6 +48,7 @@ async def upsert_signal(
 
     Returns the row that was written. Caller is responsible for committing.
     """
+    observed_at = _as_naive_utc(observed_at)
     day_start = datetime(observed_at.year, observed_at.month, observed_at.day)
     day_end = datetime(
         observed_at.year, observed_at.month, observed_at.day, 23, 59, 59, 999999

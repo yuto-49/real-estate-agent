@@ -4,7 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import StepTimeline, {
   type TimelineStep,
 } from '../components/simulation/StepTimeline'
+import { buildWebSocketUrl } from '../config/runtime'
 import { api } from '../utils/api'
+import type { StrategyRunRecord } from '../utils/types'
 
 type StreamStatus = 'connecting' | 'streaming' | 'closed' | 'error'
 
@@ -21,8 +23,26 @@ interface IncomingEvent {
 }
 
 function wsUrlFor(runId: string): string {
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${proto}://${window.location.host}/ws/strategy/${runId}`
+  return buildWebSocketUrl(`/strategy/${runId}`)
+}
+
+function recordToSteps(record: StrategyRunRecord): TimelineStep[] {
+  if (record.steps && record.steps.length > 0) {
+    return record.steps.map((step) => ({
+      type: step.type,
+      label: step.label,
+      detail: step.detail ?? null,
+      at: step.at,
+    }))
+  }
+
+  return [
+    {
+      type: 'stream.degraded',
+      label: '進捗を確認しています',
+      detail: 'ライブ配信が利用できないため、状態を定期確認しています。',
+    },
+  ]
 }
 
 export default function SimulatePage() {
@@ -32,16 +52,73 @@ export default function SimulatePage() {
   const [status, setStatus] = useState<StreamStatus>('connecting')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const pollingRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!runId) return
     let cancelled = false
+    let usingPolling = false
+    let terminal = false
+
+    const stopPolling = () => {
+      if (pollingRef.current !== null) {
+        window.clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+
+    const applyRecord = (record: StrategyRunRecord) => {
+      setSteps(recordToSteps(record))
+      if (record.status === 'failed') {
+        terminal = true
+        stopPolling()
+        setStatus('error')
+        setErrorMessage(record.error ?? 'シミュレーションの実行に失敗しました。')
+        return
+      }
+      if (record.status === 'completed') {
+        terminal = true
+        stopPolling()
+        setStatus('closed')
+        setErrorMessage(null)
+        return
+      }
+      setStatus('streaming')
+      setErrorMessage(null)
+    }
+
+    const pollStatus = async () => {
+      try {
+        const record = await api.strategy.status(runId)
+        if (cancelled) return
+        applyRecord(record)
+      } catch (err) {
+        if (cancelled) return
+        stopPolling()
+        setStatus('error')
+        setErrorMessage(err instanceof Error ? err.message : '進捗の取得に失敗しました。')
+      }
+    }
+
+    const startPolling = () => {
+      if (usingPolling || cancelled) return
+      usingPolling = true
+      setStatus('streaming')
+      setErrorMessage(null)
+      void pollStatus()
+      pollingRef.current = window.setInterval(() => {
+        void pollStatus()
+      }, 1500)
+    }
 
     const ws = new WebSocket(wsUrlFor(runId))
     wsRef.current = ws
 
     ws.onopen = () => {
-      if (!cancelled) setStatus('streaming')
+      if (!cancelled) {
+        setStatus('streaming')
+        setErrorMessage(null)
+      }
     }
     ws.onmessage = (event) => {
       if (cancelled) return
@@ -52,11 +129,14 @@ export default function SimulatePage() {
         return
       }
       if (parsed.type === 'error') {
+        terminal = true
         setStatus('error')
-        setErrorMessage(parsed.payload?.detail_text ?? 'Stream error')
+        setErrorMessage(parsed.payload?.detail_text ?? '配信エラーが発生しました。')
         return
       }
       if (parsed.type === 'stream.closed') {
+        terminal = true
+        stopPolling()
         setStatus('closed')
         return
       }
@@ -76,16 +156,18 @@ export default function SimulatePage() {
     }
     ws.onerror = () => {
       if (!cancelled) {
-        setStatus('error')
-        setErrorMessage('WebSocket connection failed.')
+        startPolling()
       }
     }
     ws.onclose = () => {
-      if (!cancelled && status === 'streaming') setStatus('closed')
+      if (!cancelled && !usingPolling && !terminal) {
+        startPolling()
+      }
     }
 
     return () => {
       cancelled = true
+      stopPolling()
       ws.close()
       wsRef.current = null
     }
@@ -98,15 +180,15 @@ export default function SimulatePage() {
       const record = await api.strategy.result(runId)
       navigate(`/simulate/${runId}/report`, { state: { record } })
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Could not load result.')
+      setErrorMessage(err instanceof Error ? err.message : '結果レポートを取得できませんでした。')
     }
   }
 
   return (
     <div className="simulate-page" data-testid="simulate-page">
       <header className="simulate-page__header">
-        <h2>Strategy run</h2>
-        <p className="onboarding-subtle">Run ID {runId}</p>
+        <h2>シミュレーション進行中</h2>
+        <p className="onboarding-subtle">実行ID {runId}</p>
       </header>
 
       <StepTimeline steps={steps} status={status} errorMessage={errorMessage} />
@@ -118,7 +200,7 @@ export default function SimulatePage() {
           onClick={() => void handleViewReport()}
           data-testid="simulate-view-report"
         >
-          View unified report
+          統合レポートを見る
         </button>
       )}
     </div>

@@ -37,7 +37,7 @@ export default function CsvImportStep({ onImported }: CsvImportStepProps) {
   const handleImport = async (holdings: PortfolioHoldingCreate[]) => {
     setError(null)
     if (!user?.id) {
-      setError('You must be signed in to import a portfolio.')
+      setError('ポートフォリオを取り込むにはログインが必要です。')
       return
     }
     if (holdings.length === 0) return
@@ -53,7 +53,7 @@ export default function CsvImportStep({ onImported }: CsvImportStepProps) {
         updated: result.updated_count,
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Import failed'
+      const message = err instanceof Error ? err.message : 'CSV 取り込みに失敗しました。'
       setError(message)
     }
   }
@@ -73,10 +73,10 @@ export default function CsvImportStep({ onImported }: CsvImportStepProps) {
 
   return (
     <div className="onboarding-csv-step" data-testid="onboarding-csv-step">
-      <h3>Upload your portfolio CSV</h3>
+      <h3>保有ポートフォリオを CSV で取り込む</h3>
       <p className="onboarding-subtle">
-        Drop a Stessa, REI Hub, or generic export. We'll parse the columns,
-        let you review each row, and then create your portfolio.
+        Stessa や REI Hub の書式、または汎用 CSV を読み込み、
+        各行を確認したうえでポートフォリオを作成できます。
       </p>
 
       <button
@@ -86,7 +86,7 @@ export default function CsvImportStep({ onImported }: CsvImportStepProps) {
         disabled={!template}
         data-testid="csv-template-download"
       >
-        Download CSV template
+        CSV テンプレートをダウンロード
       </button>
 
       <CsvImportPanel onImport={handleImport} />

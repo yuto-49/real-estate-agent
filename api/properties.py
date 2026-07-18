@@ -1,6 +1,7 @@
 """Property CRUD API endpoints."""
 
 from dataclasses import asdict
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -16,10 +17,33 @@ from api.schemas import (
 )
 from db.database import get_db
 from db.models import InvestorProfile, Property, PropertyStatus
-from services.market_state import build_snapshot
+from services.market_state import build_snapshot, build_snapshots
 from services.property_recommender import rank_properties
 
 router = APIRouter()
+
+_JP_ZIP_RE = re.compile(r"^\d{3}-?\d{4}$")
+
+
+def _profile_targets_japan(profile: InvestorProfile) -> bool:
+    geo = dict(profile.geography or {})
+    if any(
+        geo.get(key)
+        for key in ("prefecture", "municipality", "ward", "neighborhood", "station")
+    ):
+        return True
+
+    zip_code = str(geo.get("zip") or "").strip()
+    if _JP_ZIP_RE.fullmatch(zip_code):
+        return True
+
+    for key in ("state", "city"):
+        value = str(geo.get(key) or "").strip()
+        if not value:
+            continue
+        if any(suffix in value for suffix in ("都", "道", "府", "県", "区", "市", "町", "村")):
+            return True
+    return False
 
 
 @router.get("/", response_model=PropertyListResponse)
@@ -85,19 +109,24 @@ async def recommend_properties(
     if profile is None:
         raise HTTPException(status_code=404, detail="profile_not_found")
 
-    candidates = (
-        await db.execute(
-            select(Property).where(Property.status == PropertyStatus.ACTIVE)
-        )
-    ).scalars().all()
+    query = select(Property).where(Property.status == PropertyStatus.ACTIVE)
+    if _profile_targets_japan(profile):
+        query = query.where(Property.jurisdiction == "jp")
 
-    snapshots = {}
-    for prop in candidates:
-        try:
-            snapshots[prop.id] = await build_snapshot(db, prop.id)
-        except Exception:
-            # Snapshot is optional — the ranker tolerates missing snapshots.
-            pass
+    candidates = (await db.execute(query)).scalars().all()
+    if _profile_targets_japan(profile) and not candidates:
+        candidates = (
+            await db.execute(
+                select(Property).where(Property.status == PropertyStatus.ACTIVE)
+            )
+        ).scalars().all()
+
+    try:
+        # Batched: two signal queries for all candidates instead of per-property.
+        snapshots = await build_snapshots(db, candidates)
+    except Exception:
+        # Snapshots are optional — the ranker tolerates missing snapshots.
+        snapshots = {}
 
     scored = rank_properties(
         profile, list(candidates), snapshots=snapshots, top_n=max(1, min(top_n, 50))

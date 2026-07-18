@@ -5,6 +5,7 @@ import type {
   PortfolioHolding,
   PortfolioHoldingCreate,
 } from '../../utils/types'
+import { formatAssetClassLabel, formatJpyCompact } from '../../utils/japan'
 import CsvImportPanel from './CsvImportPanel'
 
 interface HoldingsTabProps {
@@ -16,11 +17,6 @@ const EMPTY_HOLDING: PortfolioHoldingCreate = {
   asset_class: 'sfr',
   status: 'held',
   zip_code: '',
-}
-
-function formatMoney(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '—'
-  return `$${Math.round(value).toLocaleString()}`
 }
 
 export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
@@ -42,7 +38,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
       setAggregate(agg)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load holdings')
+      setError(err instanceof Error ? err.message : '保有物件を取得できませんでした。')
     } finally {
       setLoading(false)
     }
@@ -54,7 +50,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
 
   const addHolding = async () => {
     if (!draft.address.trim()) {
-      setError('Address is required.')
+      setError('所在地は必須です。')
       return
     }
     try {
@@ -63,7 +59,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
       setListingUrl('')
       await refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add holding')
+      setError(err instanceof Error ? err.message : '保有物件を追加できませんでした。')
     }
   }
 
@@ -80,7 +76,7 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
       }))
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not parse listing URL')
+      setError(err instanceof Error ? err.message : '掲載URLから物件情報を読み取れませんでした。')
     }
   }
 
@@ -102,39 +98,39 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
 
       {aggregate && (
         <section className="portfolio-aggregate" data-testid="portfolio-aggregate">
-          <div><span>Holdings</span><strong>{aggregate.holding_count}</strong></div>
-          <div><span>Total value</span><strong>{formatMoney(aggregate.total_value)}</strong></div>
-          <div><span>Total equity</span><strong>{formatMoney(aggregate.total_equity)}</strong></div>
-          <div><span>Monthly cash flow</span><strong>{formatMoney(aggregate.monthly_cash_flow)}</strong></div>
-          <div><span>Blended cap rate</span><strong>{(aggregate.blended_cap_rate * 100).toFixed(2)}%</strong></div>
+          <div><span>保有件数</span><strong>{aggregate.holding_count}</strong></div>
+          <div><span>資産総額</span><strong>{formatJpyCompact(aggregate.total_value)}</strong></div>
+          <div><span>純資産</span><strong>{formatJpyCompact(aggregate.total_equity)}</strong></div>
+          <div><span>月次キャッシュフロー</span><strong>{formatJpyCompact(aggregate.monthly_cash_flow)}</strong></div>
+          <div><span>加重平均利回り</span><strong>{(aggregate.blended_cap_rate * 100).toFixed(2)}%</strong></div>
           <div>
-            <span>Weighted DSCR</span>
+            <span>加重平均 DSCR</span>
             <strong>{aggregate.weighted_dscr ? aggregate.weighted_dscr.toFixed(2) : '—'}</strong>
           </div>
         </section>
       )}
 
       <section className="portfolio-add-holding">
-        <h3>Add a holding</h3>
+        <h3>保有物件を追加</h3>
         <div className="listing-import-row">
           <input
-            placeholder="Zillow listing URL (optional)"
+            placeholder="REINS / SUUMO / at home の掲載URL（任意）"
             value={listingUrl}
             onChange={(e) => setListingUrl(e.target.value)}
           />
           <button type="button" onClick={() => void prefillFromListing()}>
-            Prefill from listing
+            掲載情報を反映
           </button>
         </div>
         <div className="portfolio-form-grid">
           <input
-            placeholder="Address"
+            placeholder="所在地（都道府県・市区町村・町名・番地）"
             value={draft.address}
             onChange={(e) => setDraft({ ...draft, address: e.target.value })}
             data-testid="holding-address"
           />
           <input
-            placeholder="Zip code"
+            placeholder="郵便番号"
             value={draft.zip_code ?? ''}
             onChange={(e) => setDraft({ ...draft, zip_code: e.target.value })}
           />
@@ -142,15 +138,15 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
             value={draft.asset_class ?? 'sfr'}
             onChange={(e) => setDraft({ ...draft, asset_class: e.target.value })}
           >
-            <option value="sfr">Single family</option>
-            <option value="mf_2_4">2–4 unit</option>
-            <option value="mf_5_plus">5+ unit</option>
-            <option value="condo">Condo</option>
-            <option value="townhouse">Townhouse</option>
+            <option value="sfr">戸建て</option>
+            <option value="mf_2_4">小規模一棟</option>
+            <option value="mf_5_plus">一棟マンション</option>
+            <option value="condo">区分マンション</option>
+            <option value="townhouse">テラスハウス</option>
           </select>
           <input
             type="number"
-            placeholder="Monthly rent"
+            placeholder="月額賃料"
             value={draft.financials?.monthly_rent ?? ''}
             onChange={(e) =>
               setDraft({
@@ -164,28 +160,28 @@ export default function HoldingsTab({ portfolioId }: HoldingsTabProps) {
           />
         </div>
         <button type="button" onClick={() => void addHolding()} data-testid="add-holding-btn">
-          Add holding
+          追加する
         </button>
       </section>
 
       <CsvImportPanel onImport={importCsv} />
 
       <section className="portfolio-holdings-list">
-        <h3>Holdings</h3>
-        {loading && <p>Loading…</p>}
-        {!loading && holdings.length === 0 && <p>No holdings yet.</p>}
+        <h3>保有物件一覧</h3>
+        {loading && <p>読み込み中…</p>}
+        {!loading && holdings.length === 0 && <p>保有物件はまだ登録されていません。</p>}
         <ul>
           {holdings.map((h) => (
             <li key={h.id} data-testid="holding-row">
               <div>
                 <strong>{h.address}</strong>
                 <span className="holding-meta">
-                  {h.asset_class} · {h.zip_code ?? 'no zip'} ·{' '}
-                  rent {formatMoney(h.financials?.monthly_rent)}
+                  {formatAssetClassLabel(h.asset_class)} ・ {h.zip_code ? `〒${h.zip_code}` : '郵便番号未設定'} ・
+                  月額賃料 {formatJpyCompact(h.financials?.monthly_rent)}
                 </span>
               </div>
               <button type="button" onClick={() => void removeHolding(h.id)}>
-                Remove
+                削除
               </button>
             </li>
           ))}

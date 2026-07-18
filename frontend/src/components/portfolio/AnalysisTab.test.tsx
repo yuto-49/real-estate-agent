@@ -67,7 +67,9 @@ describe('AnalysisTab', () => {
     expect(screen.getByTestId('overview-attention')).toBeInTheDocument()
     expect(screen.getByTestId('attention-h1')).toBeInTheDocument()
     expect(screen.getByTestId('overview-row-h1')).toBeInTheDocument()
-    expect(screen.getByTestId('overview-coverage')).toHaveTextContent('1 of 1')
+    expect(screen.getByTestId('overview-coverage')).toHaveTextContent(
+      '市場シグナル取得済み: 1 件中 1 件',
+    )
   })
 
   it('hides the attention section when nothing is flagged', async () => {

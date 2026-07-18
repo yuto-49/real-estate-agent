@@ -21,9 +21,10 @@ describe('CsvImportPanel', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByTestId('csv-format')).toHaveTextContent('Stessa export')
+      expect(screen.getByTestId('csv-format')).toHaveTextContent('Stessa 形式')
     })
     expect(screen.getByDisplayValue('123 Main St')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('戸建て')).toBeInTheDocument()
   })
 
   it('passes edited rows to onImport on confirm', async () => {

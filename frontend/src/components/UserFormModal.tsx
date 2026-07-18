@@ -2,6 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../utils/api'
+import {
+  formatLifeStageLabel,
+  formatPropertyTypeLabel,
+  formatRiskToleranceLabel,
+  formatUserRoleLabel,
+} from '../utils/japan'
 import type { UserProfile } from '../utils/types'
 
 interface Props {
@@ -85,7 +91,7 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
     const map = new maplibregl.Map({
       container: miniMapRef.current,
       style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-      center: [longitude ? Number(longitude) : -87.6298, latitude ? Number(latitude) : 41.8781],
+      center: [longitude ? Number(longitude) : 139.6917, latitude ? Number(latitude) : 35.6895],
       zoom: latitude ? 12 : 3,
     })
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -159,7 +165,7 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
     setError('')
 
     if (!name.trim() || !email.trim()) {
-      setError('Name and email are required.')
+      setError('氏名とメールアドレスは必須です。')
       return
     }
 
@@ -192,7 +198,7 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
       }
       onSaved(result)
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to save'
+      const message = err instanceof Error ? err.message : '保存に失敗しました。'
       setError(message)
     } finally {
       setSaving(false)
@@ -203,7 +209,7 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content user-form-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{isEdit ? 'Edit Profile' : 'Create Account'}</h3>
+          <h3>{isEdit ? '投資家プロフィールを編集' : '投資家プロフィールを作成'}</h3>
           <button className="modal-close-btn" onClick={onClose}>&times;</button>
         </div>
 
@@ -212,29 +218,29 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
 
           {/* Identity section */}
           <div className="form-section">
-            <h4>Identity</h4>
+            <h4>基本情報</h4>
             <div className="form-row">
               <div className="form-group">
-                <label>Full Name *</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" required />
+                <label>氏名 *</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="山田 太郎" required />
               </div>
               <div className="form-group">
-                <label>Email *</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" required disabled={isEdit} />
+                <label>メールアドレス *</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="taro@example.com" required disabled={isEdit} />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Role</label>
+                <label>利用区分</label>
                 <select value={role} onChange={(e) => setRole(e.target.value)}>
-                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {ROLES.map((r) => <option key={r} value={r}>{formatUserRoleLabel(r)}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label>Life Stage</label>
+                <label>運用フェーズ</label>
                 <select value={lifeStage} onChange={(e) => setLifeStage(e.target.value)}>
-                  <option value="">— Select —</option>
-                  {LIFE_STAGES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                  <option value="">— 選択してください —</option>
+                  {LIFE_STAGES.map((s) => <option key={s} value={s}>{formatLifeStageLabel(s)}</option>)}
                 </select>
               </div>
             </div>
@@ -242,26 +248,26 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
 
           {/* Budget section */}
           <div className="form-section">
-            <h4>Budget & Strategy</h4>
+            <h4>予算と投資条件</h4>
             <div className="form-row">
               <div className="form-group">
-                <label>Min Budget ($)</label>
-                <input type="number" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} placeholder="150000" />
+                <label>下限予算（円）</label>
+                <input type="number" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} placeholder="30000000" />
               </div>
               <div className="form-group">
-                <label>Max Budget ($)</label>
-                <input type="number" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} placeholder="500000" />
+                <label>上限予算（円）</label>
+                <input type="number" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} placeholder="80000000" />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Risk Tolerance</label>
+                <label>リスク許容度</label>
                 <select value={riskTolerance} onChange={(e) => setRiskTolerance(e.target.value)}>
-                  {RISK_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {RISK_LEVELS.map((r) => <option key={r} value={r}>{formatRiskToleranceLabel(r)}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label>Timeline (days)</label>
+                <label>検討期間（日）</label>
                 <input type="number" value={timelineDays} onChange={(e) => setTimelineDays(e.target.value)} placeholder="90" />
               </div>
             </div>
@@ -269,17 +275,17 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
 
           {/* Location section */}
           <div className="form-section">
-            <h4>Location</h4>
+            <h4>対象エリア</h4>
 
             {/* Address search */}
             <div className="form-group" style={{ position: 'relative', marginBottom: '0.6rem' }}>
-              <label>Search Address</label>
+              <label>住所検索</label>
               <input
                 value={locationQuery}
                 onChange={(e) => handleLocationSearch(e.target.value)}
-                placeholder="Type an address, city, or place..."
+                placeholder="住所・駅名・エリア名を入力"
               />
-              {searching && <span className="location-searching">Searching...</span>}
+              {searching && <span className="location-searching">検索中…</span>}
               {suggestions.length > 0 && (
                 <ul className="location-suggestions">
                   {suggestions.map((s, i) => (
@@ -292,27 +298,27 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
             {/* Mini map — click or drag to set location */}
             <div className="location-map-wrapper">
               <div ref={miniMapRef} className="location-mini-map" />
-              <span className="location-map-hint">Click the map or drag the pin to set location</span>
+              <span className="location-map-hint">地図をクリックするか、ピンをドラッグして位置を設定してください</span>
             </div>
 
             {/* Coordinates (read-only) + zip/radius */}
             <div className="form-row" style={{ marginTop: '0.6rem' }}>
               <div className="form-group">
-                <label>Latitude</label>
+                <label>緯度</label>
                 <input value={latitude} readOnly placeholder="—" />
               </div>
               <div className="form-group">
-                <label>Longitude</label>
+                <label>経度</label>
                 <input value={longitude} readOnly placeholder="—" />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>ZIP Code</label>
-                <input value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder="60614" />
+                <label>郵便番号</label>
+                <input value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder="106-0032" />
               </div>
               <div className="form-group">
-                <label>Search Radius (mi)</label>
+                <label>検索半径（km）</label>
                 <input type="number" value={searchRadius} onChange={(e) => setSearchRadius(e.target.value)} placeholder="10" />
               </div>
             </div>
@@ -320,7 +326,7 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
 
           {/* Preferred types */}
           <div className="form-section">
-            <h4>Preferred Property Types</h4>
+            <h4>希望物件種別</h4>
             <div className="form-chip-group">
               {PROPERTY_TYPES.map((t) => (
                 <button
@@ -329,16 +335,16 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
                   className={`form-chip ${preferredTypes.includes(t) ? 'active' : ''}`}
                   onClick={() => toggleType(t)}
                 >
-                  {t}
+                  {formatPropertyTypeLabel(t)}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="form-actions">
-            <button type="button" className="secondary-btn" onClick={onClose}>Cancel</button>
+            <button type="button" className="secondary-btn" onClick={onClose}>キャンセル</button>
             <button type="submit" className="primary-btn" disabled={saving}>
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Account'}
+              {saving ? '保存中…' : isEdit ? '変更を保存' : 'プロフィールを作成'}
             </button>
           </div>
         </form>

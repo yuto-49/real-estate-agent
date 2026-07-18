@@ -2,7 +2,6 @@ import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import SystemDrawer from './components/SystemDrawer'
 import { useAuth } from './hooks/useAuth'
-import { usePortfolioMode } from './hooks/usePortfolioMode'
 
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage'))
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'))
@@ -36,7 +35,7 @@ function AuthStatus() {
   if (!user) {
     return (
       <NavLink to="/signin" className="auth-link">
-        Sign in
+        ログイン
       </NavLink>
     )
   }
@@ -48,7 +47,7 @@ function AuthStatus() {
         onClick={() => void signOut()}
         className="auth-signout"
       >
-        Sign out
+        ログアウト
       </button>
     </span>
   )
@@ -59,22 +58,6 @@ function isFullBleedRoute(pathname: string) {
     pathname === '/' ||
     pathname.startsWith('/simulate') ||
     pathname.startsWith('/onboard')
-  )
-}
-
-function PortfolioModeToggle() {
-  const [mode, setMode] = usePortfolioMode()
-  const next = mode === 'individual' ? 'institutional' : 'individual'
-  return (
-    <button
-      type="button"
-      className="portfolio-mode-toggle"
-      onClick={() => setMode(next)}
-      title={`Switch to ${next} mode`}
-      data-testid="portfolio-mode-toggle"
-    >
-      {mode === 'individual' ? 'Individual' : 'Institutional'}
-    </button>
   )
 }
 
@@ -90,19 +73,18 @@ export default function App() {
       <header className="app-header">
         <div className="app-header-inner">
           <div className="app-brand">
-            <h1>Real Estate Agentic Platform</h1>
-            <p>Investor intelligence and portfolio analytics</p>
+            <h1>日本不動産エージェント</h1>
+            <p>日本の収益不動産向けポートフォリオ分析</p>
           </div>
           <nav className="app-nav">
-            <NavLink to="/" end>Dashboard</NavLink>
-            <NavLink to="/portfolio">Portfolio</NavLink>
-            <NavLink to="/profile">Profile</NavLink>
-            <PortfolioModeToggle />
+            <NavLink to="/" end>ダッシュボード</NavLink>
+            <NavLink to="/portfolio">ポートフォリオ</NavLink>
+            <NavLink to="/profile">プロフィール</NavLink>
             <AuthStatus />
             <button
               className="header-gear-btn"
               onClick={() => setSystemOpen(true)}
-              title="System Health"
+              title="システム状態"
               type="button"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from services.address_jp import TOKYO23_WARD_CODES
 from scripts.seed_tokyo import (
     FIXTURES_ROOT,
     _flatten_address,
@@ -136,6 +137,30 @@ def test_every_reins_listing_maps_to_property_kwargs():
         assert kwargs["latitude"] is not None
         assert kwargs["longitude"] is not None
         assert kwargs["neighborhood_data"]["jp"]["reins_bukken_bangou"] == listing["bukken_bangou"]
+
+
+@pytest.mark.unit
+def test_every_listing_gets_the_reinfolib_ward_code():
+    """``ward_code`` is the join key REINFOLIB signals are addressed by.
+
+    Without it, MLIT municipality-keyed signals can never resolve to a property
+    and the Analysis / Simulation / Portfolio surface stays empty.
+    """
+    for listing in _load_reins_files(REINS_DIR):
+        kwargs = _reins_to_property_kwargs(listing)
+        ward = listing["shozaichi"]["shikuchouson"]
+        assert kwargs["ward_code"] == TOKYO23_WARD_CODES[ward], listing["bukken_bangou"]
+        assert kwargs["ward_code"].startswith("13")
+        assert len(kwargs["ward_code"]) == 5
+
+
+@pytest.mark.unit
+def test_tokyo_listings_are_seeded_as_jp_jurisdiction():
+    """Tokyo stock must not inherit the legacy ``jurisdiction="us"`` column default."""
+    for listing in _load_reins_files(REINS_DIR):
+        kwargs = _reins_to_property_kwargs(listing)
+        assert kwargs["jurisdiction"] == "jp"
+        assert kwargs["currency"] == "JPY"
 
 
 @pytest.mark.skip(reason="US guardrails removed in pivot (migration f9a1b2c3d4e5)")

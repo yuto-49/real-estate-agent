@@ -2160,6 +2160,34 @@ main {
   font-size: 1rem;
 }
 
+.dashboard-holdings-list {
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.dashboard-holdings-list li {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.85rem 0.95rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dashboard-holdings-list strong {
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+.dashboard-holdings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
 /* ── User selector row ── */
 .user-selector-row {
   display: flex;

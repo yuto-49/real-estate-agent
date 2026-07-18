@@ -128,10 +128,10 @@ describe('SimulationTab', () => {
     await waitFor(() => screen.getByTestId('strategy-result'))
     expect(screen.getByTestId('recon-h1')).toBeInTheDocument()
     // Per-holding forward projection columns (projected NOI + cash flow)
-    expect(screen.getByTestId('recon-noi-h1')).toHaveTextContent('$22,000')
-    expect(screen.getByTestId('recon-cf-h1')).toHaveTextContent('$120')
+    expect(screen.getByTestId('recon-noi-h1')).toHaveTextContent('2.2万円')
+    expect(screen.getByTestId('recon-cf-h1')).toHaveTextContent('¥120')
     expect(screen.getByTestId('strategy-result')).toHaveTextContent(
-      'Strategy survives',
+      '運用方針は将来試算に耐えうる見込みです',
     )
   })
 

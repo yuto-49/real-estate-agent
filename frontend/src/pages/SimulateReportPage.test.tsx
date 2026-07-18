@@ -110,6 +110,7 @@ describe('SimulateReportPage', () => {
     expect(screen.getByTestId('report-reconciliations')).toBeInTheDocument()
     expect(screen.getByText(/Portfolio survives/)).toBeInTheDocument()
     expect(screen.getByText('82%')).toBeInTheDocument()
+    expect(screen.getByTestId('report-portfolio-link')).toHaveAttribute('href', '/portfolio')
   })
 
   it('renders failed state', async () => {

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../utils/api'
 import type { InvestorPortfolio, UserProfile } from '../utils/types'
-import { usePortfolioMode } from '../hooks/usePortfolioMode'
 import HoldingsTab from '../components/portfolio/HoldingsTab'
 import UnderwriteTab from '../components/portfolio/UnderwriteTab'
 import StressTestTab from '../components/portfolio/StressTestTab'
@@ -21,16 +20,15 @@ type TabKey =
   | 'simulation'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'analysis', label: 'Analysis' },
-  { key: 'holdings', label: 'Holdings' },
-  { key: 'underwrite', label: 'Underwrite' },
-  { key: 'stress', label: 'Stress Test' },
-  { key: 'decisions', label: 'Decisions' },
-  { key: 'simulation', label: 'Simulation' },
+  { key: 'analysis', label: '概要' },
+  { key: 'holdings', label: '保有物件' },
+  { key: 'underwrite', label: '収支試算' },
+  { key: 'stress', label: 'ストレステスト' },
+  { key: 'decisions', label: '推奨アクション' },
+  { key: 'simulation', label: '将来シミュレーション' },
 ]
 
 export default function PortfolioPage() {
-  const [mode] = usePortfolioMode()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [selectedUserId, setSelectedUserId] = useState(
     () => localStorage.getItem(SELECTED_USER_KEY) || '',
@@ -48,7 +46,7 @@ export default function PortfolioPage() {
         setUsers(data)
         if (!selectedUserId && data.length > 0) setSelectedUserId(data[0].id)
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load users'))
+      .catch((err) => setError(err instanceof Error ? err.message : 'プロフィール一覧を取得できませんでした。'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -66,7 +64,7 @@ export default function PortfolioPage() {
       )
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load portfolios')
+      setError(err instanceof Error ? err.message : 'ポートフォリオ一覧を取得できませんでした。')
     }
   }, [selectedUserId])
 
@@ -85,7 +83,7 @@ export default function PortfolioPage() {
       await loadPortfolios()
       setSelectedPortfolioId(created.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create portfolio')
+      setError(err instanceof Error ? err.message : 'ポートフォリオを作成できませんでした。')
     }
   }
 
@@ -93,13 +91,9 @@ export default function PortfolioPage() {
     <div className="portfolio-page" data-testid="portfolio-page">
       <header className="portfolio-page-header">
         <div>
-          <h2>Investor Portfolio</h2>
+          <h2>日本不動産ポートフォリオ</h2>
           <p>
-            Track holdings, underwrite deals, stress-test cash flow, and get
-            per-holding recommendations.{' '}
-            <span className="portfolio-mode-badge" data-testid="portfolio-mode-badge">
-              {mode === 'individual' ? 'Individual investor mode' : 'Institutional mode'}
-            </span>
+            保有物件の管理、収支試算、ストレステスト、推奨アクションを日本市場向けに確認できます。
           </p>
         </div>
       </header>
@@ -108,13 +102,13 @@ export default function PortfolioPage() {
 
       <section className="portfolio-selectors">
         <label>
-          Investor
+          投資家
           <select
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
             data-testid="portfolio-user-select"
           >
-            <option value="">Select investor…</option>
+            <option value="">投資家を選択…</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -124,13 +118,13 @@ export default function PortfolioPage() {
         </label>
 
         <label>
-          Portfolio
+          ポートフォリオ
           <select
             value={selectedPortfolioId}
             onChange={(e) => setSelectedPortfolioId(e.target.value)}
             data-testid="portfolio-select"
           >
-            <option value="">Select portfolio…</option>
+            <option value="">ポートフォリオを選択…</option>
             {portfolios.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -141,7 +135,7 @@ export default function PortfolioPage() {
 
         <div className="portfolio-create">
           <input
-            placeholder="New portfolio name"
+            placeholder="新しいポートフォリオ名"
             value={newPortfolioName}
             onChange={(e) => setNewPortfolioName(e.target.value)}
             data-testid="new-portfolio-name"
@@ -152,7 +146,7 @@ export default function PortfolioPage() {
             disabled={!selectedUserId || !newPortfolioName.trim()}
             data-testid="create-portfolio-btn"
           >
-            Create
+            作成
           </button>
         </div>
       </section>
@@ -193,8 +187,7 @@ export default function PortfolioPage() {
             )
           ) : (
             <p className="portfolio-empty">
-              Select or create a portfolio to see the analysis, holdings,
-              recommendations, and forward simulation.
+              ポートフォリオを選択または作成すると、保有物件、分析、推奨アクション、将来シミュレーションを確認できます。
             </p>
           ))}
       </div>

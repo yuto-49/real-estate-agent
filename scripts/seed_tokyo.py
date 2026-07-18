@@ -29,6 +29,7 @@ from sqlalchemy import select
 
 from db.database import Base, async_session, engine
 from db.models import Property, PropertyStatus, UserProfile
+from services.address_jp import TOKYO23_WARD_CODES
 
 FIXTURES_ROOT = PROJECT_ROOT / "tests" / "fixtures" / "tokyo"
 
@@ -135,6 +136,11 @@ def _reins_to_property_kwargs(listing: dict[str, Any]) -> dict[str, Any]:
         "disclosures": disclosures,
         "neighborhood_data": neighborhood_jp,
         "status": PropertyStatus.ACTIVE,
+        # MLIT municipality code — the key REINFOLIB signals are addressed by.
+        # Without it, market-signal lookups can never resolve to this property.
+        "ward_code": TOKYO23_WARD_CODES.get(shozaichi.get("shikuchouson", "")),
+        "jurisdiction": "jp",
+        "currency": "JPY",
     }
 
 

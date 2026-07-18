@@ -32,11 +32,11 @@ const SLIDER_DEFAULTS: Record<SliderKey, SliderRange> = {
 }
 
 const SLIDER_LABELS: Record<SliderKey, string> = {
-  vacancy_rate: 'Vacancy rate',
-  rent_growth: 'Rent growth',
-  expense_growth: 'Expense growth',
-  loan_rate: 'Loan rate',
-  exit_cap_rate: 'Exit cap rate',
+  vacancy_rate: '空室率',
+  rent_growth: '賃料成長率',
+  expense_growth: '費用成長率',
+  loan_rate: '借入金利',
+  exit_cap_rate: '出口利回り',
 }
 
 export default function StressTestTab() {
@@ -58,7 +58,7 @@ export default function StressTestTab() {
       setResult(res)
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stress test failed')
+      setError(err instanceof Error ? err.message : 'ストレステストに失敗しました。')
     } finally {
       setRunning(false)
     }
@@ -69,7 +69,7 @@ export default function StressTestTab() {
       {error && <p className="portfolio-error">{error}</p>}
 
       <label className="stress-iterations">
-        Monte Carlo iterations
+        モンテカルロ試行回数
         <input
           type="number"
           min={10}
@@ -84,7 +84,7 @@ export default function StressTestTab() {
           <div key={key} className="stress-slider-row">
             <span>{SLIDER_LABELS[key]}</span>
             <label>
-              low
+              下限
               <input
                 type="number"
                 step="0.005"
@@ -93,7 +93,7 @@ export default function StressTestTab() {
               />
             </label>
             <label>
-              high
+              上限
               <input
                 type="number"
                 step="0.005"
@@ -106,14 +106,14 @@ export default function StressTestTab() {
       </section>
 
       <button type="button" onClick={() => void run()} disabled={running} data-testid="run-stress-test">
-        {running ? 'Running…' : 'Run stress test'}
+        {running ? '試算中…' : 'ストレステストを実行'}
       </button>
 
       {result && (
         <section className="portfolio-results" data-testid="stress-test-result">
-          <div><span>Iterations</span><strong>{result.iterations.toLocaleString()}</strong></div>
+          <div><span>試行回数</span><strong>{result.iterations.toLocaleString()}</strong></div>
           <div>
-            <span>Cap rate P10 / P50 / P90</span>
+            <span>利回り P10 / P50 / P90</span>
             <strong>
               {(result.cap_rate_p10 * 100).toFixed(1)}% / {(result.cap_rate_p50 * 100).toFixed(1)}% /{' '}
               {(result.cap_rate_p90 * 100).toFixed(1)}%
@@ -126,11 +126,11 @@ export default function StressTestTab() {
             </strong>
           </div>
           <div>
-            <span>P(negative cash flow)</span>
+            <span>赤字CF確率</span>
             <strong>{(result.probability_negative_cash_flow * 100).toFixed(1)}%</strong>
           </div>
           <div>
-            <span>P(DSCR &lt; 1)</span>
+            <span>DSCR&lt;1 の確率</span>
             <strong>{(result.probability_dscr_under_1 * 100).toFixed(1)}%</strong>
           </div>
         </section>

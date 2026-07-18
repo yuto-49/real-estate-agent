@@ -16,7 +16,7 @@ function step(over: Partial<TimelineStep> = {}): TimelineStep {
 describe('StepTimeline', () => {
   it('renders status pill', () => {
     render(<StepTimeline steps={[]} status="connecting" />)
-    expect(screen.getByTestId('step-timeline-status').textContent).toMatch(/connecting/i)
+    expect(screen.getByTestId('step-timeline-status')).toHaveTextContent('接続中')
   })
 
   it('renders each step with label + detail', () => {
@@ -33,7 +33,7 @@ describe('StepTimeline', () => {
 
   it('shows empty state while streaming with no events yet', () => {
     render(<StepTimeline steps={[]} status="streaming" />)
-    expect(screen.getByText(/Waiting for the first event/)).toBeInTheDocument()
+    expect(screen.getByText(/最初のイベントを待っています/)).toBeInTheDocument()
   })
 
   it('renders error message when status=error', () => {

@@ -12,3 +12,8 @@ node_modules/
 *.db
 .coverage
 htmlcov/
+.playwright-mcp/
+frontend/test-results/
+share-site/
+onboarding-profile.png
+report-page.png

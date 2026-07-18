@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,4 +22,8 @@ class MarketContextSnapshot:
     median_rent: float | None = None
     median_sale_price: float | None = None
     inventory_pressure: float | None = None
+    # JP (MLIT REINFOLIB) scalars. Yen per square metre unless noted.
+    median_unit_price: float | None = None
+    land_price_psm: float | None = None
+    appraised_value_psm: float | None = None
     hazard_flags: Mapping[str, Any] = field(default_factory=dict)
