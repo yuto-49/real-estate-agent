@@ -14,7 +14,6 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install
-        # aiosqlite backs the in-memory test DB but is not declared in pyproject
-        run: pip install -e ".[dev]" aiosqlite
+        run: pip install -e ".[dev]"
       - name: Test
         run: pytest -q

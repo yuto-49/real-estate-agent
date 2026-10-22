@@ -143,7 +143,7 @@ uvicorn main:app --reload
 ## Testing
 
 ```bash
-pip install aiosqlite             # test-only driver for the in-memory SQLite DB
+pip install -e ".[dev]"           # includes aiosqlite for the in-memory test DB
 pytest                            # backend: no Docker, network or API keys required
 cd frontend && npm run test       # Vitest component and unit tests
 cd frontend && npm run test:e2e   # Playwright
