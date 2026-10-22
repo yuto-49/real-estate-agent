@@ -1,395 +1,183 @@
-# Real Estate Agentic Platform
+# Tokyo Workforce-Housing Investor Analytics
 
-Tokyo workforce-housing **investor analytics** platform: portfolio underwriting, market-signal intelligence, and forward strategy simulation.
+[![CI](https://github.com/yuto-49/real-estate-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yuto-49/real-estate-agent/actions/workflows/ci.yml)
 
-**Stack:** FastAPI + React 18 + TypeScript + Claude API + PostgreSQL 16 + Redis 7
+Underwrite a rental portfolio, pull in market signals, and test whether an investment
+strategy holds up over a multi-year forward projection. Built with FastAPI, React and the Claude API.
 
-**Domain focus:** Workforce housing -- affordable, accessible housing for essential workers and moderate-income households, with emphasis on regulatory compliance and market-signal-driven intelligence.
+## Problem / who it's for
 
-> **Scope note (post-pivot).** The buyer/seller negotiation chat, social-sentiment simulator, synthetic market-tick engine, and MiroFish report flow were **removed** (migration `f9a1b2c3d4e5`). `CLAUDE.md` and `architecture.md` are the current source of truth; some sections below have not been fully re-verified.
+Small and mid-size investors in Tokyo workforce housing (one-room mansions, small wood/steel
+アパート, family units) usually make buy/hold decisions in spreadsheets. They mix yield math,
+Japanese depreciation rules (法定耐用年数) and scattered public data (MLIT transaction prices,
+land prices, hazard maps). This platform puts those in one place. The numbers come from
+deterministic code. Claude is used only where language helps: reviewing a listing and turning
+free text into structured data.
 
----
+## What I built
 
-## Prerequisites
+- **Portfolio analysis.** Per-holding cap rate, cash-on-cash, DSCR, IRR and a
+  hold/sell/refi recommendation, plus an attention list (`GET /api/portfolio/{id}/summary`).
+- **Underwriting and stress testing.** Deal underwriting and a seeded Monte Carlo stress test
+  over five sliders (vacancy, rent growth, expense growth, loan rate, exit cap). The output
+  includes a tornado breakdown.
+- **Japanese depreciation engine.** 法定耐用年数 by construction type, 簡便法 residual life for
+  used buildings, and the tax shield and the year it runs out (`intelligence/depreciation_jp.py`).
+- **Strategy simulation.** The investor describes a strategy in free text. It is extracted into a
+  `StrategyProfile` they can review, then projected over the hold period for each holding. A
+  final report checks whether today's recommendations still hold at the end of the projection.
+- **Claude analyst council.** Four Haiku personas (risk, location, depreciation, vacancy/demand)
+  review a listing in parallel and their scores are combined with fixed weights
+  (`POST /api/listings/{id}/analyze`).
+- **Chat portfolio import.** Claude reads a free-text description of an investor's holdings and
+  returns them as rows through a structured tool call. The user confirms the rows before
+  anything is saved. CSV import uses the same insert path.
+- **Market-signal pipeline.** Pluggable providers for MLIT 不動産情報ライブラリ (transactions, land
+  price, appraisal, hazard tiles), plus US sources (FRED, HUD FMR, Census ACS, FEMA NFHL, Chicago
+  crime) and a deterministic mock. All of them write through one idempotent upsert.
+- **Frontend.** React 18 + TypeScript: onboarding wizard, map dashboard (MapLibre), and a
+  six-tab portfolio page (Analysis, Holdings, Underwrite, Stress Test, Decisions, Simulation).
 
-### macOS
-
-| Tool | Install |
-|------|---------|
-| **Homebrew** | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` |
-| **Python 3.11+** | `brew install python@3.11` |
-| **Node.js 18+** | `brew install node` |
-| **Docker Desktop** | `brew install --cask docker` (then open Docker Desktop from Applications) |
-| **Git** | Pre-installed, or `xcode-select --install` |
-
-### Windows
-
-| Tool | Install |
-|------|---------|
-| **Python 3.11+** | Download from [python.org](https://www.python.org/downloads/) -- check **"Add Python to PATH"** during install |
-| **Node.js 18+** | Download LTS from [nodejs.org](https://nodejs.org/) |
-| **Docker Desktop** | Download from [docker.com](https://www.docker.com/products/docker-desktop/) -- enable **WSL 2 backend**, restart after install |
-| **Git** | Download from [git-scm.com](https://git-scm.com/download/win) |
-
-> **Windows terminal:** Use **Git Bash** or **WSL 2** (recommended). All commands below use bash syntax. On PowerShell, replace `~` with `$HOME` and adjust path separators as needed.
-
-**Optional API keys** (mock data works without them):
-- `ANTHROPIC_API_KEY` -- Claude API for agent conversations
-- `TOMTOM_API_KEY` -- TomTom Maps for geocoding and neighborhood analysis (free tier, 2,500 req/day)
-
----
-
-## Quick Start
-
-### 1. Clone and enter the repository
-
-```bash
-git clone <repository-url>
-cd real-estate-agent
+```mermaid
+flowchart LR
+  UI["React 18 + Vite<br/>Portfolio / Onboarding / Dashboard"] -->|REST| API["FastAPI routers<br/>api/*"]
+  API --> SVC["services/<br/>portfolio_summary · strategy_runner<br/>unified_report · holding_decision<br/>market_state · signal_writer"]
+  API --> AG["agent/analyst_council<br/>4 Claude personas, asyncio.gather"]
+  API --> CHAT["portfolio_chat_extractor<br/>Claude tool use"]
+  SVC --> INT["intelligence/<br/>underwriting · stress_test<br/>depreciation_jp · tax_basic"]
+  SVC --> DOM["domain/ (pure, no I/O)<br/>market → actor → reaction →<br/>decision → outcome → report"]
+  AG --> INT
+  SVC --> PG[("PostgreSQL 16<br/>9 models + domain_events")]
+  SVC --> RD[("Redis 7<br/>strategy-run step pub/sub")]
+  PROV["signal_providers/<br/>MLIT reinfolib · FRED · HUD · ACS · FEMA · mock"] --> SVC
+  AG --> CL(["Claude API"])
+  CHAT --> CL
 ```
 
-### 2. Start infrastructure (PostgreSQL + Redis)
+## Key engineering decisions
 
-The project uses a shared Docker services file for database and cache:
+- **The math is deterministic; the LLM interprets it.** Underwriting, stress tests, depreciation,
+  strategy projection and the final report are plain Python with no LLM calls. The
+  depreciation persona is given a schedule computed in `depreciation_jp.py` and does not do the
+  arithmetic itself. This keeps the numbers reproducible and testable.
+- **The agent design is a council, not one agent with many jobs.** Each persona has a narrow
+  prompt, makes one Haiku call and returns structured JSON. The four calls run with
+  `asyncio.gather`. If a persona hits an API error or returns bad JSON, its result is recorded
+  as an error and left out of the score; the rest of the council still returns. Each listing
+  review costs at most 4 Claude calls.
+- **Tool use for extraction, with a person in the loop.** Chat import makes Claude return holdings
+  through a `record_portfolio_holdings` tool whose schema matches the Pydantic create model.
+  The results are only suggestions; nothing is saved until the user confirms.
+- **The Anthropic client is injected.** It is passed in as a FastAPI dependency (chat import)
+  or as an argument (council), so tests use fakes and no API key is needed to run the suite.
+  Strategy-profile extraction is a heuristic parser behind a protocol, so the strategy pipeline
+  runs without Claude.
+- **Mock-first providers.** Market data defaults to `mock`, and every signal provider follows a
+  `Protocol`. Real providers retry with `tenacity` and take an injected `httpx.AsyncClient`;
+  tests swap in `httpx.MockTransport`. Adding a provider means writing one class and adding
+  one entry to the registry.
+- **Idempotent signal writes.** Every market signal goes through `signal_writer.upsert_signal`.
+  A second write on the same calendar day updates the existing row and a write on a new day
+  inserts one, so backfills and cron fetches can run again safely.
+- **A pure domain layer.** `domain/` returns frozen dataclasses and never touches the DB, Redis
+  or Claude. When data is missing it logs a warning and returns a default instead of raising.
+  All I/O lives in `services/` and `api/`.
+- **Audit trail and tracing.** Strategy runs append `started`/`completed`/`failed` events to an
+  append-only `domain_events` table through a single writer (`EventStore`). A middleware tags
+  each request with a correlation ID. Runs execute as FastAPI background tasks, and the
+  correlation ID is captured before the task starts because the contextvar does not carry
+  over into it. Step progress is published to Redis pub/sub on a best-effort basis.
+- **Alembic owns the schema.** The app never calls `create_all`. Alembic runs against the async
+  engine, and its history records the scope change: migration `f9a1b2c3d4e5` drops the 15
+  tables of an earlier negotiation/simulation design.
+- **Deployment.** There is a `python:3.11-slim` Dockerfile and a production compose file
+  (Postgres 16 + Redis 7 with healthchecks, 2 app replicas, resource limits). `app.yaml` is a
+  DigitalOcean App Platform template. The frontend loads browser-safe settings at runtime from
+  `/api/config/public`, so they are not baked in at build time.
+
+## Tech stack
+
+**Backend:** Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2.0 (async) + asyncpg, Alembic,
+Redis, structlog, tenacity, httpx, PyJWT, Anthropic SDK<br/>
+**Frontend:** React 18, TypeScript, Vite, React Router, MapLibre GL, Supabase JS<br/>
+**Data:** PostgreSQL 16, Redis 7<br/>
+**Testing:** pytest + pytest-asyncio (in-memory SQLite, fakeredis), Vitest + Testing Library, Playwright
+
+## Run it locally
+
+Prerequisites: Python 3.11+, Node 18+, Docker.
 
 ```bash
-docker compose -f ~/docker-shared-services.yml up -d postgres redis
+# 1. Postgres + Redis
+docker run -d --name dev-postgres -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev \
+  -e POSTGRES_DB=realestate -p 5432:5432 postgres:16-alpine
+docker run -d --name dev-redis -p 6379:6379 redis:7-alpine
+
+# 2. Backend (http://localhost:8000, docs at /docs)
+cp .env.example .env            # ANTHROPIC_API_KEY is only needed for the council and chat import
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+alembic upgrade head
+python scripts/seed_properties.py && python scripts/seed_dev_portfolio.py
+uvicorn main:app --reload
+
+# 3. Frontend (http://localhost:5173, proxies /api to :8000)
+cd frontend && npm install && npm run dev
 ```
 
 <details>
-<summary><strong>Alternative: standalone Docker setup (no shared services file)</strong></summary>
+<summary>Windows (PowerShell)</summary>
 
-**macOS / Linux / Git Bash:**
-```bash
-docker run -d --name dev-postgres \
-  -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev \
-  -p 5432:5432 postgres:16-alpine
+Use the same `docker run` commands (replace `\` line breaks with a backtick), then:
 
-docker run -d --name dev-redis \
-  -p 6379:6379 redis:7-alpine
-```
-
-**Windows (PowerShell):**
 ```powershell
-docker run -d --name dev-postgres `
-  -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev `
-  -p 5432:5432 postgres:16-alpine
-
-docker run -d --name dev-redis `
-  -p 6379:6379 redis:7-alpine
-```
-
-</details>
-
-Verify containers are running:
-
-```bash
-docker ps --filter name=dev-postgres --filter name=dev-redis
-```
-
-### 3. Initialize the database
-
-**macOS / Linux / Git Bash:**
-```bash
-bash scripts/init-shared-db.sh
-```
-
-**Windows (PowerShell / CMD):**
-```powershell
-docker exec dev-postgres psql -U dev -c "CREATE DATABASE realestate;"
-```
-
-### 4. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and set your API keys. Key settings:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | _(empty)_ | Claude — listing analysis + portfolio chat-import extraction |
-| `TOMTOM_API_KEY` | _(empty)_ | Maps, geocoding, neighborhood analysis |
-| `DATABASE_URL` | `postgresql+asyncpg://dev:dev@localhost:5432/realestate` | PostgreSQL connection |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection |
-| `MARKET_DATA_PROVIDER` | `mock` | `mock` for dev, real provider otherwise |
-| `ENVIRONMENT` | `development` | `development` or `production` |
-
-See [Configuration](#configuration) for the full list.
-
-### 5. Set up the backend
-
-**macOS / Linux / Git Bash:**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+copy .env.example .env
+python -m venv .venv; .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 alembic upgrade head
-python scripts/seed_properties.py
-```
-
-**Windows (PowerShell):**
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-alembic upgrade head
-python scripts\seed_properties.py
-```
-
-**Windows (CMD):**
-```cmd
-python -m venv .venv
-.venv\Scripts\activate.bat
-pip install -e ".[dev]"
-alembic upgrade head
-python scripts\seed_properties.py
-```
-
-### 6. Start the backend
-
-```bash
+python scripts\seed_properties.py; python scripts\seed_dev_portfolio.py
 uvicorn main:app --reload
 ```
+</details>
 
-The API runs at **http://localhost:8000**.
-- Swagger docs: http://localhost:8000/docs
-- Health check: http://localhost:8000/health
-
-### 7. Start the frontend
-
-Open a **new terminal**, then:
+## Testing
 
 ```bash
-cd frontend
-npm install
-npm run dev
+pip install aiosqlite             # test-only driver for the in-memory SQLite DB
+pytest                            # backend: no Docker, network or API keys required
+cd frontend && npm run test       # Vitest component and unit tests
+cd frontend && npm run test:e2e   # Playwright
 ```
 
-The frontend runs at **http://localhost:5173** with API proxy to `:8000`.
+Backend tests cover the underwriting and depreciation math, stress tests, strategy runner steps
+and events, signal providers (HTTP mocked with `httpx.MockTransport`), the idempotent signal
+writer, auth token verification and the API routers. CI runs the backend suite on every push.
 
----
-
-## Running Tests
-
-Tests use in-memory SQLite and mocked Redis -- no Docker or external services needed.
-
-```bash
-# All tests
-pytest tests/ -v
-
-# With coverage report
-pytest tests/ --cov=. --cov-report=term-missing
-
-# Specific test file
-pytest tests/test_strategy_events.py -v
-```
-
-<img width="1461" height="799" alt="Screenshot 2026-04-01 at 2 38 41 PM" src="https://github.com/user-attachments/assets/9c91cc9d-660b-4241-bc27-921a97db3565" />
-<img width="1453" height="780" alt="Screenshot 2026-04-01 at 2 38 55 PM" src="https://github.com/user-attachments/assets/b3497c22-2bbc-4b18-b54e-8c4eed3bc610" />
-
----
-
-## Project Structure
+## Project structure
 
 ```
-real-estate-agent/
-  main.py                     # FastAPI entry point + lifespan, router mounts
-  config.py                   # Pydantic settings (reads .env)
-  agent/                      # Claude-driven listing analysis
-    analyst_council.py        #   Multi-persona listing-analysis council
-    analyst_personas.py       #   Persona definitions for the council
-  api/                        # FastAPI routers (all mounted in main.py)
-    properties.py             #   CRUD + GET /{id}/market-context
-    search.py                 #   Property search
-    users.py                  #   User profile CRUD
-    portfolio.py              #   Portfolios, holdings, /summary, CSV/chat import
-    underwrite.py             #   Underwrite, stress-test, listing/parse
-    listing_analysis.py       #   Claude listing-analysis council endpoint
-    decisions.py              #   GET /holding/{id} — per-holding recommendation
-    strategy.py               #   extract / run / status / result / recent
-    onboarding.py             #   Onboarding state
-    investor_profile.py       #   Investor profile CRUD
-    public_config.py          #   Public (frontend) config
-    schemas.py                #   All Pydantic request/response models
-  db/
-    database.py               # Async SQLAlchemy engine + session
-    models.py                 # 9 models + 10 enums (investor domain)
-  domain/                     # Pure-Python layered runtime (no I/O)
-    events / market / actors / reactions / decisions / outcomes / reports
-  services/                   # Business logic + I/O
-    portfolio_summary.py      #   build_portfolio_summary (/summary aggregator)
-    strategy_runner.py        #   execute_strategy_run + pure project_simulation
-    unified_report.py         #   reconcile_unified_report (analysis vs simulation)
-    strategy_profile.py       #   free-text -> StrategyProfile (heuristic, LLM-pluggable)
-    holding_decision.py       #   compute_holding_decision
-    market_state.py           #   build_snapshot -> MarketContextSnapshot
-    signal_writer.py          #   upsert_signal (idempotent per calendar day)
-    event_store.py            #   Append-only domain_events writer
-    portfolio_chat_extractor.py  # Claude chat -> holdings
-    signal_providers/         #   Pluggable external market-signal providers
-    maps.py / redis.py / pubsub.py / metrics.py / market_data*.py
-  intelligence/               # Investor analytics
-    underwriting.py           #   cap rate / CoC / DSCR / IRR
-    depreciation_jp.py        #   JP depreciation schedule
-    tax_basic.py / stress_test.py
-  middleware/                 # correlation.py, auth.py (Supabase JWT), rate_limit.py
-  frontend/                   # React 18 + TypeScript + Vite (Portfolio surface)
-  scripts/                    # DB init, seeds, market-signal CLIs, create_dev_user
-  alembic/                    # Database migration versions
-  tests/                      # pytest-asyncio test suite
+agent/          Claude analyst council + persona prompts
+api/            FastAPI routers + Pydantic schemas
+intelligence/   underwriting, stress test, JP depreciation, tax
+services/       portfolio summary, strategy runner, decisions, signal providers, event store
+domain/         pure layered runtime (market → actor → reaction → decision → outcome → report)
+db/ alembic/    SQLAlchemy models + migrations
+middleware/     correlation ID, Supabase JWT verification, rate limiter
+frontend/       React 18 + TS app (Vitest, Playwright)
+scripts/        seeds, market-signal backfill/fetch CLIs
+tests/          pytest suite
 ```
 
----
+## Demo
 
-## API Endpoints
+<!-- TODO(yuto): add screenshot/GIF of dashboard -->
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `GET` | `/metrics` | Application metrics |
-| `GET` | `/api/properties/` | List properties (filters: status, min/max price, type) |
-| `GET` | `/api/properties/{id}` | Get property details |
-| `GET` | `/api/properties/{id}/market-context` | `MarketContextSnapshot` for a property |
-| `GET` | `/api/search/` | Property search |
-| `POST` | `/api/users/` · `GET`/`PATCH` `/{id}` | User profile CRUD |
-| `GET` | `/api/portfolio/?user_id=` | List a user's portfolios |
-| `POST` | `/api/portfolio/` | Create portfolio |
-| `GET` | `/api/portfolio/{id}/summary` | `PortfolioSummaryReport` (per-holding analysis) |
-| `GET` | `/api/portfolio/{id}/holdings` · `POST`/`DELETE` | Holdings CRUD |
-| `POST` | `/api/portfolio/import/csv` · `/import/chat` | CSV / Claude chat import |
-| `POST` | `/api/underwrite/` | Underwrite a deal |
-| `POST` | `/api/underwrite/stress-test` | Monte Carlo stress test |
-| `POST` | `/api/listing/parse` | Parse a free-text listing |
-| `POST` | `/api/listings/analyze` | Claude listing-analysis council |
-| `GET` | `/api/decisions/holding/{id}` | Per-holding recommendation |
-| `POST` | `/api/strategy/extract` | Free text → reviewable `StrategyProfile` |
-| `POST` | `/api/strategy/run` | Start a strategy run (analysis → simulation → unified) |
-| `GET` | `/api/strategy/{id}/status` · `/result` | Poll / fetch a strategy run |
-| `GET` | `/api/onboarding/state` · `/api/investor-profile/*` · `/api/config` | Onboarding, investor profile, public config |
+## What I'd do next
 
----
-
-## Architecture
-
-```
-React frontend --> FastAPI API (api/) --> services/  (portfolio_summary, strategy_runner,
-   (Portfolio          |                     holding_decision, market_state, signal_writer)
-    surface)           v                       |
-              PostgreSQL + Redis               v
-                       |          domain/ -- pure projections (no I/O):
-                       |          market -> actor -> reaction -> decision -> outcome -> report
-                       v
-              domain_events (event-sourced audit, correlation id)
-              Redis pub/sub (live strategy-run step events)
-
-Claude API: agent/analyst_council (listing analysis) + api/portfolio chat import.
-```
-
-### Key Design Patterns
-
-1. **Event Sourcing** -- Append-only `domain_events` table with correlation IDs (via `services/event_store.py`); strategy runs are audited this way
-2. **Async-first** -- All DB, Redis, HTTP, and Claude API calls are async
-3. **Provider Pattern** -- Market data, maps, and signal sources use Protocol-based providers (mock + real)
-4. **Resilient external calls** -- `tenacity` retry/backoff; inject `httpx.AsyncClient` so tests use `httpx.MockTransport`
-5. **Pure domain runtime** -- `domain/` is side-effect-free, deterministic, lenient (missing data → default, never raise)
-6. **Correlation IDs** -- Every request traced end-to-end; background tasks capture the id at request time
-7. **Reuse the strategy pipeline** -- `portfolio_summary` → `strategy_runner.project_simulation` → `unified_report.reconcile_unified_report`
-
-See [architecture.md](architecture.md) and [CLAUDE.md](CLAUDE.md) for the current system design, the layered domain runtime, and the market-signal pipeline.
-
----
-
-## Configuration
-
-All config via `config.py` (pydantic-settings) reading from `.env`:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | _(empty)_ | Required for agent conversations |
-| `DATABASE_URL` | `postgresql+asyncpg://dev:dev@localhost:5432/realestate` | PostgreSQL connection |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection |
-| `TOMTOM_API_KEY` | _(empty)_ | Maps and geocoding |
-| `MIROFISH_MODE` | `mock` | `mock` or `live` |
-| `MIROFISH_API_URL` | `http://localhost:5001` | MiroFish service endpoint |
-| `MARKET_DATA_PROVIDER` | `mock` | `mock` or `zillow` |
-| `MAX_SIMULATION_ROUNDS` | `30` | Negotiation simulation cap |
-| `MAX_BATCH_SCENARIOS` | `6` | Batch simulation limit |
-| `MONTE_CARLO_SCENARIOS` | `300` | Financial model iterations |
-| `MAX_DEAL_VALUE_AUTO` | `2000000` | Max auto-approved deal value |
-| `MIN_OFFER_PERCENT` | `0.50` | Minimum offer as fraction of asking price |
-| `MAX_COUNTER_ROUNDS` | `10` | Max negotiation counter rounds |
-
----
-
-## Docker
-
-### Development (hot reload + debug port)
-
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-### Production (replicated, resource-limited)
-
-```bash
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-### Infrastructure only (run app locally)
-
-```bash
-docker compose -f ~/docker-shared-services.yml up -d postgres redis
-bash scripts/init-shared-db.sh
-```
-
-> These compose files expect the `shared-dev` Docker network. Create it if it doesn't exist:
-> ```bash
-> docker network create shared-dev
-> ```
-
----
-
-## Seed Data
-
-```bash
-# Default sample Chicago properties + dev user
-python scripts/seed_properties.py
-
-# Chicago 2024 Kaggle dataset
-python scripts/seed_kaggle_chicago_2024.py
-
-# Household profiles (for social simulation)
-python scripts/seed_households.py
-
-# Properties from CSV file
-python scripts/seed_from_csv.py
-```
-
----
-
-## Troubleshooting
-
-### macOS
-
-| Issue | Fix |
-|-------|-----|
-| `asyncpg` build fails | `brew install libpq` and ensure it's on PATH |
-| Docker commands fail | Open Docker Desktop and verify the engine is running |
-| Port 5432 in use | `lsof -i :5432` to find the process, or change port in `.env` |
-| Port 8000 in use | `lsof -i :8000` to find the process |
-| `python3` not found | `brew install python@3.11` and restart terminal |
-| `npm` not found | `brew install node` and restart terminal |
-
-### Windows
-
-| Issue | Fix |
-|-------|-----|
-| `pip` / `python` not recognized | Re-install Python with **"Add to PATH"** checked |
-| Docker fails to start | Enable WSL 2 and hardware virtualization (VT-x/AMD-V) in BIOS |
-| `bash` not found | Use Git Bash or WSL 2 instead of CMD/PowerShell for bash scripts |
-| `alembic` / `uvicorn` not found | Ensure virtual environment is activated (`.venv\Scripts\activate`) |
-| Port conflicts | `netstat -ano | findstr :5432` to find blocking processes |
-| Line ending issues | Run `git config core.autocrlf true` before cloning |
-| `asyncpg` install fails | Install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) |
+- Put the Supabase JWT dependency in `middleware/auth.py` in front of the routers. It is built
+  and tested but not enforced on any route yet. Mount the rate-limit middleware too.
+- Move the strategy-run store from in-process memory to Postgres or Redis so runs survive a
+  restart and work across replicas.
+- Record `model_id` and the prompt version on every council review and write it as a domain event.
+- Finish the move to Japan-only signal providers and remove the leftover US providers and the
+  negotiation-era config settings.
